@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production build artifacts
+dist/
+dist-ssr/
+build/
+
+# Local Environment Variables (Keep secrets secure)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vercel
+.vercel
+
+# Uploads directory (keep directory with .gitkeep)
+uploads/*
+!uploads/.gitkeep
+
+# Temporary test scripts, cache and logs
+test_*.mjs
+test_*.cjs
+*.tsbuildinfo
+*.tmp
+*.log
+
+# OS & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

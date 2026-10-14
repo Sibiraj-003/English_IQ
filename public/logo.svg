@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Hard Shadow -->
+  <rect x="14" y="14" width="76" height="76" rx="8" fill="#0F172A" />
+  <!-- Main Box -->
+  <rect x="10" y="10" width="76" height="76" rx="8" fill="#C4B5FD" stroke="#0F172A" stroke-width="4" />
+  
+  <!-- Book Base -->
+  <path d="M26 68C32 64 42 64 50 67C58 64 68 64 74 68V48C68 44 58 44 50 47C42 44 32 44 26 48V68Z" fill="#FFFFFF" stroke="#0F172A" stroke-width="3" stroke-linejoin="round"/>
+  <!-- Book Spine Center -->
+  <line x1="50" y1="47" x2="50" y2="67" stroke="#0F172A" stroke-width="3"/>
+  
+  <!-- Graduation Cap -->
+  <polygon points="50,22 75,32 50,42 25,32" fill="#0F172A" stroke="#0F172A" stroke-width="2"/>
+  <rect x="42" y="38" width="16" height="6" rx="2" fill="#0F172A"/>
+  <!-- Tassel -->
+  <path d="M68 35V45L71 47" stroke="#FDE68A" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="71" cy="48" r="2" fill="#FDE68A"/>
+
+  <!-- Stylized Letter "E" in the center -->
+  <path d="M36 53H44M36 57H42M36 61H44" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- AI / Spark Elements -->
+  <path d="M78 20L80 15L82 20L87 22L82 24L80 29L78 24L73 22L78 20Z" fill="#FDE68A" stroke="#0F172A" stroke-width="1.5"/>
+  <path d="M22 24L23 21L24 24L27 25L24 26L23 29L22 26L19 25L22 24Z" fill="#A7F3D0" stroke="#0F172A" stroke-width="1.5"/>
+</svg>

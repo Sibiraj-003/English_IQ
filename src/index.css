@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #F8FAFC;
+    color: #0F172A;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+  }
+}
+
+/* Neo-Brutalist Tactile Design Utilities */
+.brutal-card {
+  background-color: #FFFFFF;
+  border: 2px solid #0F172A;
+  box-shadow: 3px 3px 0px #0F172A;
+  transition: all 0.15s ease-in-out;
+}
+
+.brutal-card-lg {
+  background-color: #FFFFFF;
+  border: 2px solid #0F172A;
+  box-shadow: 5px 5px 0px #0F172A;
+  transition: all 0.15s ease-in-out;
+}
+
+.brutal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #0F172A;
+  box-shadow: 3px 3px 0px #0F172A;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  user-select: none;
+}
+
+.brutal-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px #0F172A;
+}
+
+.brutal-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #0F172A;
+}
+
+.brutal-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 3px 3px 0px #0F172A;
+}
+
+.brutal-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1.5px solid #0F172A;
+  padding: 0.15rem 0.5rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  box-shadow: 1.5px 1.5px 0px #0F172A;
+}
+
+/* Custom Scrollbar for Neo-Brutalist styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-left: 2px solid #0F172A;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #0F172A;
+  border: 1px solid #FFFFFF;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
