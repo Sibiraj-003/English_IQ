@@ -80,12 +80,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
 
   const studentLinks: NavItem[] = [
     { to: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/student/lessons', label: 'My Lessons', icon: BookOpen },
-    { to: '/student/ai-teacher', label: 'AI Teacher', icon: Bot, badge: 'RAG' },
-    { to: '/student/practice', label: 'Practice', icon: Sparkles },
-    { to: '/student/tests', label: 'Tests', icon: ClipboardCheck },
-    { to: '/student/progress', label: 'Progress', icon: TrendingUp },
-    { to: '/student/achievements', label: 'Achievements', icon: Award },
+    { to: '/student/ai-teacher', label: 'NOVA AI Companion', icon: Bot, badge: 'NOVA' },
+    { to: '/student/lessons', label: 'Curriculum Units', icon: BookOpen },
+    { to: '/student/practice', label: 'Targeted Practice', icon: Sparkles },
+    { to: '/student/tests', label: 'Test Center', icon: ClipboardCheck },
+    { to: '/student/progress', label: 'Mastery & Profile', icon: TrendingUp, badge: 'AI' },
+    { to: '/student/achievements', label: 'Badges & Honors', icon: Award },
   ];
 
   const links =

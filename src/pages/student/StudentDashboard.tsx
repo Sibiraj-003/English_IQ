@@ -81,7 +81,7 @@ export const StudentDashboard: React.FC = () => {
             Welcome back, {user?.full_name || 'Student'}! 🌟
           </h2>
           <p className="text-xs text-slate-600 mt-0.5">
-            Your textbook-grounded English tutor is ready. Continue your lesson or take a quiz!
+            Your multi-subject AI companion NOVA is ready to help you learn, practice, and master concepts!
           </p>
         </div>
 
@@ -90,7 +90,7 @@ export const StudentDashboard: React.FC = () => {
           onClick={() => navigate('/student/ai-teacher')}
           icon={<Bot className="w-4 h-4" />}
         >
-          [ ASK AI TEACHER ]
+          [ DISCUSS WITH NOVA ]
         </BrutalButton>
       </div>
 
@@ -312,18 +312,18 @@ export const StudentDashboard: React.FC = () => {
           </div>
         </BrutalCard>
 
-        {/* AI Teacher Assistant Card */}
+        {/* NOVA AI Companion Assistant Card */}
         <BrutalCard size="large" accent="mint" className="p-6 flex flex-col justify-between">
           <div>
             <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#0F172A] text-[#A7F3D0] text-xs font-bold mb-3">
               <Bot className="w-3.5 h-3.5" />
-              AI TEACHER // READY TO HELP
+              NOVA AI COMPANION // READY TO MENTOR
             </div>
             <h4 className="text-lg font-extrabold text-[#0F172A] font-sans mb-1">
-              "Ask me anything about your English lesson!"
+              "Explain it to NOVA in your own words!"
             </h4>
             <p className="text-xs text-slate-600 font-sans leading-relaxed mb-4">
-              Your AI tutor explains lessons in simple words, gives engaging examples, and checks your answers instantly.
+              Learn any topic step-by-step across Science, Maths, and English. Test your understanding with conversational teach-back!
             </p>
 
             <div className="space-y-1.5 text-xs">
@@ -331,13 +331,13 @@ export const StudentDashboard: React.FC = () => {
                 onClick={() => navigate('/student/ai-teacher')}
                 className="p-2 bg-white border border-[#0F172A] font-bold cursor-pointer hover:bg-[#FEFCE8] truncate"
               >
-                💬 "What is a noun?"
+                🌿 "I want to explain photosynthesis to NOVA"
               </div>
               <div
                 onClick={() => navigate('/student/ai-teacher')}
                 className="p-2 bg-white border border-[#0F172A] font-bold cursor-pointer hover:bg-[#FEFCE8] truncate"
               >
-                💬 "Explain naming words with examples"
+                📐 "Why do we use fractions in real life?"
               </div>
             </div>
           </div>
@@ -347,7 +347,7 @@ export const StudentDashboard: React.FC = () => {
             onClick={() => navigate('/student/ai-teacher')}
             className="w-full mt-4"
           >
-            [ OPEN AI TEACHER ]
+            [ OPEN NOVA COMPANION ]
           </BrutalButton>
         </BrutalCard>
       </div>
