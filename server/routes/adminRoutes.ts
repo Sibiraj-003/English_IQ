@@ -9,16 +9,33 @@ const router = Router();
 router.get('/stats', (_req, res) => {
   const teachersCount = db.profiles.filter((p) => p.role === 'teacher').length;
   const studentsCount = db.profiles.filter((p) => p.role === 'student').length;
+  const parentsCount = db.profiles.filter((p) => p.role === 'parent').length;
   const totalClasses = db.classes.length;
+  const totalSections = db.sections.length;
+  const totalSubjects = db.subjects.length;
+
+  const totalFeeAmount = db.student_fees.reduce((acc, f) => acc + f.total_amount, 0);
+  const totalFeeCollected = db.student_fees.reduce((acc, f) => acc + f.paid_amount, 0);
 
   return res.json({
     total_users: db.profiles.length,
     total_teachers: teachersCount,
     total_students: studentsCount,
+    total_parents: parentsCount,
     total_classes: totalClasses,
+    total_sections: totalSections,
+    total_subjects: totalSubjects,
+    total_fee_amount: totalFeeAmount,
+    total_fee_collected: totalFeeCollected,
+    total_fee_pending: totalFeeAmount - totalFeeCollected,
     admin_id: db.admin_credentials.id_number,
     admin_email: db.admin_credentials.email,
   });
+});
+
+// GET /api/admin/audit-logs
+router.get('/audit-logs', (_req, res) => {
+  return res.json(db.audit_logs);
 });
 
 // GET /api/admin/users
@@ -113,8 +130,14 @@ router.post('/users', async (req, res) => {
           error: 'Student must be assigned to an official class (class_id is required).',
         });
       }
+    } else if (role === 'parent') {
+      if (!cleanId || !cleanId.startsWith('PAR') || cleanId.length < 5) {
+        return res.status(400).json({
+          error: 'Official Parent ID must start with "PAR" (e.g. PAR1001, PAR1002).',
+        });
+      }
     } else {
-      return res.status(400).json({ error: 'Role must be either "teacher" or "student".' });
+      return res.status(400).json({ error: 'Role must be "teacher", "student", or "parent".' });
     }
 
     // 2. Uniqueness checks

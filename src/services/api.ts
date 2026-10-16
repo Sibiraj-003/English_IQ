@@ -8,9 +8,46 @@ import {
   StudentProgressData,
   ClassAnalyticsData,
   AiTeacherResponse,
+  Section,
+  Subject,
+  TeacherAssignment,
+  SectionMentor,
+  AttendanceRecord,
+  AttendanceStatus,
+  Homework,
+  HomeworkSubmission,
+  Exam,
+  MarkEntry,
+  TimetableSlot,
+  FeeStructure,
+  StudentFeeRecord,
+  FeePayment,
+  SchoolNotification,
+  ParentTeacherMessage,
+  AuditLogEntry,
+  CsvImportResult,
+  StudentReportCard,
 } from '../types';
 
 const BASE_URL = '/api';
+
+export function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  try {
+    const raw = localStorage.getItem('englishiq_user');
+    if (raw) {
+      const u = JSON.parse(raw);
+      if (u?.id) headers['x-user-id'] = u.id;
+      if (u?.role) headers['x-user-role'] = u.role;
+      if (u?.school_id) headers['x-school-id'] = u.school_id;
+    }
+  } catch {
+    // ignore
+  }
+  return headers;
+}
 
 export const api = {
   // Auth
@@ -649,6 +686,482 @@ export const api = {
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error('Failed to update credentials');
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Dynamic Sections
+  // ==========================================
+  async getSections(classId?: string): Promise<Section[]> {
+    const url = classId ? `${BASE_URL}/sections?class_id=${classId}` : `${BASE_URL}/sections`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch sections');
+    return res.json();
+  },
+
+  async createSection(data: { class_id: string; name: string; capacity?: number }): Promise<Section> {
+    const res = await fetch(`${BASE_URL}/sections`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create section');
+    }
+    return res.json();
+  },
+
+  async updateSection(id: string, data: Partial<Section>): Promise<Section> {
+    const res = await fetch(`${BASE_URL}/sections/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update section');
+    return res.json();
+  },
+
+  async assignMentor(sectionId: string, teacherId: string): Promise<any> {
+    const res = await fetch(`${BASE_URL}/sections/${sectionId}/mentor`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ teacher_id: teacherId }),
+    });
+    if (!res.ok) throw new Error('Failed to assign mentor');
+    return res.json();
+  },
+
+  async transferStudent(studentId: string, targetSectionId: string, reason?: string): Promise<any> {
+    const res = await fetch(`${BASE_URL}/sections/transfer-student`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ student_id: studentId, target_section_id: targetSectionId, reason }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to transfer student');
+    }
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Multi-Subject Catalog
+  // ==========================================
+  async getSubjects(classId?: string): Promise<Subject[]> {
+    const url = classId ? `${BASE_URL}/subjects?class_id=${classId}` : `${BASE_URL}/subjects`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch subjects');
+    return res.json();
+  },
+
+  async createSubject(data: { name: string; code: string; department?: string; class_ids?: string[] }): Promise<Subject> {
+    const res = await fetch(`${BASE_URL}/subjects`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create subject');
+    }
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Teacher Assignments
+  // ==========================================
+  async getTeacherAssignments(params?: { teacher_id?: string; class_id?: string; section_id?: string }): Promise<TeacherAssignment[]> {
+    const query = new URLSearchParams();
+    if (params?.teacher_id) query.set('teacher_id', params.teacher_id);
+    if (params?.class_id) query.set('class_id', params.class_id);
+    if (params?.section_id) query.set('section_id', params.section_id);
+    const res = await fetch(`${BASE_URL}/teacher-assignments?${query.toString()}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch teacher assignments');
+    return res.json();
+  },
+
+  async createTeacherAssignment(data: { teacher_id: string; class_id: string; section_id: string; subject_id: string }): Promise<TeacherAssignment> {
+    const res = await fetch(`${BASE_URL}/teacher-assignments`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to assign teacher');
+    }
+    return res.json();
+  },
+
+  async deleteTeacherAssignment(id: string): Promise<any> {
+    const res = await fetch(`${BASE_URL}/teacher-assignments/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to remove teacher assignment');
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Attendance
+  // ==========================================
+  async getAttendance(params: { section_id?: string; student_id?: string; date?: string; month?: string; subject_id?: string }): Promise<AttendanceRecord[]> {
+    const query = new URLSearchParams();
+    if (params.section_id) query.set('section_id', params.section_id);
+    if (params.student_id) query.set('student_id', params.student_id);
+    if (params.date) query.set('date', params.date);
+    if (params.month) query.set('month', params.month);
+    if (params.subject_id) query.set('subject_id', params.subject_id);
+    const res = await fetch(`${BASE_URL}/attendance?${query.toString()}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch attendance');
+    return res.json();
+  },
+
+  async markAttendance(data: {
+    section_id: string;
+    date: string;
+    subject_id?: string;
+    records: Array<{ student_id: string; status: AttendanceStatus; remarks?: string }>;
+  }): Promise<any> {
+    const res = await fetch(`${BASE_URL}/attendance`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to mark attendance');
+    }
+    return res.json();
+  },
+
+  async getAttendanceSummary(sectionId: string, month?: string): Promise<any> {
+    const url = month ? `${BASE_URL}/attendance/summary/${sectionId}?month=${month}` : `${BASE_URL}/attendance/summary/${sectionId}`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch attendance summary');
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Homework & Assignments
+  // ==========================================
+  async getHomework(params?: { section_id?: string; subject_id?: string; student_id?: string }): Promise<Homework[]> {
+    const query = new URLSearchParams();
+    if (params?.section_id) query.set('section_id', params.section_id);
+    if (params?.subject_id) query.set('subject_id', params.subject_id);
+    if (params?.student_id) query.set('student_id', params.student_id);
+    const res = await fetch(`${BASE_URL}/homework?${query.toString()}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch homework');
+    return res.json();
+  },
+
+  async createHomework(data: {
+    class_id: string;
+    section_id: string;
+    subject_id: string;
+    title: string;
+    description: string;
+    instructions?: string;
+    due_date: string;
+    max_marks?: number;
+  }): Promise<Homework> {
+    const res = await fetch(`${BASE_URL}/homework`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create homework');
+    }
+    return res.json();
+  },
+
+  async submitHomework(data: {
+    homework_id: string;
+    submission_text?: string;
+    attachment_urls?: string[];
+  }): Promise<HomeworkSubmission> {
+    const res = await fetch(`${BASE_URL}/homework/submit`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to submit homework');
+    return res.json();
+  },
+
+  async evaluateHomework(submissionId: string, data: { status: 'graded' | 'resubmit'; marks_obtained?: number; feedback?: string }): Promise<any> {
+    const res = await fetch(`${BASE_URL}/homework/evaluate/${submissionId}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to evaluate submission');
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Exams & Marks
+  // ==========================================
+  async getExams(classId?: string): Promise<Exam[]> {
+    const url = classId ? `${BASE_URL}/exams?class_id=${classId}` : `${BASE_URL}/exams`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch exams');
+    return res.json();
+  },
+
+  async createExam(data: { title: string; exam_type: string; class_id: string; start_date: string; end_date: string }): Promise<Exam> {
+    const res = await fetch(`${BASE_URL}/exams`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to create exam');
+    return res.json();
+  },
+
+  async getExamMarks(examId: string, params?: { section_id?: string; subject_id?: string; student_id?: string }): Promise<MarkEntry[]> {
+    const query = new URLSearchParams();
+    if (params?.section_id) query.set('section_id', params.section_id);
+    if (params?.subject_id) query.set('subject_id', params.subject_id);
+    if (params?.student_id) query.set('student_id', params.student_id);
+    const res = await fetch(`${BASE_URL}/exams/${examId}/marks?${query.toString()}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch marks');
+    return res.json();
+  },
+
+  async enterExamMarks(data: {
+    exam_id: string;
+    section_id: string;
+    subject_id: string;
+    marks: Array<{ student_id: string; marks_obtained: number; max_marks: number; comments?: string }>;
+  }): Promise<any> {
+    const res = await fetch(`${BASE_URL}/exams/marks`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to save marks');
+    }
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Timetables
+  // ==========================================
+  async getTimetable(params?: { class_id?: string; section_id?: string; teacher_id?: string; day_of_week?: string }): Promise<TimetableSlot[]> {
+    const query = new URLSearchParams();
+    if (params?.class_id) query.set('class_id', params.class_id);
+    if (params?.section_id) query.set('section_id', params.section_id);
+    if (params?.teacher_id) query.set('teacher_id', params.teacher_id);
+    if (params?.day_of_week) query.set('day_of_week', params.day_of_week);
+    const res = await fetch(`${BASE_URL}/timetable?${query.toString()}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch timetable');
+    return res.json();
+  },
+
+  async createTimetableSlot(data: {
+    class_id: string;
+    section_id: string;
+    subject_id: string;
+    teacher_id: string;
+    day_of_week: string;
+    start_time: string;
+    end_time: string;
+    room_number?: string;
+  }): Promise<TimetableSlot> {
+    const res = await fetch(`${BASE_URL}/timetable`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create timetable slot');
+    }
+    return res.json();
+  },
+
+  async deleteTimetableSlot(id: string): Promise<any> {
+    const res = await fetch(`${BASE_URL}/timetable/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to delete timetable slot');
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Fees
+  // ==========================================
+  async getFeeStructures(classId?: string): Promise<FeeStructure[]> {
+    const url = classId ? `${BASE_URL}/fees/structures?class_id=${classId}` : `${BASE_URL}/fees/structures`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch fee structures');
+    return res.json();
+  },
+
+  async createFeeStructure(data: { title: string; class_id?: string; amount: number; due_date: string; frequency?: string }): Promise<FeeStructure> {
+    const res = await fetch(`${BASE_URL}/fees/structures`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to create fee structure');
+    return res.json();
+  },
+
+  async getStudentFees(params?: { student_id?: string; section_id?: string; class_id?: string }): Promise<StudentFeeRecord[]> {
+    const query = new URLSearchParams();
+    if (params?.student_id) query.set('student_id', params.student_id);
+    if (params?.section_id) query.set('section_id', params.section_id);
+    if (params?.class_id) query.set('class_id', params.class_id);
+    const res = await fetch(`${BASE_URL}/fees/student-records?${query.toString()}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch fee records');
+    return res.json();
+  },
+
+  async recordFeePayment(data: {
+    student_id: string;
+    fee_structure_id: string;
+    amount: number;
+    payment_mode: string;
+    transaction_ref?: string;
+  }): Promise<{ payment: FeePayment; receipt_number: string; message: string }> {
+    const res = await fetch(`${BASE_URL}/fees/pay`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to process fee payment');
+    }
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Notifications
+  // ==========================================
+  async getNotifications(params?: { target_role?: string; section_id?: string; student_id?: string }): Promise<SchoolNotification[]> {
+    const query = new URLSearchParams();
+    if (params?.target_role) query.set('target_role', params.target_role);
+    if (params?.section_id) query.set('section_id', params.section_id);
+    if (params?.student_id) query.set('student_id', params.student_id);
+    const res = await fetch(`${BASE_URL}/notifications?${query.toString()}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch notifications');
+    return res.json();
+  },
+
+  async createNotification(data: {
+    title: string;
+    message: string;
+    target_role?: string;
+    class_id?: string;
+    section_id?: string;
+    student_id?: string;
+    type?: string;
+  }): Promise<SchoolNotification> {
+    const res = await fetch(`${BASE_URL}/notifications`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to send notification');
+    return res.json();
+  },
+
+  async markNotificationRead(id: string): Promise<any> {
+    const res = await fetch(`${BASE_URL}/notifications/${id}/read`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Parent-Teacher Communication
+  // ==========================================
+  async getMessages(params?: { student_id?: string; other_user_id?: string }): Promise<ParentTeacherMessage[]> {
+    const query = new URLSearchParams();
+    if (params?.student_id) query.set('student_id', params.student_id);
+    if (params?.other_user_id) query.set('other_user_id', params.other_user_id);
+    const res = await fetch(`${BASE_URL}/messages?${query.toString()}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch messages');
+    return res.json();
+  },
+
+  async sendMessage(data: { recipient_id: string; student_id?: string; message: string }): Promise<ParentTeacherMessage> {
+    const res = await fetch(`${BASE_URL}/messages`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to send message');
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Reports
+  // ==========================================
+  async getStudentReport(studentId: string): Promise<StudentReportCard> {
+    const res = await fetch(`${BASE_URL}/reports/student/${studentId}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch student report');
+    return res.json();
+  },
+
+  async getSectionReport(sectionId: string): Promise<any> {
+    const res = await fetch(`${BASE_URL}/reports/section/${sectionId}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch section report');
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Bulk CSV Import
+  // ==========================================
+  async previewCsv(type: 'teacher' | 'student' | 'parent' | 'teacher_assignment' | 'student_assignment', csvText: string): Promise<{
+    type: string;
+    total_rows: number;
+    valid_rows: number;
+    error_count: number;
+    headers: string[];
+    rows: any[];
+  }> {
+    const res = await fetch(`${BASE_URL}/csv-import/preview`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ type, csv_text: csvText }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to preview CSV');
+    }
+    return res.json();
+  },
+
+  async importCsv(type: 'teacher' | 'student' | 'parent' | 'teacher_assignment' | 'student_assignment', rows: any[]): Promise<CsvImportResult> {
+    const res = await fetch(`${BASE_URL}/csv-import/commit`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ type, rows }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to import CSV');
+    }
+    return res.json();
+  },
+
+  // ==========================================
+  // SMART SCHOOL: Audit Logs
+  // ==========================================
+  async getAuditLogs(): Promise<AuditLogEntry[]> {
+    const res = await fetch(`${BASE_URL}/admin/audit-logs`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch audit logs');
     return res.json();
   },
 };

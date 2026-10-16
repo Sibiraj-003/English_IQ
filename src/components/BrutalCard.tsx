@@ -1,8 +1,8 @@
 import React from 'react';
 
 interface BrutalCardProps extends React.HTMLAttributes<HTMLDivElement> {
-  size?: 'normal' | 'large';
-  accent?: 'lavender' | 'mint' | 'amber' | 'sky' | 'pink' | 'none';
+  size?: 'normal' | 'large' | 'small' | 'medium';
+  accent?: 'lavender' | 'mint' | 'amber' | 'sky' | 'pink' | 'none' | 'yellow';
 }
 
 export const BrutalCard: React.FC<BrutalCardProps> = ({
@@ -12,6 +12,7 @@ export const BrutalCard: React.FC<BrutalCardProps> = ({
   className = '',
   ...props
 }) => {
+  const normAccent = accent === 'yellow' ? 'amber' : accent;
   const accentBorder = {
     none: '',
     lavender: 'border-t-8 border-t-[#C4B5FD]',
@@ -19,7 +20,7 @@ export const BrutalCard: React.FC<BrutalCardProps> = ({
     amber: 'border-t-8 border-t-[#FDE68A]',
     sky: 'border-t-8 border-t-[#BAE6FD]',
     pink: 'border-t-8 border-t-[#FBCFE8]',
-  }[accent];
+  }[normAccent];
 
   const shadowClass = size === 'large' ? 'brutal-card-lg' : 'brutal-card';
 

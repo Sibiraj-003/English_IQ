@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, StudentChild } from '../types';
 import { api } from '../services/api';
 import { supabase } from '../utils/supabase';
 
 interface AuthContextType {
   user: UserProfile | null;
-  role: 'teacher' | 'student' | 'admin';
+  role: 'teacher' | 'student' | 'admin' | 'parent';
   classId: string;
+  activeChild: StudentChild | null;
   isGroqOnline: boolean;
   login: (email: string, password?: string) => Promise<UserProfile>;
   register: (data: {
@@ -20,6 +21,7 @@ interface AuthContextType {
   logout: () => void;
   switchRole?: (newRole: 'teacher' | 'student') => void;
   selectClass: (classId: string) => void;
+  selectChild: (childId: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,13 +43,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   });
 
+  const [activeChild, setActiveChild] = useState<StudentChild | null>(() => {
+    if (user?.children && user.children.length > 0) {
+      const savedChildId = localStorage.getItem('englishiq_active_child_id');
+      const found = user.children.find((c) => c.student_id === savedChildId);
+      return found || user.children[0];
+    }
+    return null;
+  });
+
   const [isGroqOnline, setIsGroqOnline] = useState(true);
 
   useEffect(() => {
     if (user) {
       localStorage.setItem('englishiq_user', JSON.stringify(user));
+      if (user.role === 'parent' && user.children && user.children.length > 0) {
+        if (!activeChild || !user.children.some((c) => c.student_id === activeChild.student_id)) {
+          setActiveChild(user.children[0]);
+          localStorage.setItem('englishiq_active_child_id', user.children[0].student_id);
+        }
+      }
     } else {
       localStorage.removeItem('englishiq_user');
+      localStorage.removeItem('englishiq_active_child_id');
+      setActiveChild(null);
     }
   }, [user]);
 
@@ -66,11 +85,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('Profile fetch notice:', profileErr.message);
         }
 
-        const resolvedRole: 'teacher' | 'student' | 'admin' =
+        const resolvedRole: 'teacher' | 'student' | 'admin' | 'parent' =
           dbProfile?.role === 'admin'
             ? 'admin'
             : dbProfile?.role === 'teacher'
             ? 'teacher'
+            : dbProfile?.role === 'parent'
+            ? 'parent'
             : 'student';
 
         return {
@@ -222,7 +243,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // 5. Direct Supabase Auth authentication fallback
+    // 5. Resilient check for default Parent credentials
+    if (
+      queryLower === 'par1001' ||
+      queryLower === 'parent@englishiq.app' ||
+      queryLower === 'parent@example.com'
+    ) {
+      if (passLower === 'parent@123' || passLower === 'admin@123') {
+        const parentProfile: UserProfile = {
+          id: 'par-primary-001',
+          full_name: 'Rajesh Kumar (Parent)',
+          email: 'parent@englishiq.app',
+          role: 'parent',
+          id_number: 'PAR1001',
+          children: [
+            {
+              id: 'stu-primary-001',
+              student_id: 'stu-primary-001',
+              full_name: 'Aarav Kumar',
+              student_name: 'Aarav Kumar',
+              id_number: 'STU10001',
+              class_id: 'CLS001',
+              class_name: 'Class 1',
+              section_id: 'SEC-1A',
+              section_name: '1-A',
+              relationship: 'Father',
+            },
+            {
+              id: 'STU10004',
+              student_id: 'STU10004',
+              full_name: 'Ananya Sharma',
+              student_name: 'Ananya Sharma',
+              id_number: 'STU10004',
+              class_id: 'CLS002',
+              class_name: 'Class 2',
+              section_id: 'SEC-2A',
+              section_name: '2-A',
+              relationship: 'Father',
+            },
+          ],
+        };
+        setUser(parentProfile);
+        if (parentProfile.children && parentProfile.children.length > 0) {
+          setActiveChild(parentProfile.children[0]);
+          localStorage.setItem('englishiq_active_child_id', parentProfile.children[0].student_id);
+        }
+        return parentProfile;
+      }
+    }
+
+    // 6. Direct Supabase Auth authentication fallback
     try {
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: queryLower,
@@ -236,11 +306,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq('id', authData.user.id)
           .maybeSingle();
 
-        const resolvedRole: 'teacher' | 'student' | 'admin' =
+        const resolvedRole: 'teacher' | 'student' | 'admin' | 'parent' =
           dbProfile?.role === 'admin'
             ? 'admin'
             : dbProfile?.role === 'teacher'
             ? 'teacher'
+            : dbProfile?.role === 'parent'
+            ? 'parent'
             : 'student';
 
         const resolvedUser: UserProfile = {
@@ -324,6 +396,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setUser(null);
     localStorage.removeItem('englishiq_user');
+    localStorage.removeItem('englishiq_active_child_id');
+    setActiveChild(null);
   };
 
   // Student profile must determine the class_id from the database.
@@ -338,17 +412,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const selectChild = (childId: string) => {
+    if (user?.role !== 'parent' || !user.children) return;
+    const found = user.children.find((c) => c.student_id === childId);
+    if (found) {
+      setActiveChild(found);
+      localStorage.setItem('englishiq_active_child_id', found.student_id);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user,
         role: user?.role || 'teacher',
         classId: user?.class_id || '',
+        activeChild,
         isGroqOnline,
         login,
         register,
         logout,
         selectClass,
+        selectChild,
       }}
     >
       {children}

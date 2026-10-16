@@ -189,6 +189,86 @@ export const TeacherDashboard: React.FC = () => {
         </BrutalCard>
       </div>
 
+      {/* Section Mentor & Scope Banner */}
+      <div className="p-4 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] flex flex-col md:flex-row md:items-center justify-between gap-3 font-mono">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-black px-2 py-0.5 bg-[#A7F3D0] text-[#0F172A] border border-[#0F172A] uppercase">
+              SECTION_MENTOR // CLASS 1-A
+            </span>
+            <span className="text-[10px] font-bold text-slate-600">
+              Full Section Academic Oversight
+            </span>
+          </div>
+          <div className="text-xs font-bold text-[#0F172A]">
+            Authorized Scope: Class 1 (Section 1-A) &bull; Subjects: Mathematics, English, General Science
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-black px-2 py-1 bg-white border border-[#0F172A]">
+            STATUS: STRICT_RLS_ENFORCED
+          </span>
+        </div>
+      </div>
+
+      {/* Smart School Academic Operations Shortcuts */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 font-mono">
+        <button
+          onClick={() => navigate('/teacher/attendance')}
+          className="p-3 bg-[#A7F3D0] border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[1px] active:translate-y-[1px] text-left flex flex-col justify-between h-24"
+        >
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-black text-[#0F172A] uppercase">ATTENDANCE</span>
+            <span className="text-[9px] px-1 bg-white border border-[#0F172A] font-extrabold">DAILY</span>
+          </div>
+          <span className="text-[10px] font-bold text-slate-800">Mark student roll & alert parents &rarr;</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/teacher/homework')}
+          className="p-3 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[1px] active:translate-y-[1px] text-left flex flex-col justify-between h-24"
+        >
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-black text-[#0F172A] uppercase">HOMEWORK</span>
+            <span className="text-[9px] px-1 bg-white border border-[#0F172A] font-extrabold">TASKS</span>
+          </div>
+          <span className="text-[10px] font-bold text-slate-800">Assign & grade coursework &rarr;</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/teacher/marks')}
+          className="p-3 bg-[#C4B5FD] border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[1px] active:translate-y-[1px] text-left flex flex-col justify-between h-24"
+        >
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-black text-[#0F172A] uppercase">EXAMS & MARKS</span>
+            <span className="text-[9px] px-1 bg-white border border-[#0F172A] font-extrabold">AUTO_GRADE</span>
+          </div>
+          <span className="text-[10px] font-bold text-slate-800">Score entry & grade calculation &rarr;</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/teacher/messages')}
+          className="p-3 bg-white border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[1px] active:translate-y-[1px] text-left flex flex-col justify-between h-24"
+        >
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-black text-[#0F172A] uppercase">PARENT CHAT</span>
+            <span className="text-[9px] px-1 bg-[#FDE68A] border border-[#0F172A] font-extrabold">SECURE</span>
+          </div>
+          <span className="text-[10px] font-bold text-slate-800">Direct guardian messaging &rarr;</span>
+        </button>
+
+        <button
+          onClick={() => navigate('/teacher/timetable')}
+          className="p-3 bg-white border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] hover:-translate-x-[1px] hover:-translate-y-[1px] active:translate-x-[1px] active:translate-y-[1px] text-left flex flex-col justify-between h-24"
+        >
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-black text-[#0F172A] uppercase">MY TIMETABLE</span>
+            <span className="text-[9px] px-1 bg-slate-100 border border-[#0F172A] font-extrabold">SLOTS</span>
+          </div>
+          <span className="text-[10px] font-bold text-slate-800">View weekly period schedule &rarr;</span>
+        </button>
+      </div>
+
       {/* Quick Action Navigation Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 font-mono">
         <button

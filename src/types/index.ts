@@ -10,11 +10,37 @@ export interface UserProfile {
   id: string;
   full_name: string;
   email: string;
-  role: 'teacher' | 'student' | 'admin';
+  role: 'teacher' | 'student' | 'admin' | 'parent';
   id_number?: string;
   class_id?: string;
+  class_name?: string;
+  section_id?: string;
+  section_name?: string;
+  phone?: string;
   avatar_url?: string;
+  school_id?: string;
+  dob?: string;
+  gender?: string;
+  parent_name?: string;
+  parent_phone?: string;
+  children?: StudentChild[];
   achievement_badges?: AchievementBadgeSummary[];
+}
+
+export interface StudentChild {
+  id: string;
+  student_id: string;
+  full_name: string;
+  student_name: string;
+  id_number: string;
+  class_id: string;
+  class_name: string;
+  section_id?: string;
+  section_name?: string;
+  roll_number?: string;
+  avatar_url?: string;
+  mentor_name?: string;
+  relationship?: string;
 }
 
 export interface SchoolClass {
@@ -27,6 +53,7 @@ export interface SchoolClass {
   students_count?: number;
   tests_count?: number;
   avg_score?: number;
+  sections?: Section[];
 }
 
 export interface Book {
@@ -225,3 +252,327 @@ export interface AiTeacherResponse {
   suggestedFollowUps?: string[];
   mode: string;
 }
+
+// ================= SMART SCHOOL ECOSYSTEM TYPES =================
+
+export interface School {
+  id: string;
+  code: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  affiliation_number?: string;
+  academic_year: string;
+}
+
+export interface Section {
+  id: string;
+  school_id: string;
+  class_id: string;
+  class_name?: string;
+  name: string; // e.g. "A", "B", "C"
+  full_name?: string; // e.g. "1-A"
+  room_number?: string;
+  capacity?: number;
+  is_active: boolean;
+  mentor_id?: string;
+  mentor_name?: string;
+  mentor_email?: string;
+  students_count?: number;
+}
+
+export interface Subject {
+  id: string;
+  school_id?: string;
+  code?: string;
+  name: string;
+  department?: string;
+  class_ids?: string[];
+  is_active: boolean;
+}
+
+export interface TeacherAssignment {
+  id: string;
+  school_id: string;
+  teacher_id: string;
+  teacher_name?: string;
+  teacher_email?: string;
+  class_id: string;
+  class_name?: string;
+  section_id: string;
+  section_name?: string;
+  subject_id: string;
+  subject_name?: string;
+  is_active: boolean;
+}
+
+export interface SectionMentor {
+  id: string;
+  school_id: string;
+  section_id: string;
+  section_name?: string;
+  teacher_id: string;
+  teacher_name?: string;
+  academic_year?: string;
+}
+
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused' | 'leave';
+
+export interface AttendanceRecord {
+  id: string;
+  school_id?: string;
+  class_id: string;
+  class_name?: string;
+  section_id: string;
+  section_name?: string;
+  subject_id?: string;
+  subject_name?: string;
+  student_id: string;
+  student_name?: string;
+  student_id_number?: string;
+  roll_number?: string;
+  date: string;
+  status: AttendanceStatus;
+  remarks?: string;
+  marked_by?: string;
+  marked_by_name?: string;
+  recorded_by?: string;
+}
+
+export interface AttendanceStats {
+  total_days: number;
+  present_count: number;
+  absent_count: number;
+  late_count: number;
+  leave_count: number;
+  percentage: number;
+}
+
+export interface Homework {
+  id: string;
+  school_id: string;
+  class_id: string;
+  class_name?: string;
+  section_id: string;
+  section_name?: string;
+  subject_id: string;
+  subject_name?: string;
+  teacher_id: string;
+  teacher_name?: string;
+  title: string;
+  description: string;
+  instructions?: string;
+  due_date: string;
+  max_marks: number;
+  attachments?: string[];
+  created_at: string;
+  submissions_count?: number;
+  total_students?: number;
+  submissions?: HomeworkSubmission[];
+  my_submission?: HomeworkSubmission;
+}
+
+export interface HomeworkSubmission {
+  id: string;
+  homework_id: string;
+  student_id: string;
+  student_name?: string;
+  student_id_number?: string;
+  content?: string;
+  submission_text?: string;
+  attachments?: string[];
+  submitted_at: string;
+  status: 'submitted' | 'evaluated' | 'resubmit_requested' | 'graded';
+  marks_obtained?: number;
+  feedback?: string;
+  evaluated_by?: string;
+  evaluated_at?: string;
+}
+
+export interface Exam {
+  id: string;
+  school_id: string;
+  class_id: string;
+  class_name?: string;
+  title: string;
+  exam_type: 'unit_test' | 'mid_term' | 'quarterly' | 'half_yearly' | 'annual' | 'custom' | string;
+  start_date: string;
+  end_date: string;
+  academic_year: string;
+  is_published: boolean;
+  subjects?: ExamSubject[];
+}
+
+export interface ExamSubject {
+  id: string;
+  exam_id: string;
+  subject_id: string;
+  subject_name?: string;
+  exam_date: string;
+  start_time: string;
+  duration_minutes: number;
+  max_marks: number;
+  passing_marks: number;
+}
+
+export interface MarkEntry {
+  id: string;
+  exam_id: string;
+  exam_title?: string;
+  subject_id: string;
+  subject_name?: string;
+  student_id: string;
+  student_name?: string;
+  student_id_number?: string;
+  class_id?: string;
+  section_id?: string;
+  marks_obtained: number;
+  max_marks: number;
+  percentage: number;
+  grade: string;
+  remarks?: string;
+  comments?: string;
+  entered_at?: string;
+}
+
+export interface TimetableSlot {
+  id: string;
+  school_id: string;
+  class_id: string;
+  class_name?: string;
+  section_id: string;
+  section_name?: string;
+  subject_id: string;
+  subject_name?: string;
+  teacher_id: string;
+  teacher_name?: string;
+  day_of_week: string | number;
+  period_number?: number;
+  start_time: string;
+  end_time: string;
+  room?: string;
+  room_number?: string;
+}
+
+export interface FeeStructure {
+  id: string;
+  school_id: string;
+  class_id: string;
+  class_name?: string;
+  title: string;
+  amount: number;
+  due_date: string;
+  academic_year: string;
+}
+
+export interface StudentFeeRecord {
+  id: string;
+  school_id: string;
+  student_id: string;
+  student_name?: string;
+  student_id_number?: string;
+  class_id?: string;
+  section_id?: string;
+  fee_structure_id: string;
+  title: string;
+  total_amount: number;
+  total_fee: number;
+  paid_amount: number;
+  pending_amount: number;
+  status: 'pending' | 'partial' | 'paid' | 'overdue';
+  due_date: string;
+  last_payment_date?: string;
+}
+
+export interface FeePayment {
+  id: string;
+  student_fee_id: string;
+  student_id: string;
+  amount: number;
+  payment_method: string;
+  payment_mode?: string;
+  transaction_ref?: string;
+  receipt_number: string;
+  paid_at: string;
+}
+
+export interface SchoolNotification {
+  id: string;
+  school_id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: 'homework' | 'marks' | 'attendance' | 'fee' | 'exam' | 'announcement' | 'general' | string;
+  target_url?: string;
+  target_role?: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface ParentTeacherMessage {
+  id: string;
+  school_id: string;
+  sender_id: string;
+  sender_name?: string;
+  sender_role?: string;
+  receiver_id: string;
+  receiver_name?: string;
+  student_id: string;
+  student_name?: string;
+  subject_id?: string;
+  subject_name?: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  actor_id?: string;
+  actor_name?: string;
+  action: string;
+  entity_type: string;
+  entity_id?: string;
+  details?: any;
+  user_id?: string;
+  user_role?: string;
+  target_id?: string;
+  created_at: string;
+}
+
+export interface CsvPreviewRow {
+  row_number: number;
+  raw: Record<string, string>;
+  is_valid: boolean;
+  errors: string[];
+}
+
+export interface CsvImportResult {
+  success: boolean;
+  entity_type: string;
+  total_rows: number;
+  imported_count: number;
+  failed_count: number;
+  assignments_created?: number;
+  errors: Array<{ row: number; reason?: string; message?: string; data?: any }>;
+  summary: string;
+}
+
+export interface StudentReportCard {
+  student: {
+    id: string;
+    full_name: string;
+    id_number: string;
+    class_id: string;
+    section_id: string;
+  };
+  marks: MarkEntry[];
+  total_obtained: number;
+  total_max: number;
+  overall_percentage: number;
+  overall_grade: string;
+  attendance_percentage: number;
+}
+
+

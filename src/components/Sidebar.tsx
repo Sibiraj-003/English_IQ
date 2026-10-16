@@ -16,6 +16,15 @@ import {
   BarChart3,
   X,
   Users,
+  CalendarCheck2,
+  DollarSign,
+  FileSpreadsheet,
+  MessageSquare,
+  ShieldCheck,
+  Bell,
+  Clock,
+  Briefcase,
+  UserCheck,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,20 +32,53 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
-  const { role, user } = useAuth();
+interface NavItem {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+}
 
-  const adminLinks = [
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
+  const { role, user, activeChild, selectChild } = useAuth();
+
+  const adminLinks: NavItem[] = [
     { to: '/admin/dashboard', label: 'User Directory', icon: Users, badge: 'ADMIN' },
-    { to: '/teacher/classes', label: 'Classes & Levels', icon: GraduationCap },
-    { to: '/teacher/books', label: 'Textbooks', icon: BookOpen },
-    { to: '/teacher/lessons', label: 'Lessons', icon: Layers },
-    { to: '/teacher/questions', label: 'Question Bank', icon: HelpCircle, badge: 'AI' },
-    { to: '/teacher/tests', label: 'Test Builder', icon: FilePlus2 },
-    { to: '/teacher/analytics', label: 'Analytics', icon: BarChart3 },
+    { to: '/admin/sections', label: 'Classes & Sections', icon: GraduationCap },
+    { to: '/admin/subjects', label: 'Multi-Subject', icon: Layers },
+    { to: '/admin/assignments', label: 'Teacher Allocation', icon: UserCheck },
+    { to: '/admin/csv-import', label: 'Bulk CSV Onboard', icon: FileSpreadsheet, badge: 'CSV' },
+    { to: '/admin/timetable', label: 'Timetable Manager', icon: Clock },
+    { to: '/admin/fees', label: 'Fee Management', icon: DollarSign },
+    { to: '/admin/audit-logs', label: 'Audit & Security', icon: ShieldCheck },
+    { to: '/teacher/books', label: 'Curriculum Books', icon: BookOpen },
+    { to: '/teacher/analytics', label: 'School Analytics', icon: BarChart3 },
   ];
 
-  const studentLinks = [
+  const teacherLinks: NavItem[] = [
+    { to: '/teacher/dashboard', label: 'Assigned Classes', icon: LayoutDashboard },
+    { to: '/teacher/attendance', label: 'Mark Attendance', icon: CalendarCheck2 },
+    { to: '/teacher/homework', label: 'Homework & Tasks', icon: Layers },
+    { to: '/teacher/marks', label: 'Exams & Marks', icon: ClipboardCheck },
+    { to: '/teacher/timetable', label: 'My Timetable', icon: Clock },
+    { to: '/teacher/messages', label: 'Parent Messages', icon: MessageSquare },
+    { to: '/teacher/books', label: 'Textbooks', icon: BookOpen },
+    { to: '/teacher/questions', label: 'AI Question Bank', icon: HelpCircle, badge: 'AI' },
+    { to: '/teacher/analytics', label: 'Academic Analytics', icon: BarChart3 },
+  ];
+
+  const parentLinks: NavItem[] = [
+    { to: '/parent/dashboard', label: 'Child Overview', icon: LayoutDashboard },
+    { to: '/parent/attendance', label: 'Attendance Record', icon: CalendarCheck2 },
+    { to: '/parent/homework', label: 'Homework & Tasks', icon: BookOpen },
+    { to: '/parent/marks', label: 'Exam Results & Marks', icon: Award },
+    { to: '/parent/fees', label: 'Fee Payments', icon: DollarSign },
+    { to: '/parent/timetable', label: 'Class Schedule', icon: Clock },
+    { to: '/parent/messages', label: 'Teacher Chat', icon: MessageSquare },
+    { to: '/parent/notifications', label: 'Announcements', icon: Bell },
+  ];
+
+  const studentLinks: NavItem[] = [
     { to: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/student/lessons', label: 'My Lessons', icon: BookOpen },
     { to: '/student/ai-teacher', label: 'AI Teacher', icon: Bot, badge: 'RAG' },
@@ -46,17 +88,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
     { to: '/student/achievements', label: 'Achievements', icon: Award },
   ];
 
-  const teacherLinks = [
-    { to: '/teacher/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/teacher/classes', label: 'Classes', icon: GraduationCap },
-    { to: '/teacher/books', label: 'Textbooks', icon: BookOpen },
-    { to: '/teacher/lessons', label: 'Lessons', icon: Layers },
-    { to: '/teacher/questions', label: 'Question Bank', icon: HelpCircle, badge: 'AI' },
-    { to: '/teacher/tests', label: 'Test Builder', icon: FilePlus2 },
-    { to: '/teacher/analytics', label: 'Analytics', icon: BarChart3 },
-  ];
-
-  const links = role === 'admin' ? adminLinks : role === 'teacher' ? teacherLinks : studentLinks;
+  const links =
+    role === 'admin'
+      ? adminLinks
+      : role === 'teacher'
+      ? teacherLinks
+      : role === 'parent'
+      ? parentLinks
+      : studentLinks;
 
   return (
     <>
@@ -73,19 +112,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <div>
+        <div className="overflow-y-auto">
           {/* Logo & Brand Header */}
           <div className="p-4 border-b-2 border-[#0F172A] bg-[#C4B5FD] flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 border-2 border-[#0F172A] bg-white shadow-[2px_2px_0px_#0F172A] flex items-center justify-center p-1">
-                <img src="/logo.svg" alt="EnglishIQ Logo" className="w-full h-full object-contain" />
+                <img src="/logo.svg" alt="Smart School Logo" className="w-full h-full object-contain" />
               </div>
               <div>
                 <h1 className="font-extrabold text-lg text-[#0F172A] tracking-tight leading-none font-sans">
-                  EnglishIQ
+                  SmartSchool
                 </h1>
                 <p className="text-[9px] font-bold text-slate-800 tracking-wider uppercase mt-0.5">
-                  AI LEARNING PORTAL
+                  ACADEMIC PLATFORM
                 </p>
               </div>
             </div>
@@ -100,22 +139,52 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
             )}
           </div>
 
-          {/* Active Class Pill */}
-          <div className="px-4 py-2.5 bg-[#F8FAFC] border-b-2 border-[#0F172A] flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-bold uppercase text-[10px]">
-              {role === 'admin' ? 'Scope:' : 'Curriculum:'}
-            </span>
-            <span className="font-extrabold px-2 py-0.5 bg-[#FDE68A] text-[#0F172A] border border-[#0F172A] shadow-[1px_1px_0px_#0F172A]">
-              {role === 'admin'
-                ? 'SCHOOL_ADMIN // FULL'
-                : user?.class_id
-                ? `${user.class_id} // ACTIVE`
-                : 'CURRICULUM // ACTIVE'}
-            </span>
-          </div>
+          {/* Child Switcher for Parents */}
+          {role === 'parent' && user?.children && user.children.length > 0 && (
+            <div className="p-3 bg-[#FEFCE8] border-b-2 border-[#0F172A]">
+              <div className="text-[10px] font-bold text-slate-600 uppercase mb-1.5 flex items-center justify-between">
+                <span>Active Child:</span>
+                <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-[#A7F3D0] border border-[#0F172A]">
+                  {user.children.length} REGISTERED
+                </span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {user.children.map((child) => (
+                  <button
+                    key={child.student_id}
+                    onClick={() => selectChild(child.student_id)}
+                    className={`text-left px-2.5 py-1.5 border-2 border-[#0F172A] text-xs font-bold transition-all flex items-center justify-between ${
+                      activeChild?.student_id === child.student_id
+                        ? 'bg-[#0F172A] text-white shadow-[2px_2px_0px_#FDE68A]'
+                        : 'bg-white text-[#0F172A] hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>{child.student_name}</span>
+                    <span className="text-[10px] opacity-90">{child.section_name || child.class_name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Active Scope Pill */}
+          {role !== 'parent' && (
+            <div className="px-4 py-2.5 bg-[#F8FAFC] border-b-2 border-[#0F172A] flex items-center justify-between text-xs">
+              <span className="text-slate-500 font-bold uppercase text-[10px]">
+                {role === 'admin' ? 'Scope:' : 'Curriculum:'}
+              </span>
+              <span className="font-extrabold px-2 py-0.5 bg-[#FDE68A] text-[#0F172A] border border-[#0F172A] shadow-[1px_1px_0px_#0F172A]">
+                {role === 'admin'
+                  ? 'SCHOOL_ADMIN // FULL'
+                  : user?.class_id
+                  ? `${user.class_id} // ACTIVE`
+                  : 'CURRICULUM // ACTIVE'}
+              </span>
+            </div>
+          )}
 
           {/* Navigation links */}
-          <nav className="p-3 space-y-1.5 overflow-y-auto">
+          <nav className="p-3 space-y-1.5">
             {links.map((link) => {
               const Icon = link.icon;
               return (

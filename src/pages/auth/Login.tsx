@@ -27,11 +27,13 @@ export const Login: React.FC = () => {
         navigate('/admin/dashboard');
       } else if (loggedInUser.role === 'teacher') {
         navigate('/teacher/dashboard');
+      } else if (loggedInUser.role === 'parent') {
+        navigate('/parent/dashboard');
       } else {
         navigate('/student/dashboard');
       }
     } catch (err: any) {
-      // Requirement 4: UI must show "Invalid email or password."
+      // UI error message
       setError('Invalid email or password.');
     } finally {
       setLoading(false);
@@ -43,13 +45,13 @@ export const Login: React.FC = () => {
       {/* Brand Header */}
       <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-16 h-16 border-2 border-[#0F172A] bg-[#C4B5FD] shadow-[4px_4px_0px_#0F172A] mb-3">
-          <img src="/logo.svg" alt="EnglishIQ Logo" className="w-12 h-12 object-contain" />
+          <img src="/logo.svg" alt="Smart School Logo" className="w-12 h-12 object-contain" />
         </div>
         <h1 className="font-extrabold text-3xl text-[#0F172A] tracking-tight font-sans">
-          EnglishIQ
+          SmartSchool IQ
         </h1>
         <p className="text-xs font-bold text-slate-600 tracking-wider uppercase mt-1">
-          AI-POWERED ENGLISH LEARNING PORTAL
+          AI-POWERED SMART SCHOOL MANAGEMENT & ACADEMIC PLATFORM
         </p>
       </div>
 

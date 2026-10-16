@@ -11,6 +11,18 @@ import testsRoutes from './routes/testsRoutes.js';
 import classesRoutes from './routes/classesRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import sectionsRoutes from './routes/sectionsRoutes.js';
+import subjectsRoutes from './routes/subjectsRoutes.js';
+import teacherAssignmentsRoutes from './routes/teacherAssignmentsRoutes.js';
+import attendanceRoutes from './routes/attendanceRoutes.js';
+import homeworkRoutes from './routes/homeworkRoutes.js';
+import examsRoutes from './routes/examsRoutes.js';
+import timetableRoutes from './routes/timetableRoutes.js';
+import feesRoutes from './routes/feesRoutes.js';
+import notificationsRoutes from './routes/notificationsRoutes.js';
+import messagesRoutes from './routes/messagesRoutes.js';
+import reportsRoutes from './routes/reportsRoutes.js';
+import csvImportRoutes from './routes/csvImportRoutes.js';
 import { groqClient } from './ai/groqClient.js';
 
 const app = express();
@@ -36,6 +48,18 @@ const apiSubroutes: [string, any][] = [
   ['/questions', questionsRoutes],
   ['/tests', testsRoutes],
   ['/classes', classesRoutes],
+  ['/sections', sectionsRoutes],
+  ['/subjects', subjectsRoutes],
+  ['/teacher-assignments', teacherAssignmentsRoutes],
+  ['/attendance', attendanceRoutes],
+  ['/homework', homeworkRoutes],
+  ['/exams', examsRoutes],
+  ['/timetable', timetableRoutes],
+  ['/fees', feesRoutes],
+  ['/notifications', notificationsRoutes],
+  ['/messages', messagesRoutes],
+  ['/reports', reportsRoutes],
+  ['/csv-import', csvImportRoutes],
 ];
 
 apiSubroutes.forEach(([prefix, routeHandler]) => {
