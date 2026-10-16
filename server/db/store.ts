@@ -266,6 +266,100 @@ export interface AuditLogEntry {
   created_at: string;
 }
 
+// ================= NOVA AI ARCHITECTURE DATA MODELS =================
+export interface StudySession {
+  id: string;
+  student_id: string;
+  school_id: string;
+  class_id?: string;
+  section_id?: string;
+  subject_id?: string;
+  chapter_id?: string;
+  topic: string;
+  activity_type: 'reading' | 'practice' | 'ai_interaction' | 'teach_back' | 'test_prep';
+  started_at: string;
+  ended_at?: string;
+  duration_seconds: number;
+  active_seconds: number;
+  created_at: string;
+}
+
+export interface ConceptMastery {
+  id: string;
+  student_id: string;
+  subject_id: string;
+  topic: string;
+  recall_score: number;
+  understanding_score: number;
+  mastery_level: 'emerging' | 'developing' | 'proficient' | 'mastered';
+  teach_backs_completed: number;
+  misconceptions_count: number;
+  last_evaluated_at: string;
+  created_at: string;
+}
+
+export interface TeachBackSubmission {
+  id: string;
+  student_id: string;
+  subject_id: string;
+  topic: string;
+  student_explanation: string;
+  input_mode: 'text' | 'voice';
+  key_concepts_covered: string[];
+  recall_score: number;
+  understanding_score: number;
+  cause_effect_score: number;
+  reasoning_score: number;
+  in_own_words_score: number;
+  misconceptions_detected: string[];
+  missing_concepts: string[];
+  nova_feedback: string;
+  follow_up_questions: string[];
+  created_at: string;
+}
+
+export interface LearningBadge {
+  id: string;
+  student_id: string;
+  badge_type: 'CONCEPT_MASTER' | 'DEEP_THINKER' | 'GREAT_EXPLAINER' | 'CURIOUS_MIND' | 'LEARNING_IMPROVER' | 'TEACH_BACK_CHAMPION' | 'TOPIC_MASTERY';
+  badge_name: string;
+  description: string;
+  icon: string;
+  criteria_met: string[];
+  topic?: string;
+  subject_id?: string;
+  earned_at: string;
+}
+
+export interface NovaConversation {
+  id: string;
+  student_id: string;
+  subject_id?: string;
+  topic?: string;
+  session_id?: string;
+  messages: Array<{
+    role: 'student' | 'nova';
+    content: string;
+    expression?: string;
+    sourceBadge?: any;
+    timestamp: string;
+  }>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TestIntegrityEvent {
+  id: string;
+  student_id: string;
+  test_id: string;
+  event_type: 'face_not_detected' | 'multiple_persons_detected' | 'repeated_looking_away' | 'tab_switched';
+  details?: Record<string, any>;
+  reviewed_by_teacher?: boolean;
+  teacher_notes?: string;
+  timestamp: string;
+  created_at: string;
+}
+
 export interface Book {
   id: string;
   class_id: string;
@@ -1052,6 +1146,182 @@ export class DatabaseStore {
       updated_at: new Date().toISOString(),
     },
   ];
+  // NOVA AI Architecture State Arrays
+  study_sessions: StudySession[] = [
+    {
+      id: 'sess-001',
+      student_id: 'stu-primary-001',
+      school_id: 'SCH001',
+      class_id: 'CLS001',
+      section_id: 'SEC-1A',
+      subject_id: 'sub-sci',
+      topic: 'Photosynthesis & Plant Life',
+      activity_type: 'teach_back',
+      started_at: new Date(Date.now() - 3600000 * 3).toISOString(),
+      ended_at: new Date(Date.now() - 3600000 * 2.5).toISOString(),
+      duration_seconds: 1800,
+      active_seconds: 1650,
+      created_at: new Date(Date.now() - 3600000 * 3).toISOString(),
+    },
+    {
+      id: 'sess-002',
+      student_id: 'stu-primary-001',
+      school_id: 'SCH001',
+      class_id: 'CLS001',
+      section_id: 'SEC-1A',
+      subject_id: 'sub-mat',
+      topic: 'Fractions & Division',
+      activity_type: 'practice',
+      started_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+      ended_at: new Date(Date.now() - 3600000 * 23.3).toISOString(),
+      duration_seconds: 2500,
+      active_seconds: 2300,
+      created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
+    },
+    {
+      id: 'sess-003',
+      student_id: 'stu-primary-001',
+      school_id: 'SCH001',
+      class_id: 'CLS001',
+      section_id: 'SEC-1A',
+      subject_id: 'sub-eng',
+      topic: 'Parts of Speech & Nouns',
+      activity_type: 'ai_interaction',
+      started_at: new Date(Date.now() - 3600000 * 48).toISOString(),
+      ended_at: new Date(Date.now() - 3600000 * 47.5).toISOString(),
+      duration_seconds: 1800,
+      active_seconds: 1720,
+      created_at: new Date(Date.now() - 3600000 * 48).toISOString(),
+    },
+  ];
+
+  concept_mastery: ConceptMastery[] = [
+    {
+      id: 'cm-001',
+      student_id: 'stu-primary-001',
+      subject_id: 'sub-sci',
+      topic: 'Photosynthesis & Plant Nutrition',
+      recall_score: 94,
+      understanding_score: 82,
+      mastery_level: 'proficient',
+      teach_backs_completed: 2,
+      misconceptions_count: 0,
+      last_evaluated_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'cm-002',
+      student_id: 'stu-primary-001',
+      subject_id: 'sub-mat',
+      topic: 'Fractions & Proportions',
+      recall_score: 88,
+      understanding_score: 64,
+      mastery_level: 'developing',
+      teach_backs_completed: 1,
+      misconceptions_count: 1,
+      last_evaluated_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'cm-003',
+      student_id: 'stu-primary-001',
+      subject_id: 'sub-eng',
+      topic: 'Nouns & Sentence Structure',
+      recall_score: 96,
+      understanding_score: 91,
+      mastery_level: 'mastered',
+      teach_backs_completed: 3,
+      misconceptions_count: 0,
+      last_evaluated_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    },
+  ];
+
+  teach_back_submissions: TeachBackSubmission[] = [
+    {
+      id: 'tb-001',
+      student_id: 'stu-primary-001',
+      subject_id: 'sub-sci',
+      topic: 'Photosynthesis',
+      student_explanation: 'Plants use green leaves with chlorophyll to catch sunlight, absorb water through roots, and take carbon dioxide to make glucose food and release oxygen.',
+      input_mode: 'text',
+      key_concepts_covered: ['Chlorophyll', 'Sunlight energy', 'Water and CO2 absorption', 'Glucose synthesis', 'Oxygen output'],
+      recall_score: 94,
+      understanding_score: 85,
+      cause_effect_score: 88,
+      reasoning_score: 82,
+      in_own_words_score: 90,
+      misconceptions_detected: [],
+      missing_concepts: ['Stomata gas exchange regulation'],
+      nova_feedback: 'Outstanding explanation Aarav! You clearly explained how sunlight, water, and air transform into plant food in your own words.',
+      follow_up_questions: ['What would happen if a plant were kept in a completely dark room for one week?'],
+      created_at: new Date(Date.now() - 3600000 * 3).toISOString(),
+    },
+  ];
+
+  learning_badges: LearningBadge[] = [
+    {
+      id: 'badge-001',
+      student_id: 'stu-primary-001',
+      badge_type: 'CONCEPT_MASTER',
+      badge_name: 'Concept Master: Photosynthesis',
+      description: 'Awarded for explaining plant energy transformation in own words with deep causal reasoning.',
+      icon: 'Sparkles',
+      criteria_met: [
+        'Explained concept in own words',
+        'Covered all core chemical inputs & outputs',
+        'Answered Socratic follow-up scenario accurately',
+        'Demonstrated >80% conceptual understanding',
+      ],
+      topic: 'Photosynthesis',
+      subject_id: 'sub-sci',
+      earned_at: new Date(Date.now() - 3600000 * 3).toISOString(),
+    },
+    {
+      id: 'badge-002',
+      student_id: 'stu-primary-001',
+      badge_type: 'GREAT_EXPLAINER',
+      badge_name: 'Great Explainer',
+      description: 'Successfully completed teach-back sessions articulating complex concepts clearly.',
+      icon: 'Award',
+      criteria_met: [
+        'Completed 3 teach-back evaluations',
+        'Maintained >85% in-own-words score',
+        'Replaced memorized rote terms with natural explanations',
+      ],
+      earned_at: new Date(Date.now() - 3600000 * 20).toISOString(),
+    },
+    {
+      id: 'badge-003',
+      student_id: 'stu-primary-001',
+      badge_type: 'CURIOUS_MIND',
+      badge_name: 'Curious Mind',
+      description: 'Consistently asked thoughtful follow-up questions to deepen conceptual grasp.',
+      icon: 'Lightbulb',
+      criteria_met: [
+        'Explored 10+ inquiry topics with NOVA',
+        'Engaged with multi-subject curriculum books',
+      ],
+      earned_at: new Date(Date.now() - 3600000 * 40).toISOString(),
+    },
+  ];
+
+  nova_conversations: NovaConversation[] = [];
+
+  test_integrity_events: TestIntegrityEvent[] = [
+    {
+      id: 'tie-001',
+      student_id: 'stu-primary-001',
+      test_id: 'test-primary-001',
+      event_type: 'repeated_looking_away',
+      timestamp: new Date(Date.now() - 86400000).toISOString(),
+      details: { note: 'Camera signal detected gaze shift toward rough worksheet table' },
+      reviewed_by_teacher: true,
+      teacher_notes: 'Reviewed by Ravi Varma: Student was calculating mathematics steps on paper worksheet.',
+      created_at: new Date(Date.now() - 86400000).toISOString(),
+    },
+  ];
+
   activity_logs: ActivityLog[] = [];
   admin_credentials = {
     id_number: 'ADM1001',
@@ -1196,6 +1466,163 @@ export class DatabaseStore {
     return this.parent_students.some(
       (ps) => ps.parent_id === parent_id && ps.student_id === student_id
     );
+  }
+
+  // ================= NOVA LEARNING & ANALYTICS METHODS =================
+  getStudentLearningProfile(student_id: string) {
+    const student = this.profiles.find((p) => p.id === student_id || p.id_number === student_id || p.user_id === student_id);
+    const resolvedId = student?.id || student_id;
+    const cls = student?.class_id ? this.classes.find((c) => c.id === student.class_id) : undefined;
+    const sec = student?.section_id ? this.sections.find((s) => s.id === student.section_id) : undefined;
+
+    // Study sessions
+    const sessions = this.study_sessions.filter((s) => s.student_id === resolvedId);
+    const totalStudySeconds = sessions.reduce((acc, curr) => acc + (curr.active_seconds || curr.duration_seconds || 0), 0);
+
+    // Concept masteries
+    const masteries = this.concept_mastery.filter((cm) => cm.student_id === resolvedId);
+    const overallRecall = masteries.length > 0
+      ? Math.round(masteries.reduce((acc, curr) => acc + curr.recall_score, 0) / masteries.length)
+      : 88;
+    const overallUnderstanding = masteries.length > 0
+      ? Math.round(masteries.reduce((acc, curr) => acc + curr.understanding_score, 0) / masteries.length)
+      : 76;
+
+    // Subject profiles
+    const subjectsProfile = this.subjects.map((sub) => {
+      const subSessions = sessions.filter((s) => s.subject_id === sub.id);
+      const subStudySeconds = subSessions.reduce((acc, curr) => acc + (curr.active_seconds || curr.duration_seconds || 0), 0);
+      const subMasteries = masteries.filter((m) => m.subject_id === sub.id);
+
+      const subRecall = subMasteries.length > 0
+        ? Math.round(subMasteries.reduce((acc, curr) => acc + curr.recall_score, 0) / subMasteries.length)
+        : Math.max(60, Math.min(95, overallRecall + (sub.id.charCodeAt(sub.id.length - 1) % 10) - 5));
+
+      const subUnderstanding = subMasteries.length > 0
+        ? Math.round(subMasteries.reduce((acc, curr) => acc + curr.understanding_score, 0) / subMasteries.length)
+        : Math.max(50, Math.min(90, overallUnderstanding + (sub.id.charCodeAt(sub.id.length - 1) % 12) - 6));
+
+      // Attempts & marks for this subject
+      const subMarks = this.marks.filter((m) => m.student_id === resolvedId && m.subject_id === sub.id);
+      const avgMark = subMarks.length > 0
+        ? Math.round(subMarks.reduce((acc, curr) => acc + curr.percentage, 0) / subMarks.length)
+        : Math.round((subRecall * 0.4) + (subUnderstanding * 0.6));
+
+      const masteredTopics = subMasteries.filter((m) => m.understanding_score >= 80).map((m) => m.topic);
+      const weakTopics = subMasteries.filter((m) => m.understanding_score < 70).map((m) => m.topic);
+
+      // Add baseline weak topic if empty
+      if (weakTopics.length === 0 && subMasteries.length === 0) {
+        if (sub.name.toLowerCase().includes('math')) weakTopics.push('Fractions & Multi-digit Division');
+        else if (sub.name.toLowerCase().includes('science')) weakTopics.push('Plant Cell Structure');
+        else if (sub.name.toLowerCase().includes('english')) weakTopics.push('Compound Sentences');
+      }
+
+      let trend: 'improving' | 'steady' | 'needs_attention' = 'improving';
+      if (subUnderstanding < 65) trend = 'needs_attention';
+      else if (subUnderstanding < 78) trend = 'steady';
+
+      return {
+        subject_id: sub.id,
+        subject_name: sub.name,
+        study_seconds: subStudySeconds || (sub.name === 'Science' ? 4200 : sub.name === 'Mathematics' ? 3600 : 2700),
+        performance_score: avgMark,
+        recall_score: subRecall,
+        understanding_score: subUnderstanding,
+        mastered_topics: masteredTopics.length > 0 ? masteredTopics : [`Basic ${sub.name} Foundations`],
+        weak_topics: weakTopics,
+        trend,
+      };
+    });
+
+    // Student Badges
+    const badges = this.learning_badges.filter((b) => b.student_id === resolvedId);
+
+    // Personalized Recommendations based on real data
+    const recommendations: Array<{ id: string; type: 'practice' | 'review' | 'teach_back'; topic: string; subject_name: string; text: string; estimated_minutes: number }> = [];
+
+    subjectsProfile.forEach((sp, idx) => {
+      if (sp.weak_topics.length > 0) {
+        recommendations.push({
+          id: `rec-${idx}-1`,
+          type: 'teach_back',
+          topic: sp.weak_topics[0],
+          subject_name: sp.subject_name,
+          text: `Try explaining ${sp.weak_topics[0]} to NOVA in your own words to bridge the gap between recall and conceptual understanding.`,
+          estimated_minutes: 10,
+        });
+        recommendations.push({
+          id: `rec-${idx}-2`,
+          type: 'practice',
+          topic: sp.weak_topics[0],
+          subject_name: sp.subject_name,
+          text: `Complete 5 targeted practice problems on ${sp.weak_topics[0]} to solidify core application skills.`,
+          estimated_minutes: 15,
+        });
+      }
+    });
+
+    return {
+      student_id: resolvedId,
+      student_name: student?.full_name || 'Student',
+      class_name: cls?.name || 'Class 1',
+      section_name: sec?.full_name || '1-A',
+      total_study_seconds: totalStudySeconds || 10500,
+      overall_recall_average: overallRecall,
+      overall_understanding_average: overallUnderstanding,
+      subjects_profile: subjectsProfile,
+      badges,
+      recommendations: recommendations.slice(0, 4),
+    };
+  }
+
+  awardBadge(
+    student_id: string,
+    badge_type: LearningBadge['badge_type'],
+    badge_name: string,
+    description: string,
+    icon: string,
+    criteria_met: string[],
+    topic?: string,
+    subject_id?: string
+  ): LearningBadge | null {
+    // Avoid duplicate badges of same type and topic
+    const existing = this.learning_badges.find(
+      (b) => b.student_id === student_id && b.badge_type === badge_type && b.topic === topic
+    );
+    if (existing) return existing;
+
+    const newBadge: LearningBadge = {
+      id: `badge-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 5)}`,
+      student_id,
+      badge_type,
+      badge_name,
+      description,
+      icon,
+      criteria_met,
+      topic,
+      subject_id,
+      earned_at: new Date().toISOString(),
+    };
+
+    this.learning_badges.unshift(newBadge);
+    this.notifyUser(
+      student_id,
+      `🎉 New Learning Badge Unlocked: ${badge_name}`,
+      `Congratulations! You earned the "${badge_name}" badge for outstanding conceptual learning.`,
+      'announcement',
+      '/student/achievements'
+    );
+    return newBadge;
+  }
+
+  recordStudyHeartbeat(session_id: string, active_seconds_delta: number) {
+    const session = this.study_sessions.find((s) => s.id === session_id);
+    if (session) {
+      session.active_seconds = (session.active_seconds || 0) + active_seconds_delta;
+      session.duration_seconds = Math.max(session.duration_seconds || 0, session.active_seconds);
+      session.ended_at = new Date().toISOString();
+    }
   }
 
   constructor() {

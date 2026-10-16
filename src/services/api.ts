@@ -27,6 +27,16 @@ import {
   AuditLogEntry,
   CsvImportResult,
   StudentReportCard,
+  NovaAvatarExpression,
+  NovaChatMessage,
+  StudySession,
+  ConceptMastery,
+  TeachBackSubmission,
+  TeachBackEvaluationResult,
+  LearningBadge,
+  TestIntegrityEvent,
+  CameraAnalysisResult,
+  StudentLearningProfile,
 } from '../types';
 
 const BASE_URL = '/api';
@@ -1162,6 +1172,134 @@ export const api = {
   async getAuditLogs(): Promise<AuditLogEntry[]> {
     const res = await fetch(`${BASE_URL}/admin/audit-logs`, { headers: getAuthHeaders() });
     if (!res.ok) throw new Error('Failed to fetch audit logs');
+    return res.json();
+  },
+
+  // ==========================================
+  // MASTER AI ARCHITECTURE: NOVA LEARNING COMPANION
+  // ==========================================
+  async askNova(data: {
+    student_id?: string;
+    class_id?: string;
+    section_id?: string;
+    subject_id?: string;
+    book_id?: string;
+    topic?: string;
+    message: string;
+    mode?: string;
+    history?: Array<{ sender: 'student' | 'nova'; text: string }>;
+  }): Promise<{
+    answer: string;
+    expression: NovaAvatarExpression;
+    sourceBadge?: { bookTitle: string; pageNumber: number; lessonTitle?: string };
+    suggestedFollowUps: string[];
+    mode: string;
+  }> {
+    const res = await fetch(`${BASE_URL}/nova/chat`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to interact with NOVA');
+    }
+    return res.json();
+  },
+
+  async submitTeachBack(data: {
+    student_id?: string;
+    subject_id?: string;
+    topic: string;
+    student_explanation: string;
+    input_mode?: 'text' | 'voice';
+  }): Promise<TeachBackEvaluationResult> {
+    const res = await fetch(`${BASE_URL}/nova/teach-back`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Teach-back evaluation failed');
+    }
+    return res.json();
+  },
+
+  async startStudySession(data: {
+    student_id?: string;
+    subject_id?: string;
+    topic?: string;
+    activity_type?: string;
+  }): Promise<{ session_id: string; message: string }> {
+    const res = await fetch(`${BASE_URL}/nova/study-session/start`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to start study session');
+    return res.json();
+  },
+
+  async sendStudyHeartbeat(data: {
+    session_id: string;
+    active_seconds_delta: number;
+  }): Promise<any> {
+    const res = await fetch(`${BASE_URL}/nova/study-session/heartbeat`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) return { success: false };
+    return res.json();
+  },
+
+  async endStudySession(data: { session_id: string }): Promise<any> {
+    const res = await fetch(`${BASE_URL}/nova/study-session/end`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) return { success: false };
+    return res.json();
+  },
+
+  async analyzeCameraFrame(data: {
+    image_base64: string;
+    test_id?: string;
+    student_id?: string;
+    context?: 'test_integrity' | 'study_presence';
+  }): Promise<{
+    analysis: CameraAnalysisResult;
+    logged_for_teacher_review: boolean;
+    event_id?: string;
+  }> {
+    const res = await fetch(`${BASE_URL}/nova/camera/analyze-frame`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Camera frame analysis failed');
+    }
+    return res.json();
+  },
+
+  async getStudentLearningProfile(studentId: string): Promise<StudentLearningProfile> {
+    const res = await fetch(`${BASE_URL}/nova/student-profile/${studentId}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch student learning profile');
+    return res.json();
+  },
+
+  async getNovaPortalAnalytics(studentId?: string): Promise<any> {
+    const url = studentId
+      ? `${BASE_URL}/nova/portal-analytics?student_id=${studentId}`
+      : `${BASE_URL}/nova/portal-analytics`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch NOVA analytics');
     return res.json();
   },
 };

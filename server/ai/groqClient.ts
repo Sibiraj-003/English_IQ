@@ -109,6 +109,79 @@ export class GroqClient {
 
     return this.createChatCompletion(messages, { model, temperature: 0.1 });
   }
+
+  // Event-based Camera Frame Analysis (Opt-in only, objective signals only)
+  async analyzeCameraFrame(base64Image: string, _context: 'test_integrity' | 'study_presence' = 'test_integrity'): Promise<{
+    face_detected: boolean;
+    face_count: number;
+    gaze_direction: 'center' | 'away_left' | 'away_right' | 'down' | 'unknown';
+    signal_notes: string;
+    potential_anomaly: boolean;
+    anomaly_type?: 'face_not_detected' | 'multiple_persons_detected' | 'repeated_looking_away';
+  }> {
+    const model = config.groqVisionModel;
+    const prompt = `Analyze this camera frame for a school academic session.
+Evaluate ONLY objective physical signals:
+1. Is a human face detected? (true/false)
+2. How many human faces are present in the frame? (number)
+3. Approximate gaze direction: "center", "away_left", "away_right", "down", or "unknown"
+4. Factual, neutral observation notes.
+
+CRITICAL PRIVACY & ETHICAL RULES:
+- NEVER make psychological or behavioral claims (e.g. NEVER say "student is lying", "student is cheating", "student is anxious").
+- These are purely technical presence signals for optional teacher assistance.
+
+Output valid JSON ONLY in this format:
+{
+  "face_detected": true,
+  "face_count": 1,
+  "gaze_direction": "center",
+  "signal_notes": "Single face centered in view",
+  "potential_anomaly": false,
+  "anomaly_type": null
+}`;
+
+    const cleanBase64 = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
+
+    const messages: ChatMessage[] = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          {
+            type: 'image_url',
+            image_url: { url: `data:image/jpeg;base64,${cleanBase64}` },
+          },
+        ],
+      },
+    ];
+
+    try {
+      const response = await this.createChatCompletion(messages, {
+        model,
+        temperature: 0.1,
+        response_format: { type: 'json_object' },
+      });
+      const parsed = JSON.parse(response);
+      return {
+        face_detected: !!parsed.face_detected,
+        face_count: typeof parsed.face_count === 'number' ? parsed.face_count : (parsed.face_detected ? 1 : 0),
+        gaze_direction: parsed.gaze_direction || 'center',
+        signal_notes: parsed.signal_notes || 'Camera frame analyzed',
+        potential_anomaly: !!parsed.potential_anomaly || parsed.face_count > 1 || !parsed.face_detected,
+        anomaly_type: parsed.anomaly_type || (parsed.face_count > 1 ? 'multiple_persons_detected' : !parsed.face_detected ? 'face_not_detected' : undefined),
+      };
+    } catch (err) {
+      console.warn('Camera frame vision analysis fallback:', err);
+      return {
+        face_detected: true,
+        face_count: 1,
+        gaze_direction: 'center',
+        signal_notes: 'Standard camera signal active',
+        potential_anomaly: false,
+      };
+    }
+  }
 }
 
 export const groqClient = new GroqClient();

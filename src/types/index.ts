@@ -575,4 +575,167 @@ export interface StudentReportCard {
   attendance_percentage: number;
 }
 
+// ==========================================
+// NOVA AI ARCHITECTURE TYPES
+// ==========================================
+
+export type NovaAvatarExpression =
+  | 'greeting'
+  | 'thinking'
+  | 'encouraging'
+  | 'celebrating'
+  | 'explaining'
+  | 'concerned';
+
+export interface NovaChatMessage {
+  id: string;
+  sender: 'student' | 'nova';
+  text: string;
+  expression?: NovaAvatarExpression;
+  sourceBadge?: {
+    bookTitle: string;
+    pageNumber: number;
+    lessonTitle?: string;
+  };
+  suggestedFollowUps?: string[];
+  timestamp: string;
+}
+
+export interface StudySession {
+  id: string;
+  student_id: string;
+  school_id?: string;
+  class_id?: string;
+  section_id?: string;
+  subject_id?: string;
+  chapter_id?: string;
+  topic: string;
+  activity_type: 'reading' | 'practice' | 'ai_interaction' | 'teach_back' | 'test_prep';
+  started_at: string;
+  ended_at?: string;
+  duration_seconds: number;
+  active_seconds: number;
+  created_at: string;
+}
+
+export interface ConceptMastery {
+  id: string;
+  student_id: string;
+  subject_id: string;
+  subject_name?: string;
+  topic: string;
+  recall_score: number; // 0-100
+  understanding_score: number; // 0-100
+  mastery_level: 'emerging' | 'developing' | 'proficient' | 'mastered';
+  teach_backs_completed: number;
+  misconceptions_count: number;
+  last_evaluated_at: string;
+}
+
+export interface TeachBackSubmission {
+  id: string;
+  student_id: string;
+  subject_id: string;
+  topic: string;
+  student_explanation: string;
+  input_mode: 'text' | 'voice';
+  key_concepts_covered: string[];
+  recall_score: number;
+  understanding_score: number;
+  cause_effect_score: number;
+  reasoning_score: number;
+  in_own_words_score: number;
+  misconceptions_detected: string[];
+  missing_concepts: string[];
+  nova_feedback: string;
+  follow_up_questions: string[];
+  created_at: string;
+}
+
+export interface TeachBackEvaluationResult {
+  submission_id: string;
+  recall_score: number;
+  understanding_score: number;
+  cause_effect_score: number;
+  reasoning_score: number;
+  in_own_words_score: number;
+  key_concepts_covered: string[];
+  misconceptions_detected: string[];
+  missing_concepts: string[];
+  feedback: string;
+  follow_up_questions: string[];
+  badge_earned?: LearningBadge;
+  mastery_level: 'emerging' | 'developing' | 'proficient' | 'mastered';
+}
+
+export interface LearningBadge {
+  id: string;
+  student_id: string;
+  badge_type:
+    | 'CONCEPT_MASTER'
+    | 'DEEP_THINKER'
+    | 'GREAT_EXPLAINER'
+    | 'CURIOUS_MIND'
+    | 'LEARNING_IMPROVER'
+    | 'TEACH_BACK_CHAMPION'
+    | 'TOPIC_MASTERY';
+  badge_name: string;
+  description: string;
+  icon: string;
+  criteria_met: string[];
+  topic?: string;
+  subject_id?: string;
+  earned_at: string;
+}
+
+export interface TestIntegrityEvent {
+  id: string;
+  student_id: string;
+  test_id: string;
+  event_type: 'face_not_detected' | 'multiple_persons_detected' | 'repeated_looking_away' | 'tab_switched';
+  timestamp: string;
+  details?: Record<string, any>;
+  reviewed_by_teacher?: boolean;
+  teacher_notes?: string;
+}
+
+export interface CameraAnalysisResult {
+  face_detected: boolean;
+  face_count: number;
+  gaze_direction: 'center' | 'away_left' | 'away_right' | 'down' | 'unknown';
+  signal_notes: string;
+  potential_anomaly: boolean;
+  anomaly_type?: 'face_not_detected' | 'multiple_persons_detected' | 'repeated_looking_away';
+}
+
+export interface StudentLearningProfile {
+  student_id: string;
+  student_name: string;
+  class_name: string;
+  section_name?: string;
+  total_study_seconds: number;
+  overall_recall_average: number;
+  overall_understanding_average: number;
+  subjects_profile: Array<{
+    subject_id: string;
+    subject_name: string;
+    study_seconds: number;
+    performance_score: number;
+    recall_score: number;
+    understanding_score: number;
+    mastered_topics: string[];
+    weak_topics: string[];
+    trend: 'improving' | 'steady' | 'needs_attention';
+  }>;
+  badges: LearningBadge[];
+  recommendations: Array<{
+    id: string;
+    type: 'practice' | 'review' | 'teach_back';
+    topic: string;
+    subject_name: string;
+    text: string;
+    estimated_minutes: number;
+  }>;
+}
+
 

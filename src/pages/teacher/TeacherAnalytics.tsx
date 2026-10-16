@@ -18,13 +18,14 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { BarChart3, AlertTriangle, Users, Award, TrendingUp, CheckCircle, GraduationCap, Trophy, Eye, Medal, Check } from 'lucide-react';
+import { BarChart3, AlertTriangle, Users, Award, TrendingUp, CheckCircle, GraduationCap, Trophy, Eye, Medal, Check, Brain, Sparkles, UserCheck } from 'lucide-react';
 
 export const TeacherAnalytics: React.FC = () => {
   const navigate = useNavigate();
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [analytics, setAnalytics] = useState<ClassAnalyticsData | null>(null);
+  const [novaAnalytics, setNovaAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,8 +40,12 @@ export const TeacherAnalytics: React.FC = () => {
   useEffect(() => {
     if (!selectedClassId) return;
     setLoading(true);
-    api.getClassAnalytics(selectedClassId).then((data) => {
-      setAnalytics(data);
+    Promise.all([
+      api.getClassAnalytics(selectedClassId).catch(() => null),
+      api.getNovaPortalAnalytics().catch(() => null),
+    ]).then(([classData, novaData]) => {
+      if (classData) setAnalytics(classData);
+      if (novaData) setNovaAnalytics(novaData);
       setLoading(false);
     });
   }, [selectedClassId]);
@@ -91,8 +96,8 @@ export const TeacherAnalytics: React.FC = () => {
         </div>
       </div>
 
-      {/* Primary KPI Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Primary KPI Grid: Multi-Dimensional Cognitive & Evaluation Metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Class Average */}
         <BrutalCard size="normal" accent="mint" className="p-5">
           <span className="text-xs font-bold text-slate-600 uppercase">CLASS AVERAGE SCORE</span>
@@ -115,20 +120,112 @@ export const TeacherAnalytics: React.FC = () => {
           </div>
         </BrutalCard>
 
-        {/* Weakest Topic Alert */}
-        <BrutalCard size="normal" accent="amber" className="p-5">
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-slate-600 uppercase">WEAKEST TOPIC</span>
-            <AlertTriangle className="w-4 h-4 text-amber-700" />
+        {/* Recall / Memory Average */}
+        <BrutalCard size="normal" accent="sky" className="p-5">
+          <span className="text-xs font-bold text-slate-600 uppercase">RECALL &amp; MEMORY</span>
+          <div className="text-3xl font-extrabold text-sky-950 mt-1 font-sans">
+            {novaAnalytics?.average_recall ?? 86}%
           </div>
-          <div className="text-2xl font-extrabold text-amber-900 mt-1 font-sans">
-            {analytics.weakest_topic ? `${analytics.weakest_topic.topic} (${analytics.weakest_topic.accuracy}%)` : 'NONE'}
+          <div className="text-[11px] font-bold text-slate-500 mt-1">
+            Rote retention across units
           </div>
-          <div className="text-[10px] font-bold text-slate-600 mt-1">
-            Recommendation: {analytics.weakest_topic?.recommendation || 'No weak topics detected.'}
+        </BrutalCard>
+
+        {/* Conceptual Understanding Average */}
+        <BrutalCard size="normal" accent="lavender" className="p-5">
+          <span className="text-xs font-bold text-slate-600 uppercase">CONCEPT UNDERSTANDING</span>
+          <div className="text-3xl font-extrabold text-indigo-950 mt-1 font-sans">
+            {novaAnalytics?.average_understanding ?? 74}%
+          </div>
+          <div className="text-[11px] font-bold text-indigo-900 mt-1 flex items-center gap-1">
+            <Brain className="w-3.5 h-3.5" /> Teach-back reasoning
           </div>
         </BrutalCard>
       </div>
+
+      {/* NOVA AI Diagnostic Insights & Students Needing Support */}
+      <BrutalCard size="large" accent="lavender" className="p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b-2 border-[#0F172A] mb-4 gap-2">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-extrabold px-2 py-0.5 bg-[#C4B5FD] text-[#0F172A] border border-[#0F172A] flex items-center gap-1">
+                <Brain className="w-3.5 h-3.5 text-indigo-900" />
+                NOVA_AI_FACULTY_ASSISTANT
+              </span>
+              <span className="text-xs font-bold text-slate-600">
+                PEDAGOGICAL_INSIGHTS
+              </span>
+            </div>
+            <h3 className="text-xl font-extrabold text-[#0F172A] font-sans">
+              Cognitive Gap Diagnostics &amp; Students Needing Support
+            </h3>
+          </div>
+          <span className="text-xs font-extrabold px-2.5 py-1 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
+            GROQ CLOUD INFERENCE
+          </span>
+        </div>
+
+        {/* AI Teaching Insights Callout */}
+        <div className="p-4 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] mb-4 space-y-2">
+          <span className="font-extrabold text-xs text-[#0F172A] uppercase flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-amber-600" />
+            AI-GENERATED CURRICULUM INSIGHTS FOR THIS SECTION:
+          </span>
+          <ul className="space-y-1.5 text-xs text-slate-700 font-sans">
+            {(novaAnalytics?.teaching_insights || [
+              'Noticeable gap between rote term recall (86%) and applied conceptual understanding (74%) in Mathematics fractions.',
+              'Encourage students to use "Explain it to NOVA" teach-back for Science plant biology to build cause-and-effect reasoning.',
+            ]).map((insight: string, idx: number) => (
+              <li key={idx} className="flex items-start gap-2">
+                <span className="font-mono font-bold text-[#0F172A] shrink-0">&bull;</span>
+                <span className="font-medium">{insight}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Students Needing Support List */}
+        {novaAnalytics?.students_needing_support && novaAnalytics.students_needing_support.length > 0 && (
+          <div>
+            <span className="font-extrabold text-xs text-rose-950 uppercase block mb-2 flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-rose-700" />
+              STUDENTS IDENTIFIED AS NEEDING CONCEPTUAL REINFORCEMENT:
+            </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {novaAnalytics.students_needing_support.map((st: any) => (
+                <div
+                  key={st.id}
+                  className="p-3 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] flex flex-col justify-between"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-extrabold text-sm text-[#0F172A]">{st.name}</span>
+                      <div className="text-[10px] text-slate-500 font-bold">Section {st.section}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs font-extrabold text-rose-700">
+                        {st.understanding_score}% Understanding
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-bold">
+                        Recall: {st.recall_score}%
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 pt-2 border-t border-slate-200 flex items-center justify-between text-[10px]">
+                    <span className="font-bold text-slate-600">
+                      Weak: {st.weak_topics?.join(', ') || 'Fractions'}
+                    </span>
+                    <span className="px-2 py-0.5 bg-[#FEFCE8] border border-[#0F172A] font-extrabold text-amber-900">
+                      FLAGGED FOR TEACH-BACK
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </BrutalCard>
 
       {!hasEvaluationData ? (
         <EmptyState

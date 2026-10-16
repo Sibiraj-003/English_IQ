@@ -23,6 +23,7 @@ import notificationsRoutes from './routes/notificationsRoutes.js';
 import messagesRoutes from './routes/messagesRoutes.js';
 import reportsRoutes from './routes/reportsRoutes.js';
 import csvImportRoutes from './routes/csvImportRoutes.js';
+import novaRoutes from './routes/novaRoutes.js';
 import { groqClient } from './ai/groqClient.js';
 
 const app = express();
@@ -45,6 +46,7 @@ const apiSubroutes: [string, any][] = [
   ['/books', booksRoutes],
   ['/lessons', lessonsRoutes],
   ['/ai', aiRoutes],
+  ['/nova', novaRoutes],
   ['/questions', questionsRoutes],
   ['/tests', testsRoutes],
   ['/classes', classesRoutes],
