@@ -39,6 +39,16 @@ import {
 
 type InteractionChannel = 'text' | 'voice' | 'live';
 
+export const stripEmojis = (str: string): string => {
+  if (!str) return '';
+  return str
+    .replace(/\p{Extended_Pictographic}/gu, '')
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{FE00}-\u{FE0F}\u{1F004}\u{1F0CF}\u{200D}\u{20E3}]/gu, '')
+    .replace(/\s+([.,!?:;])/g, (_m, p) => p)
+    .replace(/[^\S\r\n]{2,}/g, ' ')
+    .trim();
+};
+
 export const AiTeacher: React.FC = () => {
   const { user } = useAuth();
 
@@ -187,8 +197,8 @@ export const AiTeacher: React.FC = () => {
 
       if (!audioEnabled && channelModeRef.current === 'text') return;
 
-      // Clean out markdown symbols so speech engine pronounces clean sentences
-      const cleanText = text
+      // Clean out emojis and markdown symbols so speech engine pronounces clean sentences without reading emojis
+      const cleanText = stripEmojis(text)
         .replace(/[*#_`~]/g, '')
         .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
         .replace(/\n\n+/g, '. ')
@@ -383,7 +393,7 @@ export const AiTeacher: React.FC = () => {
     {
       id: 'init-welcome',
       sender: 'nova',
-      text: `Hello ${user?.full_name || 'Scholar'}! 🌟 I am NOVA, your AI Learning Companion.\n\nI can help you master complex subjects step-by-step. You can talk to me directly in real-time voice, explore concepts socratically, or try **"Explain it to NOVA"** to verify conceptual reasoning in your own words!`,
+      text: `Hello ${user?.full_name || 'Scholar'}! I am NOVA, your AI Learning Companion.\n\nI can help you master complex subjects step-by-step. You can talk to me directly in real-time voice, explore concepts socratically, or try **"Explain it to NOVA"** to verify conceptual reasoning in your own words!`,
       expression: 'greeting',
       suggestedFollowUps: [
         'How do plants synthesize food using sunlight?',
@@ -462,18 +472,21 @@ export const AiTeacher: React.FC = () => {
           result.understanding_score >= 80 ? 'celebrating' : 'encouraging';
         setCurrentExpression(expression);
 
+        const cleanFeedback = stripEmojis(result.feedback);
+        const cleanFollowUps = (result.follow_up_questions || []).map(stripEmojis);
+
         const novaMsgId = `msg-nova-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
         const novaResponseMsg: NovaChatMessage = {
           id: novaMsgId,
           sender: 'nova',
-          text: result.feedback,
+          text: cleanFeedback,
           expression,
-          suggestedFollowUps: result.follow_up_questions,
+          suggestedFollowUps: cleanFollowUps,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
 
         setMessages((prev) => [...prev, novaResponseMsg]);
-        speakText(result.feedback, novaMsgId);
+        speakText(cleanFeedback, novaMsgId);
       } catch (err: any) {
         console.error(err);
         setCurrentExpression('concerned');
@@ -515,19 +528,22 @@ export const AiTeacher: React.FC = () => {
 
       setCurrentExpression(response.expression);
 
+      const cleanAnswer = stripEmojis(response.answer);
+      const cleanFollowUps = (response.suggestedFollowUps || []).map(stripEmojis);
+
       const novaMsgId = `msg-nova-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const aiMsg: NovaChatMessage = {
         id: novaMsgId,
         sender: 'nova',
-        text: response.answer,
+        text: cleanAnswer,
         expression: response.expression,
         sourceBadge: response.sourceBadge,
-        suggestedFollowUps: response.suggestedFollowUps,
+        suggestedFollowUps: cleanFollowUps,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
       setMessages((prev) => [...prev, aiMsg]);
-      speakText(response.answer, novaMsgId);
+      speakText(cleanAnswer, novaMsgId);
     } catch (err: any) {
       console.error(err);
       setCurrentExpression('concerned');
@@ -735,7 +751,7 @@ export const AiTeacher: React.FC = () => {
                 : 'bg-white text-[#0F172A] hover:bg-slate-50'
             }`}
           >
-            <span>💬 Socratic Discussion</span>
+            <span>Socratic Discussion</span>
             <span className="text-[9px] font-extrabold px-1 bg-white border border-[#0F172A]">INQUIRY</span>
           </button>
 
@@ -747,7 +763,7 @@ export const AiTeacher: React.FC = () => {
                 : 'bg-white text-[#0F172A] hover:bg-slate-50'
             }`}
           >
-            <span>🎓 Explain it to NOVA</span>
+            <span>Explain it to NOVA</span>
             <span className="text-[9px] font-extrabold px-1 bg-[#A7F3D0] border border-[#0F172A]">MASTERY</span>
           </button>
 
@@ -759,7 +775,7 @@ export const AiTeacher: React.FC = () => {
                 : 'bg-white text-[#0F172A] hover:bg-slate-50'
             }`}
           >
-            <span>⚡ Targeted Practice</span>
+            <span>Targeted Practice</span>
           </button>
 
           <button
@@ -770,7 +786,7 @@ export const AiTeacher: React.FC = () => {
                 : 'bg-white text-[#0F172A] hover:bg-slate-50'
             }`}
           >
-            <span>❓ Quick Concept Quiz</span>
+            <span>Quick Concept Quiz</span>
           </button>
 
           <button
@@ -781,7 +797,7 @@ export const AiTeacher: React.FC = () => {
                 : 'bg-white text-[#0F172A] hover:bg-slate-50'
             }`}
           >
-            <span>📝 3-Bullet Revision</span>
+            <span>3-Bullet Revision</span>
           </button>
         </div>
       </BrutalCard>
@@ -1177,9 +1193,10 @@ export const AiTeacher: React.FC = () => {
                         <button
                           key={idx}
                           onClick={() => handleSendMessage(prompt)}
-                          className="text-[10px] font-bold px-2 py-1 bg-white border border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-[#FDE68A] text-[#0F172A] transition-all text-left active:translate-x-[1px] active:translate-y-[1px]"
+                          className="text-[10px] font-bold px-2 py-1 bg-white border border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-[#FDE68A] text-[#0F172A] transition-all text-left active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1.5"
                         >
-                          💡 {prompt}
+                          <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                          <span>{prompt}</span>
                         </button>
                       ))}
                     </div>
@@ -1291,7 +1308,7 @@ export const AiTeacher: React.FC = () => {
                 {teachBackResult.badge_earned && (
                   <div className="bg-[#A7F3D0] border-2 border-[#0F172A] p-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">🏆</span>
+                      <Award className="w-5 h-5 text-amber-700 shrink-0" />
                       <div>
                         <span className="text-xs font-extrabold text-[#0F172A] block">
                           BADGE UNLOCKED: {teachBackResult.badge_earned.badge_name}

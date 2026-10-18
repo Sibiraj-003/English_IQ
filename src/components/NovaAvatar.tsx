@@ -95,7 +95,7 @@ export const NovaAvatar: React.FC<NovaAvatarProps> = ({
         };
       case 'celebrating':
         return {
-          label: 'BRILLIANT! 🎉',
+          label: 'BRILLIANT!',
           color: 'bg-[#A7F3D0]',
           ringColor: 'border-emerald-600',
           eyeShape: 'h-1.5 w-3.5 bg-[#0F172A] rounded-full rotate-6',

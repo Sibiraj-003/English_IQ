@@ -58,6 +58,8 @@ EVALUATION GUIDELINES (STRICT PEDAGOGICAL RULES):
    - INSTEAD say: "You remember the terms very well! Let's now practice connecting the reasons together."
 6. SOCRATIC FOLLOW-UP QUESTIONS:
    - Provide 2 thoughtful follow-up questions starting with "Why?", "How?", or "What would happen if...?"
+7. ZERO EMOJIS (CRITICAL FOR VOICE):
+   - NEVER include emojis or emoticons in feedback or questions. The speech engine reads out emoji names as text which breaks the learning voice flow. Keep text completely emoji-free.
 
 OUTPUT FORMAT (JSON ONLY):
 {
@@ -72,6 +74,16 @@ OUTPUT FORMAT (JSON ONLY):
   "feedback": "Encouraging, constructive feedback explaining strengths and what to deepen...",
   "follow_up_questions": ["What would happen if...", "Why does..."]
 }`;
+
+    const stripEmojis = (str: string): string => {
+      if (!str) return '';
+      return str
+        .replace(/\p{Extended_Pictographic}/gu, '')
+        .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{FE00}-\u{FE0F}\u{1F004}\u{1F0CF}\u{200D}\u{20E3}]/gu, '')
+        .replace(/\s+([.,!?:;])/g, (_m, p) => p)
+        .replace(/[^\S\r\n]{2,}/g, ' ')
+        .trim();
+    };
 
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
@@ -108,6 +120,11 @@ OUTPUT FORMAT (JSON ONLY):
           `What do you think is the most important step in this process?`,
         ],
       };
+    }
+
+    evalData.feedback = stripEmojis(evalData.feedback || '');
+    if (Array.isArray(evalData.follow_up_questions)) {
+      evalData.follow_up_questions = evalData.follow_up_questions.map(stripEmojis);
     }
 
     const recallScore = Math.min(100, Math.max(0, parseInt(evalData.recall_score, 10) || 75));
