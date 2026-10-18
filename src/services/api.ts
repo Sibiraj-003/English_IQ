@@ -1221,6 +1221,7 @@ export const api = {
     topic?: string;
     message: string;
     mode?: string;
+    student_reaction?: 'confused' | 'focused' | 'happy' | 'distracted' | 'thinking' | 'neutral';
     history?: Array<{ sender: 'student' | 'nova'; text: string }>;
   }): Promise<{
     answer: string;

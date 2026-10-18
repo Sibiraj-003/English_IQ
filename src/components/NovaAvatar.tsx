@@ -154,53 +154,18 @@ export const NovaAvatar: React.FC<NovaAvatarProps> = ({
 
         {/* Avatar Head container */}
         <div
-          className={`${sizeClasses} ${config.color} border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] rounded-sm flex flex-col items-center justify-between p-2 relative overflow-hidden transition-all duration-300`}
+          className={`${sizeClasses} bg-[#1E1B4B] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] rounded-md flex flex-col items-center justify-center relative overflow-hidden transition-all duration-300`}
         >
-          {/* Futuristic Cyber Antennas / Visor Grid */}
-          <div className="w-full flex justify-between items-center opacity-80">
-            <div className="w-1.5 h-1 bg-[#0F172A]" />
-            <div className="flex items-center gap-1">
-              <span className={`w-1 h-1 rounded-full ${config.indicator}`} />
-              <span className="w-1.5 h-0.5 bg-[#0F172A]" />
-              <span className={`w-1 h-1 rounded-full ${config.indicator}`} />
-            </div>
-            <div className="w-1.5 h-1 bg-[#0F172A]" />
-          </div>
-
-          {/* Expressive Digital Eyes */}
-          <div className="flex items-center gap-3 my-auto">
-            <div
-              className={`w-2.5 h-2.5 border border-[#0F172A] transition-all duration-200 ${config.eyeShape}`}
-            />
-            <div
-              className={`w-2.5 h-2.5 border border-[#0F172A] transition-all duration-200 ${config.eyeShape} ${
-                effectiveVoiceState === 'thinking' ? 'delay-100' : ''
-              }`}
-            />
-          </div>
-
-          {/* Expressive Mouth / Dynamic Speaking Equalizer */}
-          <div className="flex items-center justify-center h-3">
-            {config.mouthType === 'speaking' ? (
-              <div className="flex items-center gap-0.5">
-                <span className="w-0.5 bg-[#0F172A] h-2.5 animate-pulse" />
-                <span className="w-0.5 bg-[#0F172A] h-3.5 animate-pulse delay-75" />
-                <span className="w-0.5 bg-[#0F172A] h-1.5 animate-pulse delay-150" />
-                <span className="w-0.5 bg-[#0F172A] h-3 animate-pulse delay-100" />
-                <span className="w-0.5 bg-[#0F172A] h-2 animate-pulse" />
-              </div>
-            ) : config.mouthType === 'listening' ? (
-              <div className="w-4 h-1.5 bg-[#0F172A] rounded-full animate-pulse" />
-            ) : config.mouthType === 'laugh' ? (
-              <div className="w-5 h-2.5 bg-[#0F172A] rounded-b-full" />
-            ) : config.mouthType === 'concerned' ? (
-              <div className="w-3.5 h-1 border-t-2 border-[#0F172A] rounded-t-full" />
-            ) : config.mouthType === 'thinking' ? (
-              <div className="w-3 h-0.5 bg-[#0F172A]" />
-            ) : (
-              <div className="w-3.5 h-1.5 border-b-2 border-[#0F172A] rounded-b-full" />
-            )}
-          </div>
+          {/* Glowing Mini Halo */}
+          <div className="absolute top-0.5 w-6 h-1 rounded-full border border-indigo-300 bg-indigo-400/40 shadow-[0_0_8px_rgba(167,139,250,0.9)] animate-pulse z-10" />
+          <img
+            src="/assets/nova-robot.png"
+            alt="NOVA Avatar"
+            className="w-full h-full object-contain p-0.5 drop-shadow-[0_2px_6px_rgba(99,102,241,0.5)]"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/nova-robot.png';
+            }}
+          />
         </div>
 
         {/* Status Mini-Badge Icon */}

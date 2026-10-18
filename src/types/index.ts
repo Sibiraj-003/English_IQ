@@ -719,6 +719,9 @@ export interface CameraAnalysisResult {
   signal_notes: string;
   potential_anomaly: boolean;
   anomaly_type?: 'face_not_detected' | 'multiple_persons_detected' | 'repeated_looking_away';
+  student_reaction?: 'confused' | 'focused' | 'happy' | 'distracted' | 'thinking' | 'neutral';
+  reaction_confidence?: number;
+  pedagogical_suggestion?: string;
 }
 
 export interface StudentLearningProfile {

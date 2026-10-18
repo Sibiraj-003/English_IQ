@@ -13,7 +13,7 @@ const router = Router();
 router.post('/chat', async (req: AuthenticatedRequest, res) => {
   try {
     const user = extractUser(req);
-    const { student_id, class_id, section_id, subject_id, book_id, topic, message, mode, history } = req.body;
+    const { student_id, class_id, section_id, subject_id, book_id, topic, message, mode, history, student_reaction } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
@@ -31,6 +31,7 @@ router.post('/chat', async (req: AuthenticatedRequest, res) => {
       topic,
       message,
       mode: mode || 'chat',
+      student_reaction,
       history,
     });
 

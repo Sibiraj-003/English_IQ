@@ -88,3 +88,49 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
+
+/* NOVA Robot Companion Animations */
+@keyframes novaFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes haloPulse {
+  0%, 100% {
+    opacity: 0.75;
+    filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.8));
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 18px rgba(196, 181, 253, 1));
+    transform: scale(1.06);
+  }
+}
+
+@keyframes audioWaveBar {
+  0%, 100% {
+    height: 4px;
+    opacity: 0.5;
+  }
+  50% {
+    height: 20px;
+    opacity: 1;
+  }
+}
+
+.animate-nova-float {
+  animation: novaFloat 3.5s ease-in-out infinite;
+}
+
+.animate-halo-pulse {
+  animation: haloPulse 2s ease-in-out infinite;
+}
+
+.animate-audio-wave {
+  animation: audioWaveBar 1.2s ease-in-out infinite;
+}

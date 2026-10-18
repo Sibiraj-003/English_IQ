@@ -4,6 +4,7 @@ import { BrutalButton } from '../../components/BrutalButton';
 import { Badge } from '../../components/Badge';
 import { SourceBadge } from '../../components/SourceBadge';
 import { NovaAvatar, NovaVoiceState } from '../../components/NovaAvatar';
+import { NovaRobotCompanion } from '../../components/NovaRobotCompanion';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -23,6 +24,7 @@ import {
   VolumeX,
   Camera,
   CameraOff,
+  Bot,
   BookOpen,
   Brain,
   Award,
@@ -365,6 +367,8 @@ export const AiTeacher: React.FC = () => {
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraAnalysis, setCameraAnalysis] = useState<CameraAnalysisResult | null>(null);
   const [cameraNotice, setCameraNotice] = useState<string | null>(null);
+  const [isCompanionExpanded, setIsCompanionExpanded] = useState(true);
+  const [showMobileCompanion, setShowMobileCompanion] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
@@ -375,7 +379,8 @@ export const AiTeacher: React.FC = () => {
         mediaStreamRef.current = null;
       }
       setCameraActive(false);
-      setCameraNotice('Camera disabled. NOVA continues normally via text and audio.');
+      setCameraAnalysis(null);
+      setCameraNotice('Camera disabled. NOVA continues via text and voice.');
       return;
     }
 
@@ -387,10 +392,10 @@ export const AiTeacher: React.FC = () => {
       mediaStreamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
       }
       setCameraActive(true);
-      setCameraNotice('Optional presence monitor active. Snapshots only; never recorded.');
-      setTimeout(() => captureAndAnalyzeFrame(), 1500);
+      setCameraNotice('Live reaction monitor active. NOVA adapts explanations to your facial reactions.');
     } catch (err: any) {
       console.warn('Camera access denied:', err);
       setCameraNotice('Camera optional. NOVA operates 100% through text & real-time voice.');
@@ -398,8 +403,8 @@ export const AiTeacher: React.FC = () => {
     }
   };
 
-  const captureAndAnalyzeFrame = async () => {
-    if (!videoRef.current || !cameraActive) return;
+  const captureAndAnalyzeFrame = useCallback(async () => {
+    if (!videoRef.current || !mediaStreamRef.current) return;
     try {
       const canvas = document.createElement('canvas');
       canvas.width = 320;
@@ -415,10 +420,51 @@ export const AiTeacher: React.FC = () => {
         context: 'study_presence',
       });
       setCameraAnalysis(res.analysis);
+
+      // Dynamically react based on detected facial emotion
+      if (res.analysis?.student_reaction === 'confused') {
+        setCurrentExpression('concerned');
+      } else if (res.analysis?.student_reaction === 'happy') {
+        setCurrentExpression('celebrating');
+      } else if (res.analysis?.student_reaction === 'thinking') {
+        setCurrentExpression('thinking');
+      } else if (res.analysis?.student_reaction === 'focused') {
+        setCurrentExpression('explaining');
+      }
     } catch (err) {
       console.warn('Frame capture notice:', err);
     }
-  };
+  }, [user?.id]);
+
+  // Periodic student reaction monitor when camera is active
+  useEffect(() => {
+    if (!cameraActive) return;
+
+    // Fast initial frame analysis
+    const initialTimer = setTimeout(() => {
+      captureAndAnalyzeFrame();
+    }, 1200);
+
+    // Continuous loop every 7 seconds
+    const interval = setInterval(() => {
+      captureAndAnalyzeFrame();
+    }, 7000);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
+  }, [cameraActive, captureAndAnalyzeFrame]);
+
+  // Keep videoRef srcObject in sync when video element mounts
+  useEffect(() => {
+    if (cameraActive && mediaStreamRef.current && videoRef.current) {
+      if (videoRef.current.srcObject !== mediaStreamRef.current) {
+        videoRef.current.srcObject = mediaStreamRef.current;
+        videoRef.current.play().catch(() => {});
+      }
+    }
+  }, [cameraActive]);
 
   // ==========================================
   // 5. STUDY SESSION TRACKING & HEARTBEAT
@@ -871,6 +917,7 @@ export const AiTeacher: React.FC = () => {
         topic: selectedTopic,
         message: textToSend,
         mode,
+        student_reaction: cameraAnalysis?.student_reaction,
         history: historyPayload,
       });
 
@@ -1613,8 +1660,18 @@ export const AiTeacher: React.FC = () => {
               </div>
             </div>
 
-            {/* Header Right: Share Chat, Audio Toggle & Quick Interruption Button */}
+            {/* Header Right: Mobile HUD Toggle, Share Chat, Audio Toggle & Quick Interruption Button */}
             <div className="flex items-center gap-1.5 shrink-0">
+              {/* Mobile Companion HUD Toggle */}
+              <button
+                onClick={() => setShowMobileCompanion(true)}
+                className="lg:hidden flex items-center gap-1 px-2 py-1 text-xs font-extrabold bg-[#A7F3D0] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] transition-all text-[#0F172A]"
+                title="Open Animated AI Companion HUD"
+              >
+                <Bot className="w-3.5 h-3.5" />
+                <span className="inline">AI HUD</span>
+              </button>
+
               {/* Share Active Chat */}
               <button
                 onClick={() => {
@@ -1692,343 +1749,408 @@ export const AiTeacher: React.FC = () => {
             </div>
           )}
 
-          {/* SCROLLABLE CONVERSATION STREAM (FLEX-1 INTERNALLY SCROLLING ONLY) */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5 bg-[#F8FAFC]">
-            {messages.map((m) => {
-              const isCurrentlyPlaying = speakingMessageId === m.id;
-              return (
-                <div
-                  key={m.id}
-                  className={`flex flex-col ${
-                    m.sender === 'student' ? 'items-end' : 'items-start'
-                  }`}
-                >
-                  <div
-                    className={`max-w-[90%] sm:max-w-[85%] p-3 border-2 border-[#0F172A] transition-all ${
-                      isCurrentlyPlaying
-                        ? 'border-indigo-600 bg-[#F5F3FF] shadow-[3px_3px_0px_#4338CA]'
-                        : m.sender === 'student'
-                        ? 'bg-[#0F172A] text-white shadow-[2px_2px_0px_#0F172A]'
-                        : 'bg-white text-[#0F172A] shadow-[2px_2px_0px_#0F172A]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-4 mb-1 border-b border-slate-300/40 pb-0.5 text-[9px] font-bold opacity-80 uppercase">
-                      <span className="flex items-center gap-1.5">
-                        {m.sender === 'student' ? 'YOU (SCHOLAR)' : 'NOVA MENTOR'}
-                        {isCurrentlyPlaying && (
-                          <span className="px-1 py-0.2 bg-[#C4B5FD] text-[#0F172A] border border-[#0F172A] text-[8px] font-extrabold animate-pulse">
-                            SPEAKING NOW
-                          </span>
-                        )}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        {m.sender === 'nova' && (
-                          <button
-                            onClick={() => {
-                              if (isCurrentlyPlaying) {
-                                interruptNova();
-                              } else {
-                                speakText(m.text, m.id, true);
-                              }
-                            }}
-                            className="p-0.5 hover:bg-slate-200 border border-[#0F172A] bg-white text-[#0F172A] transition-colors"
-                            title={isCurrentlyPlaying ? 'Stop playback' : 'Replay speech'}
-                          >
-                            {isCurrentlyPlaying ? (
-                              <Square className="w-2.5 h-2.5 fill-current" />
-                            ) : (
-                              <Volume2 className="w-2.5 h-2.5" />
-                            )}
-                          </button>
-                        )}
-                        <span>{m.timestamp}</span>
-                      </div>
-                    </div>
-
-                    <div className="whitespace-pre-wrap font-sans text-xs sm:text-sm leading-relaxed">
-                      {m.text}
-                    </div>
-
-                    {/* Textbook Grounding Source Badge */}
-                    {m.sourceBadge && (
-                      <div className="mt-2 pt-1.5 border-t border-slate-200">
-                        <SourceBadge
-                          bookTitle={m.sourceBadge.bookTitle}
-                          pageNumber={m.sourceBadge.pageNumber}
-                          lessonTitle={m.sourceBadge.lessonTitle}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Socratic Follow-up Prompts */}
-                  {m.suggestedFollowUps && m.suggestedFollowUps.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5 max-w-[90%] sm:max-w-[85%]">
-                      {m.suggestedFollowUps.map((prompt, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => handleSendMessage(prompt)}
-                          className="text-[10px] font-bold px-2 py-0.5 bg-white border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] hover:bg-[#FDE68A] text-[#0F172A] transition-all text-left active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1"
+          {/* TWO-COLUMN WORKSPACE: CONVERSATION STREAM (LEFT) + ANIMATED AI COMPANION (RIGHT) */}
+          <div className="flex-1 min-h-0 flex flex-row overflow-hidden bg-[#F8FAFC]">
+            {/* LEFT / CENTER: CONVERSATION STREAM WITH PROPORTIONAL, CRISP TYPOGRAPHY */}
+            <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-[#F8FAFC]">
+              {/* SCROLLABLE CONVERSATION STREAM */}
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
+                <div className="max-w-3xl w-full mx-auto space-y-4">
+                  {messages.map((m) => {
+                    const isCurrentlyPlaying = speakingMessageId === m.id;
+                    return (
+                      <div
+                        key={m.id}
+                        className={`flex flex-col w-full ${
+                          m.sender === 'student' ? 'items-end' : 'items-start'
+                        }`}
+                      >
+                        <div
+                          className={`p-4 border-2 border-[#0F172A] transition-all rounded-xs ${
+                            isCurrentlyPlaying
+                              ? 'border-indigo-600 bg-[#F5F3FF] shadow-[4px_4px_0px_#4338CA] max-w-2xl w-full'
+                              : m.sender === 'student'
+                              ? 'bg-[#0F172A] text-white shadow-[3px_3px_0px_#0F172A] max-w-lg w-auto ml-auto'
+                              : 'bg-white text-[#0F172A] shadow-[3px_3px_0px_#0F172A] max-w-2xl w-full'
+                          }`}
                         >
-                          <Sparkles className="w-2.5 h-2.5 text-amber-600 shrink-0" />
-                          <span>{prompt}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                          <div
+                            className={`flex items-center justify-between gap-4 mb-2 border-b pb-1.5 text-xs font-mono font-bold uppercase tracking-wider ${
+                              m.sender === 'student'
+                                ? 'border-slate-700 text-slate-300'
+                                : 'border-slate-200 text-slate-700'
+                            }`}
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <span
+                                className={`w-2 h-2 rounded-full ${
+                                  m.sender === 'student' ? 'bg-emerald-400' : 'bg-indigo-500'
+                                }`}
+                              />
+                              <span>{m.sender === 'student' ? 'YOU (SCHOLAR)' : 'NOVA MENTOR'}</span>
+                              {isCurrentlyPlaying && (
+                                <span className="px-1.5 py-0.2 bg-[#C4B5FD] text-[#0F172A] border border-[#0F172A] text-[9px] font-extrabold animate-pulse">
+                                  SPEAKING NOW
+                                </span>
+                              )}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {m.sender === 'nova' && (
+                                <button
+                                  onClick={() => {
+                                    if (isCurrentlyPlaying) {
+                                      interruptNova();
+                                    } else {
+                                      speakText(m.text, m.id, true);
+                                    }
+                                  }}
+                                  className="p-1 hover:bg-slate-200 border border-[#0F172A] bg-white text-[#0F172A] transition-colors"
+                                  title={isCurrentlyPlaying ? 'Stop playback' : 'Replay speech'}
+                                >
+                                  {isCurrentlyPlaying ? (
+                                    <Square className="w-3 h-3 fill-current" />
+                                  ) : (
+                                    <Volume2 className="w-3 h-3" />
+                                  )}
+                                </button>
+                              )}
+                              <span className="text-[11px] font-semibold opacity-75">{m.timestamp}</span>
+                            </div>
+                          </div>
 
-            {/* LIVE INTERIM TRANSCRIPT BADGE */}
-            {interimTranscript && (
-              <div className="flex items-start gap-2 p-2 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] max-w-md animate-fade-in">
-                <Mic className="w-3.5 h-3.5 text-emerald-600 animate-pulse shrink-0 mt-0.5" />
-                <div>
-                  <div className="flex items-center gap-1 mb-0.5">
-                    <span className="text-[9px] font-extrabold uppercase text-emerald-800">
-                      LISTENING IN REAL-TIME...
-                    </span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                  </div>
-                  <p className="font-sans text-xs text-[#0F172A] italic font-semibold">
-                    "{interimTranscript}"
-                  </p>
-                </div>
-              </div>
-            )}
+                          <div
+                            className={`whitespace-pre-wrap font-sans text-[15px] sm:text-base leading-relaxed ${
+                              m.sender === 'student' ? 'text-white' : 'text-[#0F172A]'
+                            }`}
+                          >
+                            {m.text}
+                          </div>
 
-            {/* THINKING INDICATOR */}
-            {loading && (
-              <div className="flex items-center gap-2 p-2 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] max-w-xs">
-                <Brain className="w-3.5 h-3.5 text-[#0F172A] animate-spin" />
-                <span className="text-xs font-extrabold text-[#0F172A]">
-                  NOVA is analyzing concepts...
-                </span>
-              </div>
-            )}
+                          {/* Textbook Grounding Source Badge */}
+                          {m.sourceBadge && (
+                            <div className="mt-3 pt-2 border-t border-slate-200">
+                              <SourceBadge
+                                bookTitle={m.sourceBadge.bookTitle}
+                                pageNumber={m.sourceBadge.pageNumber}
+                                lessonTitle={m.sourceBadge.lessonTitle}
+                              />
+                            </div>
+                          )}
+                        </div>
 
-            {/* TEACH-BACK EVALUATION REPORT */}
-            {teachBackResult && (
-              <div className="p-3 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] space-y-2">
-                <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <Award className="w-4 h-4 text-amber-600" />
-                    <span className="font-extrabold text-xs text-[#0F172A] uppercase">
-                      Concept Mastery Evaluation
-                    </span>
-                  </div>
-                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-[#A7F3D0] border border-[#0F172A] uppercase">
-                    STATUS: {teachBackResult.mastery_level}
-                  </span>
-                </div>
+                        {/* Socratic Follow-up Prompts */}
+                        {m.suggestedFollowUps && m.suggestedFollowUps.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2 max-w-2xl">
+                            {m.suggestedFollowUps.map((prompt, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => handleSendMessage(prompt)}
+                                className="text-xs font-bold px-3 py-1 bg-white border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-[#FDE68A] text-[#0F172A] transition-all text-left active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1.5"
+                              >
+                                <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                                <span>{prompt}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
 
-                <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                  <div className="bg-white p-1.5 border border-[#0F172A]">
-                    <div className="flex justify-between font-bold mb-0.5">
-                      <span>FACTUAL RECALL:</span>
-                      <span className="font-extrabold text-blue-700">{teachBackResult.recall_score}%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-1.5 border border-[#0F172A] overflow-hidden">
-                      <div className="bg-blue-500 h-full" style={{ width: `${teachBackResult.recall_score}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-1.5 border border-[#0F172A]">
-                    <div className="flex justify-between font-bold mb-0.5">
-                      <span>UNDERSTANDING:</span>
-                      <span className="font-extrabold text-emerald-700">
-                        {teachBackResult.understanding_score}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-1.5 border border-[#0F172A] overflow-hidden">
-                      <div
-                        className="bg-emerald-500 h-full"
-                        style={{ width: `${teachBackResult.understanding_score}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-1.5 border border-[#0F172A]">
-                    <div className="flex justify-between font-bold mb-0.5">
-                      <span>IN OWN WORDS:</span>
-                      <span className="font-extrabold text-purple-700">
-                        {teachBackResult.in_own_words_score}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-1.5 border border-[#0F172A] overflow-hidden">
-                      <div
-                        className="bg-purple-500 h-full"
-                        style={{ width: `${teachBackResult.in_own_words_score}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-1.5 border border-[#0F172A]">
-                    <div className="flex justify-between font-bold mb-0.5">
-                      <span>REASONING:</span>
-                      <span className="font-extrabold text-amber-700">
-                        {teachBackResult.cause_effect_score}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-1.5 border border-[#0F172A] overflow-hidden">
-                      <div
-                        className="bg-amber-500 h-full"
-                        style={{ width: `${teachBackResult.cause_effect_score}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {teachBackResult.badge_earned && (
-                  <div className="bg-[#A7F3D0] border-2 border-[#0F172A] p-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Award className="w-5 h-5 text-amber-700 shrink-0" />
+                  {/* LIVE INTERIM TRANSCRIPT BADGE */}
+                  {interimTranscript && (
+                    <div className="flex items-start gap-2.5 p-3 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] max-w-md animate-fade-in">
+                      <Mic className="w-4 h-4 text-emerald-600 animate-pulse shrink-0 mt-0.5" />
                       <div>
-                        <span className="text-xs font-extrabold text-[#0F172A] block">
-                          BADGE UNLOCKED: {teachBackResult.badge_earned.badge_name}
-                        </span>
-                        <p className="text-[10px] text-slate-700">
-                          {teachBackResult.badge_earned.description}
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-[10px] font-extrabold uppercase text-emerald-800">
+                            LISTENING IN REAL-TIME...
+                          </span>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        </div>
+                        <p className="font-sans text-sm text-[#0F172A] italic font-semibold">
+                          "{interimTranscript}"
                         </p>
                       </div>
                     </div>
-                    <Badge variant="lavender">VERIFIED</Badge>
-                  </div>
-                )}
+                  )}
+
+                  {/* THINKING INDICATOR */}
+                  {loading && (
+                    <div className="flex items-center gap-2.5 p-3 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] max-w-xs">
+                      <Brain className="w-4 h-4 text-[#0F172A] animate-spin" />
+                      <span className="text-xs font-extrabold text-[#0F172A]">
+                        NOVA is analyzing concepts...
+                      </span>
+                    </div>
+                  )}
+
+                  {/* TEACH-BACK EVALUATION REPORT */}
+                  {teachBackResult && (
+                    <div className="p-4 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] space-y-3">
+                      <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-2">
+                        <div className="flex items-center gap-2">
+                          <Award className="w-5 h-5 text-amber-600" />
+                          <span className="font-extrabold text-sm text-[#0F172A] uppercase">
+                            Concept Mastery Evaluation
+                          </span>
+                        </div>
+                        <span className="text-xs font-extrabold px-2 py-0.5 bg-[#A7F3D0] border border-[#0F172A] uppercase">
+                          STATUS: {teachBackResult.mastery_level}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5 text-xs font-mono">
+                        <div className="bg-white p-2 border border-[#0F172A]">
+                          <div className="flex justify-between font-bold mb-1">
+                            <span>FACTUAL RECALL:</span>
+                            <span className="font-extrabold text-blue-700">{teachBackResult.recall_score}%</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 border border-[#0F172A] overflow-hidden">
+                            <div className="bg-blue-500 h-full" style={{ width: `${teachBackResult.recall_score}%` }} />
+                          </div>
+                        </div>
+
+                        <div className="bg-white p-2 border border-[#0F172A]">
+                          <div className="flex justify-between font-bold mb-1">
+                            <span>UNDERSTANDING:</span>
+                            <span className="font-extrabold text-emerald-700">
+                              {teachBackResult.understanding_score}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 border border-[#0F172A] overflow-hidden">
+                            <div
+                              className="bg-emerald-500 h-full"
+                              style={{ width: `${teachBackResult.understanding_score}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="bg-white p-2 border border-[#0F172A]">
+                          <div className="flex justify-between font-bold mb-1">
+                            <span>IN OWN WORDS:</span>
+                            <span className="font-extrabold text-purple-700">
+                              {teachBackResult.in_own_words_score}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 border border-[#0F172A] overflow-hidden">
+                            <div
+                              className="bg-purple-500 h-full"
+                              style={{ width: `${teachBackResult.in_own_words_score}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="bg-white p-2 border border-[#0F172A]">
+                          <div className="flex justify-between font-bold mb-1">
+                            <span>REASONING:</span>
+                            <span className="font-extrabold text-amber-700">
+                              {teachBackResult.cause_effect_score}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 border border-[#0F172A] overflow-hidden">
+                            <div
+                              className="bg-amber-500 h-full"
+                              style={{ width: `${teachBackResult.cause_effect_score}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {teachBackResult.badge_earned && (
+                        <div className="bg-[#A7F3D0] border-2 border-[#0F172A] p-2.5 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Award className="w-5 h-5 text-amber-700 shrink-0" />
+                            <div>
+                              <span className="text-xs font-extrabold text-[#0F172A] block">
+                                BADGE UNLOCKED: {teachBackResult.badge_earned.badge_name}
+                              </span>
+                              <p className="text-xs text-slate-700">
+                                {teachBackResult.badge_earned.description}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge variant="lavender">VERIFIED</Badge>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div ref={messagesEndRef} />
+                </div>
               </div>
-            )}
 
-            <div ref={messagesEndRef} />
-          </div>
+              {/* VOICE INTERACTION STATE BANNER (SLIM) */}
+              <div className="px-3 py-1.5 border-t-2 border-[#0F172A] bg-[#F1F5F9] flex items-center justify-between text-xs shrink-0">
+                <div className="flex items-center gap-2">
+                  {voiceState === 'listening' ? (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+                      <span className="font-extrabold text-emerald-800">NOVA IS LISTENING...</span>
+                    </>
+                  ) : voiceState === 'thinking' ? (
+                    <>
+                      <Brain className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                      <span className="font-extrabold text-amber-800">NOVA IS THINKING...</span>
+                    </>
+                  ) : voiceState === 'speaking' ? (
+                    <>
+                      <Volume2 className="w-3.5 h-3.5 text-indigo-700 animate-pulse" />
+                      <span className="font-extrabold text-indigo-900">NOVA IS SPEAKING...</span>
+                    </>
+                  ) : voiceState === 'error' ? (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
+                      <span className="font-extrabold text-rose-800">
+                        {voiceErrorNotice || 'MIC NOTICE'}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      <span className="font-bold text-slate-600">
+                        {channelMode === 'live'
+                          ? 'Live Voice Ready'
+                          : channelMode === 'voice'
+                          ? 'Tap mic to speak'
+                          : 'Type or click mic to speak'}
+                      </span>
+                    </>
+                  )}
+                </div>
 
-          {/* ==========================================
-              VOICE INTERACTION STATE BANNER (SLIM)
-             ========================================== */}
-          <div className="px-3 py-1 border-t-2 border-[#0F172A] bg-[#F1F5F9] flex items-center justify-between text-[11px] shrink-0">
-            <div className="flex items-center gap-2">
-              {voiceState === 'listening' ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                  <span className="font-extrabold text-emerald-800">NOVA IS LISTENING...</span>
-                </>
-              ) : voiceState === 'thinking' ? (
-                <>
-                  <Brain className="w-3 h-3 text-amber-600 animate-spin" />
-                  <span className="font-extrabold text-amber-800">NOVA IS THINKING...</span>
-                </>
-              ) : voiceState === 'speaking' ? (
-                <>
-                  <Volume2 className="w-3 h-3 text-indigo-700 animate-pulse" />
-                  <span className="font-extrabold text-indigo-900">NOVA IS SPEAKING...</span>
-                </>
-              ) : voiceState === 'error' ? (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-rose-600" />
-                  <span className="font-extrabold text-rose-800">
-                    {voiceErrorNotice || 'MIC NOTICE'}
+                {/* Quick Actions in Status Bar */}
+                <div className="flex items-center gap-2">
+                  {voiceState === 'speaking' && (
+                    <button
+                      onClick={interruptNova}
+                      className="text-[10px] font-extrabold px-1.5 py-0.5 bg-[#FED7AA] border border-[#0F172A] hover:bg-rose-200"
+                    >
+                      INTERRUPT
+                    </button>
+                  )}
+                  {voiceState === 'listening' && channelMode !== 'live' && (
+                    <button
+                      onClick={stopListeningSafely}
+                      className="text-[10px] font-extrabold px-1.5 py-0.5 bg-slate-200 border border-[#0F172A]"
+                    >
+                      DONE SPEAKING
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* BOTTOM MESSAGE COMPOSER (ALWAYS PINNED) */}
+              <div className="p-3 bg-white border-t-2 border-[#0F172A] flex items-center gap-2 shrink-0">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSendMessage();
+                  }}
+                  disabled={loading}
+                  placeholder={
+                    channelMode === 'live'
+                      ? `Live voice active — speak naturally or type here...`
+                      : mode === 'teach_back'
+                      ? `Explain ${selectedTopic} in your own words...`
+                      : `Ask NOVA about ${selectedTopic}...`
+                  }
+                  className="flex-1 text-sm font-semibold p-2.5 bg-[#F8FAFC] border-2 border-[#0F172A] placeholder:text-slate-400 focus:outline-hidden"
+                />
+
+                {/* Microphone Voice Button */}
+                <button
+                  onClick={() => {
+                    if (voiceState === 'listening') {
+                      stopListeningSafely();
+                    } else {
+                      if (isSpeaking) interruptNova();
+                      startListeningSafely();
+                    }
+                  }}
+                  className={`p-2.5 border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] transition-all active:translate-x-[1px] active:translate-y-[1px] shrink-0 ${
+                    voiceState === 'listening'
+                      ? 'bg-red-500 text-white animate-pulse'
+                      : 'bg-white text-[#0F172A] hover:bg-[#FDE68A]'
+                  }`}
+                  title={
+                    voiceState === 'listening'
+                      ? 'Listening... click to pause'
+                      : 'Click to speak to NOVA'
+                  }
+                >
+                  {voiceState === 'listening' ? (
+                    <MicOff className="w-4 h-4" />
+                  ) : (
+                    <Mic className="w-4 h-4" />
+                  )}
+                </button>
+
+                {/* Send / Evaluate Button */}
+                <BrutalButton
+                  onClick={() => handleSendMessage()}
+                  disabled={loading || !input.trim()}
+                  variant="primary"
+                  className="py-2.5 px-4 text-xs font-extrabold shrink-0"
+                >
+                  <Send className="w-4 h-4" />
+                  <span className="hidden sm:inline">
+                    {mode === 'teach_back' ? 'EVALUATE' : 'SEND'}
                   </span>
-                </>
-              ) : (
-                <>
-                  <span className="w-2 h-2 rounded-full bg-slate-400" />
-                  <span className="font-bold text-slate-600">
-                    {channelMode === 'live'
-                      ? 'Live Voice Ready'
-                      : channelMode === 'voice'
-                      ? 'Tap mic to speak'
-                      : 'Type or click mic to speak'}
-                  </span>
-                </>
-              )}
+                </BrutalButton>
+              </div>
             </div>
 
-            {/* Quick Actions in Status Bar */}
-            <div className="flex items-center gap-2">
-              {voiceState === 'speaking' && (
-                <button
-                  onClick={interruptNova}
-                  className="text-[10px] font-extrabold px-1.5 py-0.2 bg-[#FED7AA] border border-[#0F172A] hover:bg-rose-200"
-                >
-                  INTERRUPT
-                </button>
-              )}
-              {voiceState === 'listening' && channelMode !== 'live' && (
-                <button
-                  onClick={stopListeningSafely}
-                  className="text-[10px] font-extrabold px-1.5 py-0.2 bg-slate-200 border border-[#0F172A]"
-                >
-                  DONE SPEAKING
-                </button>
-              )}
+            {/* RIGHT MAIN COMPANION DOCK (POSITIONED RIGHT HERE AS REQUESTED) */}
+            <div className="hidden lg:flex w-72 xl:w-80 border-l-2 border-[#0F172A] bg-[#0F172A] flex-col shrink-0 h-full overflow-y-auto p-3">
+              <NovaRobotCompanion
+                expression={currentExpression}
+                voiceState={voiceState}
+                isSpeaking={isSpeaking}
+                isThinking={loading}
+                cameraActive={cameraActive}
+                onToggleCamera={toggleCamera}
+                cameraAnalysis={cameraAnalysis}
+                videoRef={videoRef}
+                onReactionHelpClick={(prompt) => handleSendMessage(prompt)}
+                isCompact={!isCompanionExpanded}
+                onToggleCompact={() => setIsCompanionExpanded((prev) => !prev)}
+              />
             </div>
-          </div>
-
-          {/* ==========================================
-              BOTTOM MESSAGE COMPOSER (ALWAYS PINNED)
-             ========================================== */}
-          <div className="p-2 bg-white border-t-2 border-[#0F172A] flex items-center gap-2 shrink-0">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSendMessage();
-              }}
-              disabled={loading}
-              placeholder={
-                channelMode === 'live'
-                  ? `Live voice active — speak naturally or type here...`
-                  : mode === 'teach_back'
-                  ? `Explain ${selectedTopic} in your own words...`
-                  : `Ask NOVA about ${selectedTopic}...`
-              }
-              className="flex-1 text-xs font-bold p-2 bg-[#F8FAFC] border-2 border-[#0F172A] placeholder:text-slate-400 focus:outline-hidden"
-            />
-
-            {/* Microphone Voice Button */}
-            <button
-              onClick={() => {
-                if (voiceState === 'listening') {
-                  stopListeningSafely();
-                } else {
-                  if (isSpeaking) interruptNova();
-                  startListeningSafely();
-                }
-              }}
-              className={`p-2 border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] transition-all active:translate-x-[1px] active:translate-y-[1px] shrink-0 ${
-                voiceState === 'listening'
-                  ? 'bg-red-500 text-white animate-pulse'
-                  : 'bg-white text-[#0F172A] hover:bg-[#FDE68A]'
-              }`}
-              title={
-                voiceState === 'listening'
-                  ? 'Listening... click to pause'
-                  : 'Click to speak to NOVA'
-              }
-            >
-              {voiceState === 'listening' ? (
-                <MicOff className="w-4 h-4" />
-              ) : (
-                <Mic className="w-4 h-4" />
-              )}
-            </button>
-
-            {/* Send / Evaluate Button */}
-            <BrutalButton
-              onClick={() => handleSendMessage()}
-              disabled={loading || !input.trim()}
-              variant="primary"
-              className="py-2 px-3 text-xs font-extrabold shrink-0"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">
-                {mode === 'teach_back' ? 'EVALUATE' : 'SEND'}
-              </span>
-            </BrutalButton>
           </div>
         </div>
       </div>
+
+      {/* MOBILE COMPANION MODAL / POPUP (< 1024px) */}
+      {showMobileCompanion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 lg:hidden">
+          <div className="relative w-full max-w-sm bg-[#0F172A] border-4 border-[#0F172A] shadow-[6px_6px_0px_#0F172A] rounded-lg p-2 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setShowMobileCompanion(false)}
+              className="absolute top-3 right-3 z-30 p-1 bg-white text-[#0F172A] border-2 border-[#0F172A] font-black hover:bg-rose-200"
+              title="Close Companion HUD"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <NovaRobotCompanion
+              expression={currentExpression}
+              voiceState={voiceState}
+              isSpeaking={isSpeaking}
+              isThinking={loading}
+              cameraActive={cameraActive}
+              onToggleCamera={toggleCamera}
+              cameraAnalysis={cameraAnalysis}
+              videoRef={videoRef}
+              onReactionHelpClick={(prompt) => {
+                handleSendMessage(prompt);
+                setShowMobileCompanion(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ==========================================
           MOBILE SLIDE-OVER DRAWER (< 1024px)
