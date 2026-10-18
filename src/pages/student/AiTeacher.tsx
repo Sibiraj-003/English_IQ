@@ -246,13 +246,27 @@ export const AiTeacher: React.FC = () => {
     window.speechSynthesis.onvoiceschanged = updateVoices;
   }, []);
 
-  // Text-To-Speech function
+  // Text-To-Speech function: Only plays automatically when in voice or live mode, or on explicit button click
   const speakText = useCallback(
-    (text: string, messageId?: string) => {
+    (text: string, messageId?: string, isManualListenClick = false) => {
       if (!('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
 
-      if (!audioEnabled && channelModeRef.current === 'text') return;
+      // In TEXT mode, never automatically speak unless student explicitly clicked listen on that message
+      if (channelModeRef.current === 'text' && !isManualListenClick) {
+        setIsSpeaking(false);
+        setSpeakingMessageId(null);
+        setVoiceState('idle');
+        return;
+      }
+
+      // If user toggled voice off, don't speak
+      if (!audioEnabled && !isManualListenClick) {
+        setIsSpeaking(false);
+        setSpeakingMessageId(null);
+        setVoiceState('idle');
+        return;
+      }
 
       // Clean out emojis and markdown symbols so speech engine pronounces clean sentences without reading emojis
       const cleanText = stripEmojis(text)
@@ -819,7 +833,9 @@ export const AiTeacher: React.FC = () => {
 
         setMessages((prev) => [...prev, novaResponseMsg]);
         appendMessageToCurrentSession(novaResponseMsg);
-        speakText(cleanFeedback, novaMsgId);
+        if (channelModeRef.current === 'voice' || channelModeRef.current === 'live') {
+          speakText(cleanFeedback, novaMsgId);
+        }
       } catch (err: any) {
         console.error(err);
         setCurrentExpression('concerned');
@@ -876,7 +892,9 @@ export const AiTeacher: React.FC = () => {
 
       setMessages((prev) => [...prev, aiMsg]);
       appendMessageToCurrentSession(aiMsg);
-      speakText(cleanAnswer, novaMsgId);
+      if (channelModeRef.current === 'voice' || channelModeRef.current === 'live') {
+        speakText(cleanAnswer, novaMsgId);
+      }
     } catch (err: any) {
       console.error(err);
       setCurrentExpression('concerned');
@@ -1710,7 +1728,7 @@ export const AiTeacher: React.FC = () => {
                               if (isCurrentlyPlaying) {
                                 interruptNova();
                               } else {
-                                speakText(m.text, m.id);
+                                speakText(m.text, m.id, true);
                               }
                             }}
                             className="p-0.5 hover:bg-slate-200 border border-[#0F172A] bg-white text-[#0F172A] transition-colors"

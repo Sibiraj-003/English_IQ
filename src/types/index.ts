@@ -48,6 +48,7 @@ export interface SchoolClass {
   name: string;
   grade: number;
   description: string;
+  school_id?: string;
   books_count?: number;
   lessons_count?: number;
   students_count?: number;

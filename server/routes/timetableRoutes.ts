@@ -54,13 +54,19 @@ router.get('/', (req: AuthenticatedRequest, res) => {
 
 // POST /api/timetables - Admin creates a timetable period with conflict prevention
 router.post('/', requireAdmin, (req: AuthenticatedRequest, res) => {
-  const { section_id, subject_id, teacher_id, day_of_week, period_number, start_time, end_time, room } = req.body;
+  const { section_id, class_id, subject_id, teacher_id, day_of_week, period_number, start_time, end_time, room, room_number } = req.body;
 
-  if (!section_id || !subject_id || !teacher_id || day_of_week === undefined || period_number === undefined || !start_time || !end_time) {
-    return res.status(400).json({ error: 'section_id, subject_id, teacher_id, day_of_week (1-6), period_number (1-8), start_time, and end_time are required' });
+  let targetSectionId = section_id;
+  if (!targetSectionId && class_id) {
+    const defaultSec = db.sections.find((s) => s.class_id === class_id);
+    if (defaultSec) targetSectionId = defaultSec.id;
   }
 
-  const sec = db.sections.find((s) => s.id === section_id);
+  if (!targetSectionId || !subject_id || !teacher_id) {
+    return res.status(400).json({ error: 'Section, Subject, and Teacher are required to schedule a class period.' });
+  }
+
+  const sec = db.sections.find((s) => s.id === targetSectionId);
   if (!sec) return res.status(404).json({ error: 'Section not found' });
 
   const teacher = db.profiles.find((p) => p.id === teacher_id);
@@ -69,8 +75,41 @@ router.post('/', requireAdmin, (req: AuthenticatedRequest, res) => {
   const sub = db.subjects.find((s) => s.id === subject_id);
   if (!sub) return res.status(404).json({ error: 'Subject not found' });
 
-  const day = parseInt(day_of_week, 10);
-  const period = parseInt(period_number, 10);
+  const dayMap: Record<string, number> = {
+    monday: 1, mon: 1, '1': 1,
+    tuesday: 2, tue: 2, '2': 2,
+    wednesday: 3, wed: 3, '3': 3,
+    thursday: 4, thu: 4, '4': 4,
+    friday: 5, fri: 5, '5': 5,
+    saturday: 6, sat: 6, '6': 6,
+  };
+
+  const day = typeof day_of_week === 'string'
+    ? (dayMap[day_of_week.toLowerCase()] || parseInt(day_of_week, 10) || 1)
+    : (Number(day_of_week) || 1);
+
+  let period = parseInt(period_number, 10);
+  if (isNaN(period) || period < 1) {
+    if (start_time?.startsWith('08')) period = 1;
+    else if (start_time?.startsWith('09')) period = 2;
+    else if (start_time?.startsWith('10')) period = 3;
+    else if (start_time?.startsWith('11')) period = 4;
+    else if (start_time?.startsWith('13')) period = 5;
+    else if (start_time?.startsWith('14')) period = 6;
+    else period = 1;
+  }
+
+  const defaultTimes: Record<number, { start: string; end: string }> = {
+    1: { start: '08:30', end: '09:30' },
+    2: { start: '09:30', end: '10:30' },
+    3: { start: '10:45', end: '11:45' },
+    4: { start: '11:45', end: '12:45' },
+    5: { start: '13:30', end: '14:30' },
+    6: { start: '14:30', end: '15:30' },
+  };
+
+  const finalStartTime = start_time || defaultTimes[period]?.start || '08:30';
+  const finalEndTime = end_time || defaultTimes[period]?.end || '09:30';
 
   // 1. Conflict Check: Teacher cannot be in two sections at the same day & period
   const teacherConflict = db.timetables.find(
@@ -86,7 +125,7 @@ router.post('/', requireAdmin, (req: AuthenticatedRequest, res) => {
 
   // 2. Conflict Check: Section cannot have two subjects at the same day & period
   const sectionConflict = db.timetables.find(
-    (t) => t.section_id === section_id && t.day_of_week === day && t.period_number === period
+    (t) => t.section_id === targetSectionId && t.day_of_week === day && t.period_number === period
   );
   if (sectionConflict) {
     const conflictSub = db.subjects.find((s) => s.id === sectionConflict.subject_id);
@@ -100,14 +139,14 @@ router.post('/', requireAdmin, (req: AuthenticatedRequest, res) => {
     id: `tt-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 5)}`,
     school_id: 'SCH001',
     class_id: sec.class_id,
-    section_id,
+    section_id: targetSectionId,
     subject_id,
     teacher_id,
     day_of_week: day,
     period_number: period,
-    start_time,
-    end_time,
-    room: room || sec.room_number || 'Room 101',
+    start_time: finalStartTime,
+    end_time: finalEndTime,
+    room: room || room_number || sec.room_number || 'Room 101',
   };
 
   db.timetables.push(newSlot);

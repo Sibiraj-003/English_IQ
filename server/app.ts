@@ -57,6 +57,7 @@ const apiSubroutes: [string, any][] = [
   ['/homework', homeworkRoutes],
   ['/exams', examsRoutes],
   ['/timetable', timetableRoutes],
+  ['/timetables', timetableRoutes],
   ['/fees', feesRoutes],
   ['/notifications', notificationsRoutes],
   ['/messages', messagesRoutes],

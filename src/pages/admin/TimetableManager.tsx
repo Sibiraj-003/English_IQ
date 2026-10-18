@@ -32,6 +32,7 @@ export const TimetableManager: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [dayOfWeek, setDayOfWeek] = useState('Monday');
+  const [periodNumber, setPeriodNumber] = useState(1);
   const [subjectId, setSubjectId] = useState('');
   const [teacherId, setTeacherId] = useState('');
   const [startTime, setStartTime] = useState('08:30');
@@ -88,7 +89,21 @@ export const TimetableManager: React.FC = () => {
 
   const handleCreateSlot = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSectionId || !subjectId || !teacherId) return;
+    if (!selectedSectionId || !subjectId || !teacherId) {
+      setFeedback({ type: 'error', message: 'Please select Section, Subject, and Teacher.' });
+      return;
+    }
+
+    const dayMap: Record<string, number> = {
+      Monday: 1,
+      Tuesday: 2,
+      Wednesday: 3,
+      Thursday: 4,
+      Friday: 5,
+      Saturday: 6,
+    };
+    const dayNum = dayMap[dayOfWeek] || 1;
+
     try {
       setSubmitting(true);
       await api.createTimetableSlot({
@@ -96,9 +111,11 @@ export const TimetableManager: React.FC = () => {
         section_id: selectedSectionId,
         subject_id: subjectId,
         teacher_id: teacherId,
-        day_of_week: dayOfWeek,
+        day_of_week: dayNum,
+        period_number: periodNumber,
         start_time: startTime,
         end_time: endTime,
+        room: roomNumber,
         room_number: roomNumber,
       });
       setFeedback({ type: 'success', message: 'Timetable slot created with conflict validation passed!' });
@@ -293,19 +310,52 @@ export const TimetableManager: React.FC = () => {
               Schedule Timetable Period
             </h3>
             <form onSubmit={handleCreateSlot} className="space-y-3 text-xs font-bold">
-              <div>
-                <label className="block text-[#0F172A] mb-1 uppercase">Day of Week</label>
-                <select
-                  value={dayOfWeek}
-                  onChange={(e) => setDayOfWeek(e.target.value)}
-                  className="w-full p-2 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] focus:outline-none"
-                >
-                  {DAYS.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[#0F172A] mb-1 uppercase">Day of Week</label>
+                  <select
+                    value={dayOfWeek}
+                    onChange={(e) => setDayOfWeek(e.target.value)}
+                    className="w-full p-2 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] focus:outline-none"
+                  >
+                    {DAYS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[#0F172A] mb-1 uppercase">Period</label>
+                  <select
+                    value={periodNumber}
+                    onChange={(e) => {
+                      const p = parseInt(e.target.value, 10);
+                      setPeriodNumber(p);
+                      const periodTimes: Record<number, { start: string; end: string }> = {
+                        1: { start: '08:30', end: '09:30' },
+                        2: { start: '09:30', end: '10:30' },
+                        3: { start: '10:45', end: '11:45' },
+                        4: { start: '11:45', end: '12:45' },
+                        5: { start: '13:30', end: '14:30' },
+                        6: { start: '14:30', end: '15:30' },
+                      };
+                      if (periodTimes[p]) {
+                        setStartTime(periodTimes[p].start);
+                        setEndTime(periodTimes[p].end);
+                      }
+                    }}
+                    className="w-full p-2 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] focus:outline-none"
+                  >
+                    <option value={1}>Period 1 (08:30 - 09:30)</option>
+                    <option value={2}>Period 2 (09:30 - 10:30)</option>
+                    <option value={3}>Period 3 (10:45 - 11:45)</option>
+                    <option value={4}>Period 4 (11:45 - 12:45)</option>
+                    <option value={5}>Period 5 (13:30 - 14:30)</option>
+                    <option value={6}>Period 6 (14:30 - 15:30)</option>
+                  </select>
+                </div>
               </div>
 
               <div>

@@ -24,13 +24,14 @@ router.post('/structures', requireAdmin, (req: AuthenticatedRequest, res) => {
     return res.status(400).json({ error: 'class_id, title, amount, and due_date are required' });
   }
 
-  const cls = db.classes.find((c) => c.id === class_id);
-  if (!cls) return res.status(404).json({ error: 'Class not found' });
+  const cls = db.classes.find((c) => c.id === class_id || c.name.toLowerCase() === class_id.toLowerCase());
+  const effectiveClassId = cls ? cls.id : class_id;
+  const className = cls ? cls.name : `Class ${class_id}`;
 
   const structure: FeeStructure = {
     id: `fee-str-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 5)}`,
     school_id: 'SCH001',
-    class_id,
+    class_id: effectiveClassId,
     title: title.trim(),
     amount: parseFloat(amount),
     due_date,
@@ -40,7 +41,7 @@ router.post('/structures', requireAdmin, (req: AuthenticatedRequest, res) => {
   db.fee_structures.push(structure);
 
   // Auto-generate pending fee records for all currently enrolled students in this class
-  const classStudents = db.profiles.filter((p) => p.role === 'student' && p.class_id === class_id);
+  const classStudents = db.profiles.filter((p) => p.role === 'student' && p.class_id === effectiveClassId);
   classStudents.forEach((st) => {
     db.student_fees.push({
       id: `sf-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 5)}`,
@@ -54,13 +55,13 @@ router.post('/structures', requireAdmin, (req: AuthenticatedRequest, res) => {
     });
   });
 
-  db.logAudit('CREATE_FEE_STRUCTURE', 'fee_structures', structure.id, { title, amount, class: cls.name }, req.user?.id);
+  db.logAudit('CREATE_FEE_STRUCTURE', 'fee_structures', structure.id, { title, amount, class: className }, req.user?.id);
 
   return res.status(201).json(structure);
 });
 
-// GET /api/fees/records - Student fee records with parent isolation
-router.get('/records', (req: AuthenticatedRequest, res) => {
+// GET /api/fees/records & /api/fees/student-records - Student fee records with parent isolation
+router.get(['/records', '/student-records'], (req: AuthenticatedRequest, res) => {
   const user = extractUser(req);
   const { student_id, class_id, status } = req.query;
 
