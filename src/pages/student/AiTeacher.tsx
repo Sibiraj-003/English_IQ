@@ -1360,56 +1360,6 @@ export const AiTeacher: React.FC = () => {
           </button>
         </div>
       </BrutalCard>
-
-      {/* Privacy-Preserving Opt-In Camera Monitor Widget */}
-      <BrutalCard className="p-2 bg-white space-y-1.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-extrabold text-[#0F172A] uppercase flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Camera (Optional)
-          </span>
-          <button
-            onClick={toggleCamera}
-            className={`px-2 py-0.5 border-2 border-[#0F172A] text-[10px] font-extrabold shadow-[1px_1px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] ${
-              cameraActive ? 'bg-[#A7F3D0] text-[#0F172A]' : 'bg-slate-100 text-slate-700'
-            }`}
-            title="Toggle optional presence camera"
-          >
-            {cameraActive ? 'ACTIVE' : 'OFF'}
-          </button>
-        </div>
-
-        {cameraActive ? (
-          <div className="space-y-1.5 pt-1 border-t border-slate-200">
-            <div className="relative border border-[#0F172A] bg-black rounded-xs overflow-hidden h-20 flex items-center justify-center">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-              <div className="absolute top-1 left-1 px-1 py-0.2 bg-red-600 text-white text-[8px] font-extrabold flex items-center gap-1 animate-pulse">
-                <span className="w-1 h-1 bg-white rounded-full" /> LIVE
-              </div>
-            </div>
-
-            <div className="text-[9px] flex justify-between font-bold bg-[#F8FAFC] p-1 border border-[#0F172A]">
-              <span>Face Presence:</span>
-              <span
-                className={
-                  cameraAnalysis?.face_detected ? 'text-emerald-700 font-extrabold' : 'text-slate-500'
-                }
-              >
-                {cameraAnalysis?.face_detected ? 'DETECTED' : 'MONITORING'}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <p className="text-[10px] text-slate-500 italic leading-tight">
-            Camera optional. NOVA learns with you via voice and text.
-          </p>
-        )}
-
-        {cameraNotice && (
-          <p className="text-[9px] text-slate-600 bg-slate-50 p-1 border border-slate-300">
-            {cameraNotice}
-          </p>
-        )}
-      </BrutalCard>
     </div>
   );
 
