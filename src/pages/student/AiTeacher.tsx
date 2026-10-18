@@ -69,7 +69,7 @@ export const AiTeacher: React.FC = () => {
   // ==========================================
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('sub-sci');
-  const [selectedTopic, setSelectedTopic] = useState<string>('Photosynthesis & Plant Life');
+  const [selectedTopic, setSelectedTopic] = useState<string>('General Learning');
 
   // Pedagogical Mode: chat, teach_back, practice, quiz, revision
   const [mode, setMode] = useState<'chat' | 'teach_back' | 'practice' | 'quiz' | 'revision'>('chat');
@@ -510,12 +510,12 @@ export const AiTeacher: React.FC = () => {
     {
       id: 'init-welcome',
       sender: 'nova',
-      text: `Hello ${user?.full_name || 'Scholar'}! I am NOVA, your AI Learning Companion.\n\nI can help you master complex subjects step-by-step. You can talk to me directly in real-time voice, explore concepts socratically, or try **"Explain it to NOVA"** to verify conceptual reasoning in your own words!`,
+      text: `Hello ${user?.full_name || 'Scholar'}! I am NOVA, your AI Learning Companion.\n\nAsk me any question, type a topic you want to learn, or speak to me in real-time. I will guide you step-by-step!`,
       expression: 'greeting',
       suggestedFollowUps: [
-        'How do plants synthesize food using sunlight?',
-        'Can I explain photosynthesis in my own words?',
-        'Give me a challenging real-life concept question',
+        'What would you like to help me study today?',
+        'Ask me a quick concept challenge question',
+        'Explain how the solar system works with real-world examples',
       ],
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
@@ -550,27 +550,28 @@ export const AiTeacher: React.FC = () => {
   );
 
   // Initialize or restore active session on mount
+  // Initialize or restore active session on mount
   useEffect(() => {
     if (sessions.length === 0) {
       const welcomeMsg: NovaChatMessage = {
         id: 'init-welcome',
         sender: 'nova',
-        text: `Hello ${user?.full_name || 'Scholar'}! I am NOVA, your AI Learning Companion.\n\nI can help you master complex subjects step-by-step. You can talk to me directly in real-time voice, explore concepts socratically, or try **"Explain it to NOVA"** to verify conceptual reasoning in your own words!`,
+        text: `Hello ${user?.full_name || 'Scholar'}! I am NOVA, your AI Learning Companion.\n\nAsk me any question, type a topic you want to learn, or speak to me in real-time. I will guide you step-by-step!`,
         expression: 'greeting',
         suggestedFollowUps: [
-          'How do plants synthesize food using sunlight?',
-          'Can I explain photosynthesis in my own words?',
-          'Give me a challenging real-life concept question',
+          'What would you like to help me study today?',
+          'Ask me a quick concept challenge question',
+          'Explain how the solar system works with real-world examples',
         ],
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
       const initialSession: NovaChatSession = {
         id: `sess-${Date.now()}`,
-        title: 'Photosynthesis & Plant Life Discussion',
+        title: 'New Chat',
         subject_id: selectedSubjectId || 'sub-sci',
         subject_name: 'Science',
-        topic: 'Photosynthesis & Plant Life',
+        topic: 'General Learning',
         mode: 'chat',
         messages: [welcomeMsg],
         created_at: new Date().toISOString(),
@@ -593,19 +594,35 @@ export const AiTeacher: React.FC = () => {
     }
   }, []);
 
-  // Sync latest message into currently active chat session
+  // Sync latest message into currently active chat session and name chat dynamically
   const appendMessageToCurrentSession = (newMsg: NovaChatMessage) => {
     setSessions((prevSessions) => {
       const updated = prevSessions.map((sess) => {
         if (sess.id === currentSessionIdRef.current) {
           let title = sess.title;
-          if (sess.messages.length <= 1 && newMsg.sender === 'student') {
-            title = newMsg.text.length > 34 ? newMsg.text.slice(0, 34) + '...' : newMsg.text;
+          let topic = sess.topic;
+
+          // If session still has default/generic title and student sent a message, name the chat based on user input!
+          const isGeneric =
+            title === 'New Chat' ||
+            title === 'New Conversation' ||
+            title.includes('Photosynthesis') ||
+            title.includes('Discussion') ||
+            !sess.messages.some((m) => m.sender === 'student');
+
+          if (isGeneric && newMsg.sender === 'student') {
+            const clean = newMsg.text.replace(/[*_#`]/g, '').trim();
+            const smartTitle = clean.length > 28 ? clean.slice(0, 28) + '...' : clean;
+            title = smartTitle;
+            topic = smartTitle;
+            setSelectedTopic(smartTitle);
+            selectedTopicRef.current = smartTitle;
           }
+
           return {
             ...sess,
             title,
-            topic: selectedTopicRef.current,
+            topic,
             subject_id: selectedSubjectIdRef.current,
             subject_name: subjects.find((s) => s.id === selectedSubjectIdRef.current)?.name || sess.subject_name || 'Science',
             mode: modeRef.current,
@@ -622,7 +639,8 @@ export const AiTeacher: React.FC = () => {
 
   // Start a fresh, clean chat session
   const handleCreateNewChat = (customTopic?: string) => {
-    const topicToUse = customTopic || selectedTopicRef.current || 'Curriculum Concepts';
+    const isCustom = Boolean(customTopic && customTopic !== 'General Learning');
+    const topicToUse = customTopic || 'General Learning';
     const sub = subjects.find((s) => s.id === selectedSubjectIdRef.current);
     const subName = sub?.name || 'Science';
     const newId = `sess-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -630,19 +648,27 @@ export const AiTeacher: React.FC = () => {
     const newWelcome: NovaChatMessage = {
       id: `welcome-${Date.now()}`,
       sender: 'nova',
-      text: `Hello ${user?.full_name || 'Scholar'}! Starting a new learning session on **${topicToUse}** (${subName}). How would you like to explore this topic?`,
+      text: isCustom
+        ? `Hello ${user?.full_name || 'Scholar'}! Starting a new learning session on **${topicToUse}** (${subName}). How would you like to explore this topic?`
+        : `Hello ${user?.full_name || 'Scholar'}! What would you like to explore or learn today? Ask me any question to get started!`,
       expression: 'greeting',
-      suggestedFollowUps: [
-        `What are the core fundamentals of ${topicToUse}?`,
-        `Ask me a concept question on ${topicToUse}`,
-        `Explain ${topicToUse} with a real-world example`,
-      ],
+      suggestedFollowUps: isCustom
+        ? [
+            `What are the core fundamentals of ${topicToUse}?`,
+            `Ask me a concept question on ${topicToUse}`,
+            `Explain ${topicToUse} with a real-world example`,
+          ]
+        : [
+            'Help me understand a difficult topic',
+            'Quiz me with a concept challenge question',
+            'Explain how gravity works in real life',
+          ],
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
     const newSess: NovaChatSession = {
       id: newId,
-      title: `${topicToUse} (${new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })})`,
+      title: isCustom ? topicToUse : 'New Chat',
       subject_id: selectedSubjectIdRef.current,
       subject_name: subName,
       topic: topicToUse,
@@ -1260,10 +1286,7 @@ export const AiTeacher: React.FC = () => {
               key={sub.id}
               onClick={() => {
                 setSelectedSubjectId(sub.id);
-                if (sub.name.includes('Math')) setSelectedTopic('Fractions & Multi-digit Division');
-                else if (sub.name.includes('Science')) setSelectedTopic('Photosynthesis & Plant Life');
-                else if (sub.name.includes('English')) setSelectedTopic('Nouns & Sentence Construction');
-                else setSelectedTopic(`${sub.name} Core Concepts`);
+                setSelectedTopic(`${sub.name} Concepts`);
               }}
               className={`px-1.5 py-1 text-[11px] font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between truncate text-left ${
                 selectedSubjectId === sub.id
@@ -1476,8 +1499,7 @@ export const AiTeacher: React.FC = () => {
         {/* DESKTOP LEFT LEARNING PANEL */}
         {!isPanelCollapsed && (
           <div
-            style={{ width: `${panelWidth}px` }}
-            className="hidden lg:flex flex-col bg-[#F8FAFC] border-r-2 border-[#0F172A] overflow-y-auto p-2 shrink-0 transition-[width] duration-75 select-text"
+            className="hidden lg:flex flex-col bg-[#F8FAFC] border-r-2 border-[#0F172A] overflow-y-auto p-2 shrink-0 select-text w-72 xl:w-80"
           >
             {/* Dual Tabs: LEARNING HUB vs CHATS */}
             <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1.5 mb-2 gap-1">
@@ -1530,58 +1552,22 @@ export const AiTeacher: React.FC = () => {
           </div>
         )}
 
-        {/* TACTILE VERTICAL DRAG DIVIDER (DESKTOP) */}
-        {!isPanelCollapsed ? (
-          <div
-            onMouseDown={handleDividerMouseDown}
-            className={`hidden lg:flex flex-col items-center justify-between py-4 w-3 border-r-2 border-[#0F172A] cursor-col-resize select-none shrink-0 transition-colors ${
-              isDragging ? 'bg-[#FDE68A]' : 'bg-slate-100 hover:bg-[#C4B5FD]'
-            }`}
-            title="Drag horizontally to resize learning panel"
-          >
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                togglePanelCollapse();
-              }}
-              className="p-0.5 bg-white border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] hover:bg-[#FDE68A] active:scale-90"
-              title="Collapse panel"
-            >
-              <ChevronLeft className="w-2.5 h-2.5" />
-            </button>
-
-            {/* Tactile Grip Bar Dots */}
-            <div className="flex flex-col gap-1 items-center opacity-70">
-              <span className="w-1 h-1 bg-[#0F172A] rounded-full" />
-              <span className="w-1 h-1 bg-[#0F172A] rounded-full" />
-              <span className="w-1 h-1 bg-[#0F172A] rounded-full" />
-              <span className="w-1 h-1 bg-[#0F172A] rounded-full" />
-              <span className="w-1 h-1 bg-[#0F172A] rounded-full" />
-            </div>
-
-            <div className="w-1.5 h-1.5 bg-[#0F172A]" />
-          </div>
-        ) : (
-          /* COLLAPSED EXPAND STRIP (DESKTOP) */
-          <div className="hidden lg:flex flex-col items-center py-3 px-1 bg-[#FEFCE8] border-r-2 border-[#0F172A] shrink-0">
-            <button
-              onClick={togglePanelCollapse}
-              className="p-1 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] hover:bg-[#FDE68A] text-[#0F172A] mb-3 active:scale-95"
-              title="Expand Learning Panel"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-            <span className="text-[9px] font-extrabold uppercase text-[#0F172A] [writing-mode:vertical-lr] tracking-widest py-1">
-              LEARNING HUB
-            </span>
-          </div>
-        )}
-
         {/* RIGHT MAIN CONVERSATION AREA */}
         <div className="flex-1 min-w-0 flex flex-col bg-white overflow-hidden">
           {/* HEADER BAR: NOVA AVATAR & COMPANION IDENTITY (COMPACT HEIGHT) */}
           <div className="px-3 py-2 bg-[#C4B5FD] border-b-2 border-[#0F172A] flex items-center justify-between gap-2 shrink-0">
             <div className="flex items-center gap-2.5 min-w-0">
+              {isPanelCollapsed && (
+                <button
+                  onClick={togglePanelCollapse}
+                  className="hidden lg:flex items-center gap-1 px-2 py-1 bg-white hover:bg-[#FDE68A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] text-xs font-extrabold text-[#0F172A] active:scale-95 transition-all shrink-0 cursor-pointer"
+                  title="Expand Learning Panel & Chats"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                  <span>CHATS</span>
+                </button>
+              )}
+
               {/* NOVA AI FACE AVATAR */}
               <NovaAvatar
                 expression={currentExpression}
@@ -1718,10 +1704,10 @@ export const AiTeacher: React.FC = () => {
                         <div
                           className={`p-4 border-2 border-[#0F172A] transition-all rounded-xs ${
                             isCurrentlyPlaying
-                              ? 'border-indigo-600 bg-[#F5F3FF] shadow-[4px_4px_0px_#4338CA] max-w-2xl w-full'
+                              ? 'border-indigo-600 bg-[#F5F3FF] shadow-[4px_4px_0px_#4338CA] w-full'
                               : m.sender === 'student'
-                              ? 'bg-[#0F172A] text-white shadow-[3px_3px_0px_#0F172A] max-w-lg w-auto ml-auto'
-                              : 'bg-white text-[#0F172A] shadow-[3px_3px_0px_#0F172A] max-w-2xl w-full'
+                              ? 'bg-[#0F172A] text-white shadow-[3px_3px_0px_#0F172A] max-w-xl w-auto ml-auto'
+                              : 'bg-white text-[#0F172A] shadow-[3px_3px_0px_#0F172A] w-full'
                           }`}
                         >
                           <div
@@ -1790,14 +1776,14 @@ export const AiTeacher: React.FC = () => {
 
                         {/* Socratic Follow-up Prompts */}
                         {m.suggestedFollowUps && m.suggestedFollowUps.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-2 max-w-2xl">
+                          <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2.5 w-full">
                             {m.suggestedFollowUps.map((prompt, idx) => (
                               <button
                                 key={idx}
                                 onClick={() => handleSendMessage(prompt)}
-                                className="text-xs font-bold px-3 py-1 bg-white border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-[#FDE68A] text-[#0F172A] transition-all text-left active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1.5"
+                                className="text-xs font-bold px-3 py-1.5 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] hover:bg-[#FDE68A] text-[#0F172A] transition-all text-left active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-2 rounded-xs w-full sm:w-auto"
                               >
-                                <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                                <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                                 <span>{prompt}</span>
                               </button>
                             ))}
@@ -1931,125 +1917,129 @@ export const AiTeacher: React.FC = () => {
               </div>
 
               {/* VOICE INTERACTION STATE BANNER (SLIM) */}
-              <div className="px-3 py-1.5 border-t-2 border-[#0F172A] bg-[#F1F5F9] flex items-center justify-between text-xs shrink-0">
-                <div className="flex items-center gap-2">
-                  {voiceState === 'listening' ? (
-                    <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                      <span className="font-extrabold text-emerald-800">NOVA IS LISTENING...</span>
-                    </>
-                  ) : voiceState === 'thinking' ? (
-                    <>
-                      <Brain className="w-3.5 h-3.5 text-amber-600 animate-spin" />
-                      <span className="font-extrabold text-amber-800">NOVA IS THINKING...</span>
-                    </>
-                  ) : voiceState === 'speaking' ? (
-                    <>
-                      <Volume2 className="w-3.5 h-3.5 text-indigo-700 animate-pulse" />
-                      <span className="font-extrabold text-indigo-900">NOVA IS SPEAKING...</span>
-                    </>
-                  ) : voiceState === 'error' ? (
-                    <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
-                      <span className="font-extrabold text-rose-800">
-                        {voiceErrorNotice || 'MIC NOTICE'}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-slate-400" />
-                      <span className="font-bold text-slate-600">
-                        {channelMode === 'live'
-                          ? 'Live Voice Ready'
-                          : channelMode === 'voice'
-                          ? 'Tap mic to speak'
-                          : 'Type or click mic to speak'}
-                      </span>
-                    </>
-                  )}
-                </div>
+              <div className="px-4 py-1.5 border-t-2 border-[#0F172A] bg-[#F1F5F9] shrink-0">
+                <div className="max-w-3xl w-full mx-auto flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    {voiceState === 'listening' ? (
+                      <>
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+                        <span className="font-extrabold text-emerald-800">NOVA IS LISTENING...</span>
+                      </>
+                    ) : voiceState === 'thinking' ? (
+                      <>
+                        <Brain className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                        <span className="font-extrabold text-amber-800">NOVA IS THINKING...</span>
+                      </>
+                    ) : voiceState === 'speaking' ? (
+                      <>
+                        <Volume2 className="w-3.5 h-3.5 text-indigo-700 animate-pulse" />
+                        <span className="font-extrabold text-indigo-900">NOVA IS SPEAKING...</span>
+                      </>
+                    ) : voiceState === 'error' ? (
+                      <>
+                        <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
+                        <span className="font-extrabold text-rose-800">
+                          {voiceErrorNotice || 'MIC NOTICE'}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-slate-400" />
+                        <span className="font-bold text-slate-600">
+                          {channelMode === 'live'
+                            ? 'Live Voice Ready'
+                            : channelMode === 'voice'
+                            ? 'Tap mic to speak'
+                            : 'Type or click mic to speak'}
+                        </span>
+                      </>
+                    )}
+                  </div>
 
-                {/* Quick Actions in Status Bar */}
-                <div className="flex items-center gap-2">
-                  {voiceState === 'speaking' && (
-                    <button
-                      onClick={interruptNova}
-                      className="text-[10px] font-extrabold px-1.5 py-0.5 bg-[#FED7AA] border border-[#0F172A] hover:bg-rose-200"
-                    >
-                      INTERRUPT
-                    </button>
-                  )}
-                  {voiceState === 'listening' && channelMode !== 'live' && (
-                    <button
-                      onClick={stopListeningSafely}
-                      className="text-[10px] font-extrabold px-1.5 py-0.5 bg-slate-200 border border-[#0F172A]"
-                    >
-                      DONE SPEAKING
-                    </button>
-                  )}
+                  {/* Quick Actions in Status Bar */}
+                  <div className="flex items-center gap-2">
+                    {voiceState === 'speaking' && (
+                      <button
+                        onClick={interruptNova}
+                        className="text-[10px] font-extrabold px-1.5 py-0.5 bg-[#FED7AA] border border-[#0F172A] hover:bg-rose-200"
+                      >
+                        INTERRUPT
+                      </button>
+                    )}
+                    {voiceState === 'listening' && channelMode !== 'live' && (
+                      <button
+                        onClick={stopListeningSafely}
+                        className="text-[10px] font-extrabold px-1.5 py-0.5 bg-slate-200 border border-[#0F172A]"
+                      >
+                        DONE SPEAKING
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* BOTTOM MESSAGE COMPOSER (ALWAYS PINNED) */}
-              <div className="p-3 bg-white border-t-2 border-[#0F172A] flex items-center gap-2 shrink-0">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSendMessage();
-                  }}
-                  disabled={loading}
-                  placeholder={
-                    channelMode === 'live'
-                      ? `Live voice active — speak naturally or type here...`
-                      : mode === 'teach_back'
-                      ? `Explain ${selectedTopic} in your own words...`
-                      : `Ask NOVA about ${selectedTopic}...`
-                  }
-                  className="flex-1 text-sm font-semibold p-2.5 bg-[#F8FAFC] border-2 border-[#0F172A] placeholder:text-slate-400 focus:outline-hidden"
-                />
-
-                {/* Microphone Voice Button */}
-                <button
-                  onClick={() => {
-                    if (voiceState === 'listening') {
-                      stopListeningSafely();
-                    } else {
-                      if (isSpeaking) interruptNova();
-                      startListeningSafely();
+              {/* BOTTOM MESSAGE COMPOSER (ALWAYS PINNED & PROPORTIONATELY ALIGNED) */}
+              <div className="p-3 bg-white border-t-2 border-[#0F172A] shrink-0">
+                <div className="max-w-3xl w-full mx-auto flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSendMessage();
+                    }}
+                    disabled={loading}
+                    placeholder={
+                      channelMode === 'live'
+                        ? `Live voice active — speak naturally or type here...`
+                        : mode === 'teach_back'
+                        ? `Explain ${selectedTopic} in your own words...`
+                        : `Ask NOVA about ${selectedTopic}...`
                     }
-                  }}
-                  className={`p-2.5 border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] transition-all active:translate-x-[1px] active:translate-y-[1px] shrink-0 ${
-                    voiceState === 'listening'
-                      ? 'bg-red-500 text-white animate-pulse'
-                      : 'bg-white text-[#0F172A] hover:bg-[#FDE68A]'
-                  }`}
-                  title={
-                    voiceState === 'listening'
-                      ? 'Listening... click to pause'
-                      : 'Click to speak to NOVA'
-                  }
-                >
-                  {voiceState === 'listening' ? (
-                    <MicOff className="w-4 h-4" />
-                  ) : (
-                    <Mic className="w-4 h-4" />
-                  )}
-                </button>
+                    className="flex-1 text-sm font-semibold p-2.5 bg-[#F8FAFC] border-2 border-[#0F172A] placeholder:text-slate-400 focus:outline-hidden"
+                  />
 
-                {/* Send / Evaluate Button */}
-                <BrutalButton
-                  onClick={() => handleSendMessage()}
-                  disabled={loading || !input.trim()}
-                  variant="primary"
-                  className="py-2.5 px-4 text-xs font-extrabold shrink-0"
-                >
-                  <Send className="w-4 h-4" />
-                  <span className="hidden sm:inline">
-                    {mode === 'teach_back' ? 'EVALUATE' : 'SEND'}
-                  </span>
-                </BrutalButton>
+                  {/* Microphone Voice Button */}
+                  <button
+                    onClick={() => {
+                      if (voiceState === 'listening') {
+                        stopListeningSafely();
+                      } else {
+                        if (isSpeaking) interruptNova();
+                        startListeningSafely();
+                      }
+                    }}
+                    className={`p-2.5 border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] transition-all active:translate-x-[1px] active:translate-y-[1px] shrink-0 ${
+                      voiceState === 'listening'
+                        ? 'bg-red-500 text-white animate-pulse'
+                        : 'bg-white text-[#0F172A] hover:bg-[#FDE68A]'
+                    }`}
+                    title={
+                      voiceState === 'listening'
+                        ? 'Listening... click to pause'
+                        : 'Click to speak to NOVA'
+                    }
+                  >
+                    {voiceState === 'listening' ? (
+                      <MicOff className="w-4 h-4" />
+                    ) : (
+                      <Mic className="w-4 h-4" />
+                    )}
+                  </button>
+
+                  {/* Send / Evaluate Button */}
+                  <BrutalButton
+                    onClick={() => handleSendMessage()}
+                    disabled={loading || !input.trim()}
+                    variant="primary"
+                    className="py-2.5 px-4 text-xs font-extrabold shrink-0"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span className="hidden sm:inline">
+                      {mode === 'teach_back' ? 'EVALUATE' : 'SEND'}
+                    </span>
+                  </BrutalButton>
+                </div>
               </div>
             </div>
 

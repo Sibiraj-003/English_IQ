@@ -142,17 +142,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5">
-              {onToggleCollapse && (
-                <button
-                  onClick={onToggleCollapse}
-                  className="hidden md:flex items-center gap-1 px-1.5 py-1 border-2 border-[#0F172A] bg-white shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-[#FDE68A] active:translate-x-[1px] active:translate-y-[1px] text-[#0F172A] transition-all font-mono text-[10px] font-extrabold cursor-pointer"
-                  title="Slide menu to left (gain more workspace space)"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">HIDE</span>
-                </button>
-              )}
-
               {onClose && (
                 <button
                   onClick={onClose}

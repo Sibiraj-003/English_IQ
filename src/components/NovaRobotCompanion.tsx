@@ -287,13 +287,13 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
             {cameraActive ? (
               <div className="space-y-2">
                 {/* Live Webcam Frame with Face Detection HUD Overlays */}
-                <div className="relative border-2 border-indigo-500/60 rounded-md overflow-hidden bg-black">
+                <div className="relative border-2 border-indigo-500/60 rounded-md overflow-hidden bg-black aspect-[4/3] w-full flex items-center justify-center">
                   <video
                     ref={videoRef as any}
                     autoPlay
                     playsInline
                     muted
-                    className="w-full h-24 object-cover"
+                    className="w-full h-full object-cover object-center"
                   />
 
                   {/* Face Detection Bounding Box Overlay */}
@@ -307,12 +307,12 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
                     </div>
 
                     {/* HUD Center Crosshair */}
-                    <div className="self-center w-12 h-12 border border-emerald-400/50 rounded-xs flex items-center justify-center">
-                      <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                    <div className="self-center w-24 h-28 border border-emerald-400/60 rounded-sm flex items-center justify-center">
+                      <div className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
                     </div>
 
                     {/* Gaze & Signal note */}
-                    <div className="flex items-center justify-between text-[8px] text-slate-300 bg-black/60 px-1 py-0.5">
+                    <div className="flex items-center justify-between text-[8px] text-slate-300 bg-black/70 px-1.5 py-0.5 rounded">
                       <span>GAZE: {cameraAnalysis?.gaze_direction?.toUpperCase() || 'CENTER'}</span>
                       <span>PRIVACY: LOCAL SNAPSHOT</span>
                     </div>
