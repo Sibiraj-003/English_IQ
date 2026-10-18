@@ -12,6 +12,7 @@ import {
   Subject,
   TeachBackEvaluationResult,
   CameraAnalysisResult,
+  NovaChatSession,
 } from '../../types';
 import {
   Send,
@@ -35,6 +36,15 @@ import {
   Square,
   Radio,
   RotateCcw,
+  MessageSquare,
+  Plus,
+  Edit3,
+  Trash2,
+  Share2,
+  Copy,
+  Download,
+  Check,
+  History,
 } from 'lucide-react';
 
 type InteractionChannel = 'text' | 'voice' | 'live';
@@ -67,6 +77,53 @@ export const AiTeacher: React.FC = () => {
 
   // Teach-Back evaluation state
   const [teachBackResult, setTeachBackResult] = useState<TeachBackEvaluationResult | null>(null);
+
+  // Left Panel Active Tab: 'hub' (Curriculum & Settings) or 'history' (Past Chats)
+  const [leftPanelTab, setLeftPanelTab] = useState<'hub' | 'history'>('hub');
+
+  // Storage key for per-student chat sessions
+  const storageKey = `nova_chat_sessions_${user?.id || 'default'}`;
+
+  // Past Chat Sessions
+  const [sessions, setSessions] = useState<NovaChatSession[]>(() => {
+    try {
+      const saved = localStorage.getItem(`nova_chat_sessions_${user?.id || 'default'}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to parse saved sessions:', e);
+    }
+    return [];
+  });
+
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(`nova_chat_sessions_${user?.id || 'default'}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed[0].id;
+      }
+    } catch {}
+    return `sess-init-${Date.now()}`;
+  });
+
+  // Rename & Share states
+  const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
+  const [renameTitleInput, setRenameTitleInput] = useState<string>('');
+  const [sharingSession, setSharingSession] = useState<NovaChatSession | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Active refs to avoid stale closures in callbacks
+  const currentSessionIdRef = useRef(currentSessionId);
+  currentSessionIdRef.current = currentSessionId;
+  const selectedTopicRef = useRef(selectedTopic);
+  selectedTopicRef.current = selectedTopic;
+  const selectedSubjectIdRef = useRef(selectedSubjectId);
+  selectedSubjectIdRef.current = selectedSubjectId;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
 
   // ==========================================
   // 2. RESIZABLE & COLLAPSIBLE LEFT PANEL
@@ -386,7 +443,7 @@ export const AiTeacher: React.FC = () => {
   }, [selectedSubjectId]);
 
   // ==========================================
-  // 6. MESSAGES & CHAT ENGINE
+  // 6. MESSAGES, SESSIONS & CHAT ENGINE
   // ==========================================
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<NovaChatMessage[]>([
@@ -411,6 +468,280 @@ export const AiTeacher: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, loading, interimTranscript]);
+
+  // Feedback Toast Helper
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((curr) => (curr === msg ? null : curr));
+    }, 3500);
+  };
+
+  // Safe Session Storage Writer
+  const saveSessionsToStorage = useCallback(
+    (updated: NovaChatSession[]) => {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Failed to save chat sessions:', err);
+      }
+    },
+    [storageKey]
+  );
+
+  // Initialize or restore active session on mount
+  useEffect(() => {
+    if (sessions.length === 0) {
+      const welcomeMsg: NovaChatMessage = {
+        id: 'init-welcome',
+        sender: 'nova',
+        text: `Hello ${user?.full_name || 'Scholar'}! I am NOVA, your AI Learning Companion.\n\nI can help you master complex subjects step-by-step. You can talk to me directly in real-time voice, explore concepts socratically, or try **"Explain it to NOVA"** to verify conceptual reasoning in your own words!`,
+        expression: 'greeting',
+        suggestedFollowUps: [
+          'How do plants synthesize food using sunlight?',
+          'Can I explain photosynthesis in my own words?',
+          'Give me a challenging real-life concept question',
+        ],
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      const initialSession: NovaChatSession = {
+        id: `sess-${Date.now()}`,
+        title: 'Photosynthesis & Plant Life Discussion',
+        subject_id: selectedSubjectId || 'sub-sci',
+        subject_name: 'Science',
+        topic: 'Photosynthesis & Plant Life',
+        mode: 'chat',
+        messages: [welcomeMsg],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      setSessions([initialSession]);
+      setCurrentSessionId(initialSession.id);
+      setMessages([welcomeMsg]);
+      saveSessionsToStorage([initialSession]);
+    } else {
+      const active = sessions.find((s) => s.id === currentSessionId) || sessions[0];
+      if (active) {
+        setCurrentSessionId(active.id);
+        setMessages(active.messages);
+        if (active.subject_id) setSelectedSubjectId(active.subject_id);
+        if (active.topic) setSelectedTopic(active.topic);
+        if (active.mode) setMode(active.mode);
+      }
+    }
+  }, []);
+
+  // Sync latest message into currently active chat session
+  const appendMessageToCurrentSession = (newMsg: NovaChatMessage) => {
+    setSessions((prevSessions) => {
+      const updated = prevSessions.map((sess) => {
+        if (sess.id === currentSessionIdRef.current) {
+          let title = sess.title;
+          if (sess.messages.length <= 1 && newMsg.sender === 'student') {
+            title = newMsg.text.length > 34 ? newMsg.text.slice(0, 34) + '...' : newMsg.text;
+          }
+          return {
+            ...sess,
+            title,
+            topic: selectedTopicRef.current,
+            subject_id: selectedSubjectIdRef.current,
+            subject_name: subjects.find((s) => s.id === selectedSubjectIdRef.current)?.name || sess.subject_name || 'Science',
+            mode: modeRef.current,
+            messages: [...sess.messages, newMsg],
+            updated_at: new Date().toISOString(),
+          };
+        }
+        return sess;
+      });
+      saveSessionsToStorage(updated);
+      return updated;
+    });
+  };
+
+  // Start a fresh, clean chat session
+  const handleCreateNewChat = (customTopic?: string) => {
+    const topicToUse = customTopic || selectedTopicRef.current || 'Curriculum Concepts';
+    const sub = subjects.find((s) => s.id === selectedSubjectIdRef.current);
+    const subName = sub?.name || 'Science';
+    const newId = `sess-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+    const newWelcome: NovaChatMessage = {
+      id: `welcome-${Date.now()}`,
+      sender: 'nova',
+      text: `Hello ${user?.full_name || 'Scholar'}! Starting a new learning session on **${topicToUse}** (${subName}). How would you like to explore this topic?`,
+      expression: 'greeting',
+      suggestedFollowUps: [
+        `What are the core fundamentals of ${topicToUse}?`,
+        `Ask me a concept question on ${topicToUse}`,
+        `Explain ${topicToUse} with a real-world example`,
+      ],
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    const newSess: NovaChatSession = {
+      id: newId,
+      title: `${topicToUse} (${new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })})`,
+      subject_id: selectedSubjectIdRef.current,
+      subject_name: subName,
+      topic: topicToUse,
+      mode: modeRef.current,
+      messages: [newWelcome],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    setSessions((prev) => {
+      const updated = [newSess, ...prev];
+      saveSessionsToStorage(updated);
+      return updated;
+    });
+
+    setCurrentSessionId(newId);
+    setMessages([newWelcome]);
+    setTeachBackResult(null);
+    setInput('');
+    interruptNova();
+
+    showToast(`Started new chat: "${newSess.title}"`);
+  };
+
+  // Switch between past chat sessions
+  const handleSelectSession = (sessionId: string) => {
+    const target = sessions.find((s) => s.id === sessionId);
+    if (!target) return;
+
+    interruptNova();
+    setCurrentSessionId(target.id);
+    setMessages(target.messages);
+    if (target.subject_id) setSelectedSubjectId(target.subject_id);
+    if (target.topic) setSelectedTopic(target.topic);
+    if (target.mode) setMode(target.mode);
+    setTeachBackResult(null);
+    setIsMobileDrawerOpen(false);
+  };
+
+  // Delete chat session
+  const handleDeleteSession = (sessionId: string) => {
+    const toDelete = sessions.find((s) => s.id === sessionId);
+    if (!toDelete) return;
+
+    if (!window.confirm(`Delete chat "${toDelete.title}"? This cannot be undone.`)) {
+      return;
+    }
+
+    const remaining = sessions.filter((s) => s.id !== sessionId);
+    setSessions(remaining);
+    saveSessionsToStorage(remaining);
+
+    if (currentSessionId === sessionId) {
+      if (remaining.length > 0) {
+        handleSelectSession(remaining[0].id);
+      } else {
+        handleCreateNewChat();
+      }
+    }
+
+    showToast(`Deleted chat: "${toDelete.title}"`);
+  };
+
+  // Rename chat session
+  const handleSaveRename = () => {
+    if (!renamingSessionId) return;
+    const trimmed = renameTitleInput.trim();
+    if (!trimmed) {
+      setRenamingSessionId(null);
+      return;
+    }
+
+    setSessions((prev) => {
+      const updated = prev.map((s) =>
+        s.id === renamingSessionId
+          ? { ...s, title: trimmed, updated_at: new Date().toISOString() }
+          : s
+      );
+      saveSessionsToStorage(updated);
+      return updated;
+    });
+
+    setRenamingSessionId(null);
+    showToast(`Renamed chat to "${trimmed}"`);
+  };
+
+  // Generate plain-text/markdown formatted transcript for sharing
+  const generateFormattedTranscript = (sess: NovaChatSession): string => {
+    return [
+      `============================================================`,
+      `SMARTSCHOOL // NOVA AI LEARNING TRANSCRIPT`,
+      `Session Title: ${sess.title}`,
+      `Topic: ${sess.topic}`,
+      `Subject: ${sess.subject_name}`,
+      `Scholar: ${user?.full_name || 'Scholar'}${user?.id_number ? ` • ${user.id_number}` : ''}`,
+      `Date: ${new Date(sess.updated_at).toLocaleString()}`,
+      `Messages: ${sess.messages.length}`,
+      `============================================================\n`,
+      sess.messages
+        .map(
+          (m) =>
+            `[${m.timestamp}] ${m.sender === 'student' ? 'YOU (SCHOLAR)' : 'NOVA MENTOR'}:\n${m.text}` +
+            (m.sourceBadge
+              ? `\n[Textbook Grounding: ${m.sourceBadge.bookTitle}, Page ${m.sourceBadge.pageNumber}${
+                  m.sourceBadge.lessonTitle ? ` - ${m.sourceBadge.lessonTitle}` : ''
+                }]`
+              : '')
+        )
+        .join('\n\n'),
+      `\n============================================================`,
+      `Verified by SmartSchool Academic Platform Grounded RAG`,
+      `============================================================`,
+    ].join('\n');
+  };
+
+  const copyTranscript = async (sess: NovaChatSession) => {
+    const text = generateFormattedTranscript(sess);
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Chat transcript copied to clipboard!');
+      setSharingSession(null);
+    } catch (err) {
+      console.warn('Clipboard write failed:', err);
+      showToast('Could not copy to clipboard.');
+    }
+  };
+
+  const downloadTranscript = (sess: NovaChatSession) => {
+    const text = generateFormattedTranscript(sess);
+    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeTopic = (sess.topic || 'chat').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    link.href = url;
+    link.download = `nova_${safeTopic}_transcript.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Downloaded chat transcript file!');
+    setSharingSession(null);
+  };
+
+  const nativeShare = async (sess: NovaChatSession) => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: `NOVA Study Session: ${sess.title}`,
+          text: generateFormattedTranscript(sess),
+        });
+        showToast('Shared successfully!');
+        setSharingSession(null);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.warn('Share error:', err);
+        }
+      }
+    }
+  };
 
   // Load curriculum subjects
   useEffect(() => {
@@ -450,6 +781,7 @@ export const AiTeacher: React.FC = () => {
     };
 
     setMessages((prev) => [...prev, studentMsg]);
+    appendMessageToCurrentSession(studentMsg);
     setInput('');
     setInterimTranscript('');
     setLoading(true);
@@ -486,21 +818,21 @@ export const AiTeacher: React.FC = () => {
         };
 
         setMessages((prev) => [...prev, novaResponseMsg]);
+        appendMessageToCurrentSession(novaResponseMsg);
         speakText(cleanFeedback, novaMsgId);
       } catch (err: any) {
         console.error(err);
         setCurrentExpression('concerned');
         setVoiceState('error');
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `msg-err-${Date.now()}`,
-            sender: 'nova',
-            text: 'I had trouble evaluating your explanation just now. Please try again or rephrase in your own words.',
-            expression: 'concerned',
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ]);
+        const errMsg: NovaChatMessage = {
+          id: `msg-err-${Date.now()}`,
+          sender: 'nova',
+          text: 'I had trouble evaluating your explanation just now. Please try again or rephrase in your own words.',
+          expression: 'concerned',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setMessages((prev) => [...prev, errMsg]);
+        appendMessageToCurrentSession(errMsg);
       } finally {
         setLoading(false);
         isSubmittingRef.current = false;
@@ -543,21 +875,21 @@ export const AiTeacher: React.FC = () => {
       };
 
       setMessages((prev) => [...prev, aiMsg]);
+      appendMessageToCurrentSession(aiMsg);
       speakText(cleanAnswer, novaMsgId);
     } catch (err: any) {
       console.error(err);
       setCurrentExpression('concerned');
       setVoiceState('error');
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `msg-err-${Date.now()}`,
-          sender: 'nova',
-          text: `I couldn't retrieve that information in the available curriculum context. You can rephrase or ask your teacher for guidance.`,
-          expression: 'concerned',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ]);
+      const fallbackErr: NovaChatMessage = {
+        id: `msg-err-${Date.now()}`,
+        sender: 'nova',
+        text: `I couldn't retrieve that information in the available curriculum context. You can rephrase or ask your teacher for guidance.`,
+        expression: 'concerned',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, fallbackErr]);
+      appendMessageToCurrentSession(fallbackErr);
     } finally {
       setLoading(false);
       isSubmittingRef.current = false;
@@ -684,6 +1016,163 @@ export const AiTeacher: React.FC = () => {
   };
 
   const currentSubject = subjects.find((s) => s.id === selectedSubjectId);
+
+  // ==========================================
+  // 8. CHAT HISTORY PANEL (RENAME, DELETE, SHARE)
+  // ==========================================
+  const renderChatHistory = () => (
+    <div className="space-y-2">
+      {/* Top Action: New Chat Button */}
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => handleCreateNewChat()}
+          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 bg-[#A7F3D0] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] font-extrabold text-[11px] text-[#0F172A] hover:bg-[#6EE7B7] active:translate-x-[1px] active:translate-y-[1px] transition-all"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>START NEW CHAT</span>
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1 pt-0.5">
+        <span className="text-[10px] font-extrabold text-slate-700 uppercase flex items-center gap-1">
+          <History className="w-3 h-3 text-[#0F172A]" /> PAST SESSIONS
+        </span>
+        <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-[#FDE68A] border border-[#0F172A]">
+          {sessions.length} SAVED
+        </span>
+      </div>
+
+      {sessions.length === 0 ? (
+        <div className="p-4 border-2 border-dashed border-[#0F172A] bg-white text-center space-y-2">
+          <p className="text-xs font-bold text-slate-600">No past conversations saved yet.</p>
+          <button
+            onClick={() => handleCreateNewChat()}
+            className="px-2.5 py-1 bg-[#FDE68A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] text-xs font-extrabold text-[#0F172A]"
+          >
+            Start First Chat
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {sessions.map((sess) => {
+            const isActive = sess.id === currentSessionId;
+            const isEditing = renamingSessionId === sess.id;
+            const formattedDate = new Date(sess.updated_at).toLocaleDateString([], {
+              month: 'short',
+              day: 'numeric',
+            });
+
+            return (
+              <div
+                key={sess.id}
+                className={`p-2 border-2 border-[#0F172A] transition-all ${
+                  isActive
+                    ? 'bg-[#FEFCE8] shadow-[2px_2px_0px_#0F172A]'
+                    : 'bg-white hover:bg-slate-50 shadow-[1px_1px_0px_#0F172A]'
+                }`}
+              >
+                {isEditing ? (
+                  <div className="space-y-1.5">
+                    <input
+                      type="text"
+                      value={renameTitleInput}
+                      onChange={(e) => setRenameTitleInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveRename();
+                        if (e.key === 'Escape') setRenamingSessionId(null);
+                      }}
+                      autoFocus
+                      className="w-full text-xs font-bold p-1 bg-white border border-[#0F172A] focus:outline-hidden"
+                    />
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={handleSaveRename}
+                        className="px-2 py-0.5 bg-[#A7F3D0] border border-[#0F172A] text-[10px] font-extrabold text-[#0F172A] hover:bg-[#6EE7B7]"
+                      >
+                        SAVE
+                      </button>
+                      <button
+                        onClick={() => setRenamingSessionId(null)}
+                        className="px-2 py-0.5 bg-slate-200 border border-[#0F172A] text-[10px] font-bold text-slate-700"
+                      >
+                        CANCEL
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    {/* Title row */}
+                    <div className="flex items-start justify-between gap-1">
+                      <button
+                        onClick={() => handleSelectSession(sess.id)}
+                        className="text-left flex-1 font-extrabold text-xs text-[#0F172A] line-clamp-1 hover:underline flex items-center gap-1"
+                        title={sess.title}
+                      >
+                        <MessageSquare className="w-3 h-3 shrink-0 text-slate-700" />
+                        <span className="truncate">{sess.title}</span>
+                      </button>
+                      {isActive && (
+                        <span className="shrink-0 text-[8px] font-black px-1 py-0.2 bg-[#0F172A] text-white uppercase tracking-wider">
+                          ACTIVE
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Metadata Badges */}
+                    <div className="flex items-center gap-1.5 mt-1 text-[9px] font-bold text-slate-600 flex-wrap">
+                      <span className="px-1 py-0.2 bg-[#E2E8F0] border border-[#0F172A] font-extrabold text-[#0F172A]">
+                        {sess.subject_name || 'Science'}
+                      </span>
+                      <span>{formattedDate}</span>
+                      <span>•</span>
+                      <span>{sess.messages.length} msgs</span>
+                    </div>
+
+                    {/* Action Buttons: Rename, Share, Delete */}
+                    <div className="flex items-center justify-end gap-1 mt-1.5 pt-1 border-t border-slate-200">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRenamingSessionId(sess.id);
+                          setRenameTitleInput(sess.title);
+                        }}
+                        className="p-1 text-slate-700 hover:text-[#0F172A] hover:bg-slate-100 border border-transparent hover:border-[#0F172A] rounded-xs transition-colors"
+                        title="Rename chat"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSharingSession(sess);
+                        }}
+                        className="p-1 text-blue-700 hover:text-blue-900 hover:bg-blue-50 border border-transparent hover:border-[#0F172A] rounded-xs transition-colors"
+                        title="Share chat transcript"
+                      >
+                        <Share2 className="w-3 h-3" />
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSession(sess.id);
+                        }}
+                        className="p-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 border border-transparent hover:border-rose-400 rounded-xs transition-colors"
+                        title="Delete chat"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 
   // ==========================================
   // 9. LEARNING HUB CONTROLS CONTENT (SHARED)
@@ -882,8 +1371,30 @@ export const AiTeacher: React.FC = () => {
           </span>
         </div>
 
-        {/* Top Controls: Channel Switcher (TEXT | VOICE | LIVE) + Timer */}
-        <div className="flex items-center gap-2">
+        {/* Top Controls: Channel Switcher (TEXT | VOICE | LIVE) + Chat History + Timer */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Quick Chat Actions */}
+          <button
+            onClick={() => handleCreateNewChat()}
+            className="flex items-center gap-1 px-2 py-0.5 bg-[#A7F3D0] border border-[#0F172A] text-xs font-extrabold hover:bg-[#6EE7B7] active:translate-x-[1px] active:translate-y-[1px] text-[#0F172A] shadow-[1px_1px_0px_#0F172A]"
+            title="Start a new chat session"
+          >
+            <Plus className="w-3 h-3" />
+            <span className="hidden sm:inline text-[10px]">NEW CHAT</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (isPanelCollapsed) setIsPanelCollapsed(false);
+              setLeftPanelTab('history');
+            }}
+            className="hidden sm:flex items-center gap-1 px-2 py-0.5 bg-white border border-[#0F172A] text-xs font-extrabold hover:bg-[#FDE68A] active:translate-x-[1px] active:translate-y-[1px] text-[#0F172A] shadow-[1px_1px_0px_#0F172A]"
+            title="View past chat history"
+          >
+            <History className="w-3 h-3 text-[#0F172A]" />
+            <span className="text-[10px]">HISTORY ({sessions.length})</span>
+          </button>
+
           {/* Interaction Channel Switcher */}
           <div className="flex items-center border border-[#0F172A] bg-white p-0.5">
             <button
@@ -927,7 +1438,7 @@ export const AiTeacher: React.FC = () => {
             className="lg:hidden flex items-center gap-1 px-2 py-0.5 bg-[#FDE68A] border border-[#0F172A] text-xs font-extrabold active:translate-x-[1px] active:translate-y-[1px]"
           >
             <Menu className="w-3.5 h-3.5 text-[#0F172A]" />
-            <span className="text-[10px]">LEARNING HUB</span>
+            <span className="text-[10px]">HUB / CHATS</span>
           </button>
 
           {/* Active Study Timer */}
@@ -953,19 +1464,54 @@ export const AiTeacher: React.FC = () => {
             style={{ width: `${panelWidth}px` }}
             className="hidden lg:flex flex-col bg-[#F8FAFC] border-r-2 border-[#0F172A] overflow-y-auto p-2 shrink-0 transition-[width] duration-75 select-text"
           >
-            <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1 mb-1.5">
-              <span className="text-xs font-extrabold uppercase text-[#0F172A] flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5" /> LEARNING HUB
-              </span>
-              <button
-                onClick={togglePanelCollapse}
-                className="p-1 bg-white border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] hover:bg-[#FDE68A] active:scale-95 text-[#0F172A]"
-                title="Collapse Learning Panel"
-              >
-                <ChevronLeft className="w-3 h-3" />
-              </button>
+            {/* Dual Tabs: LEARNING HUB vs CHATS */}
+            <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1.5 mb-2 gap-1">
+              <div className="flex items-center border border-[#0F172A] bg-white p-0.5">
+                <button
+                  onClick={() => setLeftPanelTab('hub')}
+                  className={`px-2 py-0.5 text-[10px] font-extrabold flex items-center gap-1 transition-all ${
+                    leftPanelTab === 'hub'
+                      ? 'bg-[#0F172A] text-white'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                  title="Curriculum & Settings"
+                >
+                  <BookOpen className="w-3 h-3" />
+                  <span>HUB</span>
+                </button>
+                <button
+                  onClick={() => setLeftPanelTab('history')}
+                  className={`px-2 py-0.5 text-[10px] font-extrabold flex items-center gap-1 transition-all ${
+                    leftPanelTab === 'history'
+                      ? 'bg-[#FDE68A] text-[#0F172A]'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                  title="Past Chat History"
+                >
+                  <History className="w-3 h-3" />
+                  <span>CHATS ({sessions.length})</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handleCreateNewChat()}
+                  className="p-1 bg-[#A7F3D0] border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] hover:bg-[#6EE7B7] text-[#0F172A]"
+                  title="Start New Chat"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={togglePanelCollapse}
+                  className="p-1 bg-white border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] hover:bg-[#FDE68A] active:scale-95 text-[#0F172A]"
+                  title="Collapse Learning Panel"
+                >
+                  <ChevronLeft className="w-3 h-3" />
+                </button>
+              </div>
             </div>
-            {renderLearningHubControls()}
+
+            {leftPanelTab === 'hub' ? renderLearningHubControls() : renderChatHistory()}
           </div>
         )}
 
@@ -1049,8 +1595,21 @@ export const AiTeacher: React.FC = () => {
               </div>
             </div>
 
-            {/* Header Right: Audio Toggle & Quick Interruption Button */}
+            {/* Header Right: Share Chat, Audio Toggle & Quick Interruption Button */}
             <div className="flex items-center gap-1.5 shrink-0">
+              {/* Share Active Chat */}
+              <button
+                onClick={() => {
+                  const active = sessions.find((s) => s.id === currentSessionId);
+                  if (active) setSharingSession(active);
+                }}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-bold bg-white hover:bg-[#FDE68A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] transition-all text-[#0F172A]"
+                title="Share current chat transcript"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">SHARE</span>
+              </button>
+
               {isSpeaking && (
                 <button
                   onClick={interruptNova}
@@ -1467,19 +2026,139 @@ export const AiTeacher: React.FC = () => {
           {/* Drawer content panel */}
           <div className="relative w-80 max-w-[85vw] bg-white h-full border-r-4 border-[#0F172A] p-3 overflow-y-auto space-y-3 shadow-[6px_0px_0px_#0F172A] z-10">
             <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1.5">
-              <span className="font-extrabold text-xs uppercase flex items-center gap-1.5 text-[#0F172A]">
-                <BookOpen className="w-4 h-4" /> LEARNING HUB
-              </span>
+              {/* Dual Tabs for Mobile */}
+              <div className="flex items-center border border-[#0F172A] bg-white p-0.5">
+                <button
+                  onClick={() => setLeftPanelTab('hub')}
+                  className={`px-2 py-0.5 text-[10px] font-extrabold flex items-center gap-1 transition-all ${
+                    leftPanelTab === 'hub'
+                      ? 'bg-[#0F172A] text-white'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <BookOpen className="w-3 h-3" />
+                  <span>HUB</span>
+                </button>
+                <button
+                  onClick={() => setLeftPanelTab('history')}
+                  className={`px-2 py-0.5 text-[10px] font-extrabold flex items-center gap-1 transition-all ${
+                    leftPanelTab === 'history'
+                      ? 'bg-[#FDE68A] text-[#0F172A]'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <History className="w-3 h-3" />
+                  <span>CHATS ({sessions.length})</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    handleCreateNewChat();
+                    setIsMobileDrawerOpen(false);
+                  }}
+                  className="p-1 bg-[#A7F3D0] border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] text-[#0F172A]"
+                  title="New Chat"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setIsMobileDrawerOpen(false)}
+                  className="p-1 bg-[#FED7AA] border-2 border-[#0F172A] shadow-[1px_1px_0px_#0F172A] text-[#0F172A] font-extrabold text-xs"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {leftPanelTab === 'hub' ? renderLearningHubControls() : renderChatHistory()}
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          SHARE CHAT TRANSCRIPT MODAL
+         ========================================== */}
+      {sharingSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white border-3 border-[#0F172A] shadow-[6px_6px_0px_#0F172A] p-4 space-y-3 font-mono">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-2">
+              <div className="flex items-center gap-1.5">
+                <Share2 className="w-4 h-4 text-[#0F172A]" />
+                <h3 className="font-extrabold text-sm text-[#0F172A] uppercase">
+                  SHARE CHAT TRANSCRIPT
+                </h3>
+              </div>
               <button
-                onClick={() => setIsMobileDrawerOpen(false)}
-                className="p-1 bg-[#FED7AA] border-2 border-[#0F172A] shadow-[1px_1px_0px_#0F172A] text-[#0F172A] font-extrabold text-xs"
+                onClick={() => setSharingSession(null)}
+                className="p-1 border border-[#0F172A] bg-white hover:bg-[#FED7AA] text-[#0F172A]"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {renderLearningHubControls()}
+            {/* Session Info */}
+            <div className="p-2.5 bg-[#FEFCE8] border-2 border-[#0F172A] space-y-1">
+              <p className="font-extrabold text-xs text-[#0F172A] line-clamp-1">
+                {sharingSession.title}
+              </p>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                <span>{sharingSession.subject_name}</span>
+                <span>•</span>
+                <span>{sharingSession.messages.length} messages</span>
+                <span>•</span>
+                <span>{new Date(sharingSession.updated_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+
+            {/* Share Options */}
+            <div className="space-y-2 pt-1">
+              <button
+                onClick={() => copyTranscript(sharingSession)}
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-[#A7F3D0] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] font-extrabold text-xs text-[#0F172A] hover:bg-[#6EE7B7] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>COPY TRANSCRIPT TO CLIPBOARD</span>
+              </button>
+
+              <button
+                onClick={() => downloadTranscript(sharingSession)}
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-[#C4B5FD] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] font-extrabold text-xs text-[#0F172A] hover:bg-[#A78BFA] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>DOWNLOAD FILE (.MD)</span>
+              </button>
+
+              {typeof navigator !== 'undefined' && 'share' in navigator && (
+                <button
+                  onClick={() => nativeShare(sharingSession)}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-[#FDE68A] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] font-extrabold text-xs text-[#0F172A] hover:bg-[#FCD34D] active:translate-x-[1px] active:translate-y-[1px] transition-all cursor-pointer"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>SHARE VIA DEVICE APPS</span>
+                </button>
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-200 flex justify-end">
+              <button
+                onClick={() => setSharingSession(null)}
+                className="px-3 py-1 bg-white border border-[#0F172A] text-xs font-extrabold text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                CLOSE
+              </button>
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2 bg-[#0F172A] text-white border-2 border-[#0F172A] shadow-[4px_4px_0px_#FDE68A] px-3.5 py-2 font-mono text-xs font-extrabold animate-bounce">
+          <Check className="w-4 h-4 text-[#A7F3D0]" />
+          <span>{toastMessage}</span>
         </div>
       )}
     </div>

@@ -26,9 +26,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         {onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
-            className="md:hidden p-1.5 border-2 border-[#0F172A] bg-white shadow-[2px_2px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px]"
+            className="p-1.5 border-2 border-[#0F172A] bg-white shadow-[2px_2px_0px_#0F172A] hover:bg-[#FDE68A] active:translate-x-[1px] active:translate-y-[1px] transition-all flex items-center justify-center"
+            title="Toggle Sidebar Navigation (Slide Left/Right)"
           >
-            <Menu className="w-5 h-5 text-[#0F172A]" />
+            <Menu className="w-4 h-4 md:w-5 md:h-5 text-[#0F172A]" />
           </button>
         )}
         <div className="flex items-center gap-2">

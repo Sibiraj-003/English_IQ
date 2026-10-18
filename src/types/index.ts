@@ -601,6 +601,18 @@ export interface NovaChatMessage {
   timestamp: string;
 }
 
+export interface NovaChatSession {
+  id: string;
+  title: string;
+  subject_id: string;
+  subject_name: string;
+  topic: string;
+  mode: 'chat' | 'teach_back' | 'practice' | 'quiz' | 'revision';
+  messages: NovaChatMessage[];
+  updated_at: string;
+  created_at: string;
+}
+
 export interface StudySession {
   id: string;
   student_id: string;

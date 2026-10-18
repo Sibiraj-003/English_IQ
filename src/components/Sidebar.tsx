@@ -25,11 +25,14 @@ import {
   Clock,
   Briefcase,
   UserCheck,
+  ChevronLeft,
 } from 'lucide-react';
 
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 interface NavItem {
@@ -39,7 +42,12 @@ interface NavItem {
   badge?: string;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  isOpen = false,
+  onClose,
+  isCollapsed = false,
+  onToggleCollapse,
+}) => {
   const { role, user, activeChild, selectChild } = useAuth();
 
   const adminLinks: NavItem[] = [
@@ -108,8 +116,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
       )}
 
       <aside
-        className={`fixed md:static top-0 left-0 h-screen md:h-full w-64 bg-white border-r-2 border-[#0F172A] z-50 flex flex-col justify-between transition-transform duration-200 ease-in-out font-mono shrink-0 ${
+        className={`fixed md:static top-0 left-0 h-screen md:h-full bg-white border-r-2 border-[#0F172A] z-50 flex flex-col justify-between transition-all duration-300 ease-in-out font-mono shrink-0 select-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        } ${
+          isCollapsed
+            ? 'md:w-0 md:-translate-x-full md:border-r-0 md:opacity-0 pointer-events-none md:overflow-hidden'
+            : 'md:w-64 md:translate-x-0 md:opacity-100 pointer-events-auto w-64'
         }`}
       >
         <div className="overflow-y-auto flex-1 min-h-0">
@@ -129,14 +141,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
               </div>
             </div>
 
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="md:hidden p-1 border-2 border-[#0F172A] bg-white shadow-[1.5px_1.5px_0px_#0F172A]"
-              >
-                <X className="w-4 h-4 text-[#0F172A]" />
-              </button>
-            )}
+            <div className="flex items-center gap-1.5">
+              {onToggleCollapse && (
+                <button
+                  onClick={onToggleCollapse}
+                  className="hidden md:flex items-center gap-1 px-1.5 py-1 border-2 border-[#0F172A] bg-white shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-[#FDE68A] active:translate-x-[1px] active:translate-y-[1px] text-[#0F172A] transition-all font-mono text-[10px] font-extrabold cursor-pointer"
+                  title="Slide menu to left (gain more workspace space)"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">HIDE</span>
+                </button>
+              )}
+
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className="md:hidden p-1 border-2 border-[#0F172A] bg-white shadow-[1.5px_1.5px_0px_#0F172A]"
+                >
+                  <X className="w-4 h-4 text-[#0F172A]" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Child Switcher for Parents */}
