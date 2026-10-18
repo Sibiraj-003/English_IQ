@@ -108,11 +108,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
       )}
 
       <aside
-        className={`fixed md:sticky top-0 left-0 h-screen w-64 bg-white border-r-2 border-[#0F172A] z-50 flex flex-col justify-between transition-transform duration-200 ease-in-out font-mono ${
+        className={`fixed md:static top-0 left-0 h-screen md:h-full w-64 bg-white border-r-2 border-[#0F172A] z-50 flex flex-col justify-between transition-transform duration-200 ease-in-out font-mono shrink-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <div className="overflow-y-auto">
+        <div className="overflow-y-auto flex-1 min-h-0">
           {/* Logo & Brand Header */}
           <div className="p-4 border-b-2 border-[#0F172A] bg-[#C4B5FD] flex items-center justify-between">
             <div className="flex items-center gap-2.5">

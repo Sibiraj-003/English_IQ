@@ -689,16 +689,18 @@ export const AiTeacher: React.FC = () => {
   // 9. LEARNING HUB CONTROLS CONTENT (SHARED)
   // ==========================================
   const renderLearningHubControls = () => (
-    <div className="space-y-4">
-      {/* Subject Selector */}
-      <BrutalCard className="p-3 bg-white space-y-2.5">
-        <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1.5">
-          <span className="text-xs font-extrabold text-[#0F172A] uppercase flex items-center gap-1.5">
-            <BookOpen className="w-4 h-4 text-[#0F172A]" /> Curriculum Subject
+    <div className="space-y-2">
+      {/* Subject Selector & Topic Card */}
+      <BrutalCard className="p-2 bg-white space-y-1.5">
+        <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1">
+          <span className="text-[11px] font-extrabold text-[#0F172A] uppercase flex items-center gap-1">
+            <BookOpen className="w-3.5 h-3.5 text-[#0F172A]" /> Curriculum Subject
           </span>
+          <span className="text-[9px] font-bold text-slate-500">{subjects.length} subjects</span>
         </div>
 
-        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+        {/* 2-Column High-Density Subject Grid */}
+        <div className="grid grid-cols-2 gap-1">
           {subjects.map((sub) => (
             <button
               key={sub.id}
@@ -709,69 +711,72 @@ export const AiTeacher: React.FC = () => {
                 else if (sub.name.includes('English')) setSelectedTopic('Nouns & Sentence Construction');
                 else setSelectedTopic(`${sub.name} Core Concepts`);
               }}
-              className={`w-full text-left px-2.5 py-1.5 text-xs font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between ${
+              className={`px-1.5 py-1 text-[11px] font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between truncate text-left ${
                 selectedSubjectId === sub.id
-                  ? 'bg-[#0F172A] text-white shadow-[2px_2px_0px_#FDE68A]'
+                  ? 'bg-[#0F172A] text-white shadow-[1.5px_1.5px_0px_#FDE68A]'
                   : 'bg-white text-[#0F172A] hover:bg-slate-50'
               }`}
+              title={sub.name}
             >
               <span className="truncate">{sub.name}</span>
-              <span className="text-[10px] opacity-80 shrink-0 ml-1">{sub.code || 'SUB'}</span>
+              <span className="text-[9px] opacity-75 shrink-0 ml-1">{sub.code || 'SUB'}</span>
             </button>
           ))}
         </div>
 
-        {/* Topic Input */}
-        <div className="pt-2 border-t border-slate-200">
-          <label className="text-[10px] font-extrabold text-slate-700 uppercase block mb-1">
-            Active Learning Topic:
-          </label>
-          <input
-            type="text"
-            value={selectedTopic}
-            onChange={(e) => setSelectedTopic(e.target.value)}
-            className="w-full text-xs font-bold p-1.5 bg-[#F8FAFC] border-2 border-[#0F172A] focus:outline-hidden"
-            placeholder="e.g. Photosynthesis"
-          />
+        {/* Topic Input Row */}
+        <div className="pt-1.5 border-t border-slate-200">
+          <div className="flex items-center gap-1.5">
+            <label className="text-[9px] font-extrabold text-slate-700 uppercase shrink-0">
+              Topic:
+            </label>
+            <input
+              type="text"
+              value={selectedTopic}
+              onChange={(e) => setSelectedTopic(e.target.value)}
+              className="flex-1 text-[11px] font-bold px-2 py-0.5 bg-[#F8FAFC] border-2 border-[#0F172A] focus:outline-hidden"
+              placeholder="e.g. Photosynthesis"
+            />
+          </div>
         </div>
       </BrutalCard>
 
       {/* Learning Mode Switcher */}
-      <BrutalCard className="p-3 bg-white space-y-2">
-        <span className="text-xs font-extrabold text-[#0F172A] uppercase flex items-center gap-1.5 border-b-2 border-[#0F172A] pb-1.5">
-          <Layers className="w-4 h-4" /> Interaction Mode
+      <BrutalCard className="p-2 bg-white space-y-1">
+        <span className="text-[11px] font-extrabold text-[#0F172A] uppercase flex items-center gap-1 border-b-2 border-[#0F172A] pb-1">
+          <Layers className="w-3.5 h-3.5" /> Interaction Mode
         </span>
 
-        <div className="grid grid-cols-1 gap-1.5">
+        <div className="grid grid-cols-1 gap-1 pt-0.5">
           <button
             onClick={() => setMode('chat')}
-            className={`text-left px-2.5 py-2 text-xs font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between ${
+            className={`text-left px-2 py-1 text-[11px] font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between ${
               mode === 'chat'
-                ? 'bg-[#C4B5FD] text-[#0F172A] shadow-[2px_2px_0px_#0F172A]'
+                ? 'bg-[#C4B5FD] text-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A]'
                 : 'bg-white text-[#0F172A] hover:bg-slate-50'
             }`}
           >
             <span>Socratic Discussion</span>
-            <span className="text-[9px] font-extrabold px-1 bg-white border border-[#0F172A]">INQUIRY</span>
+            <span className="text-[8px] font-extrabold px-1 bg-white border border-[#0F172A]">INQUIRY</span>
           </button>
 
           <button
             onClick={() => setMode('teach_back')}
-            className={`text-left px-2.5 py-2 text-xs font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between ${
+            className={`text-left px-2 py-1 text-[11px] font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between ${
               mode === 'teach_back'
-                ? 'bg-[#FDE68A] text-[#0F172A] shadow-[2px_2px_0px_#0F172A]'
+                ? 'bg-[#FDE68A] text-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A]'
                 : 'bg-white text-[#0F172A] hover:bg-slate-50'
             }`}
           >
             <span>Explain it to NOVA</span>
-            <span className="text-[9px] font-extrabold px-1 bg-[#A7F3D0] border border-[#0F172A]">MASTERY</span>
+            <span className="text-[8px] font-extrabold px-1 bg-[#A7F3D0] border border-[#0F172A]">MASTERY</span>
           </button>
 
           <button
             onClick={() => setMode('practice')}
-            className={`text-left px-2.5 py-2 text-xs font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between ${
+            className={`text-left px-2 py-1 text-[11px] font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between ${
               mode === 'practice'
-                ? 'bg-[#BAE6FD] text-[#0F172A] shadow-[2px_2px_0px_#0F172A]'
+                ? 'bg-[#BAE6FD] text-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A]'
                 : 'bg-white text-[#0F172A] hover:bg-slate-50'
             }`}
           >
@@ -780,9 +785,9 @@ export const AiTeacher: React.FC = () => {
 
           <button
             onClick={() => setMode('quiz')}
-            className={`text-left px-2.5 py-2 text-xs font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between ${
+            className={`text-left px-2 py-1 text-[11px] font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between ${
               mode === 'quiz'
-                ? 'bg-[#A7F3D0] text-[#0F172A] shadow-[2px_2px_0px_#0F172A]'
+                ? 'bg-[#A7F3D0] text-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A]'
                 : 'bg-white text-[#0F172A] hover:bg-slate-50'
             }`}
           >
@@ -791,9 +796,9 @@ export const AiTeacher: React.FC = () => {
 
           <button
             onClick={() => setMode('revision')}
-            className={`text-left px-2.5 py-2 text-xs font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between ${
+            className={`text-left px-2 py-1 text-[11px] font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between ${
               mode === 'revision'
-                ? 'bg-[#FED7AA] text-[#0F172A] shadow-[2px_2px_0px_#0F172A]'
+                ? 'bg-[#FED7AA] text-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A]'
                 : 'bg-white text-[#0F172A] hover:bg-slate-50'
             }`}
           >
@@ -803,56 +808,50 @@ export const AiTeacher: React.FC = () => {
       </BrutalCard>
 
       {/* Privacy-Preserving Opt-In Camera Monitor Widget */}
-      <BrutalCard className="p-3 bg-white space-y-2">
-        <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1.5">
-          <span className="text-xs font-extrabold text-[#0F172A] uppercase flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" /> Camera (Optional)
+      <BrutalCard className="p-2 bg-white space-y-1.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-extrabold text-[#0F172A] uppercase flex items-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Camera (Optional)
           </span>
           <button
             onClick={toggleCamera}
-            className={`p-1 border-2 border-[#0F172A] text-xs font-extrabold shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] ${
+            className={`px-2 py-0.5 border-2 border-[#0F172A] text-[10px] font-extrabold shadow-[1px_1px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] ${
               cameraActive ? 'bg-[#A7F3D0] text-[#0F172A]' : 'bg-slate-100 text-slate-700'
             }`}
             title="Toggle optional presence camera"
           >
-            {cameraActive ? <Camera className="w-3.5 h-3.5" /> : <CameraOff className="w-3.5 h-3.5" />}
+            {cameraActive ? 'ACTIVE' : 'OFF'}
           </button>
         </div>
 
         {cameraActive ? (
-          <div className="space-y-2">
-            <div className="relative border-2 border-[#0F172A] bg-black rounded-xs overflow-hidden h-28 flex items-center justify-center">
+          <div className="space-y-1.5 pt-1 border-t border-slate-200">
+            <div className="relative border border-[#0F172A] bg-black rounded-xs overflow-hidden h-20 flex items-center justify-center">
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-              <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-red-600 text-white text-[9px] font-extrabold flex items-center gap-1 animate-pulse">
-                <span className="w-1.5 h-1.5 bg-white rounded-full" /> LIVE
+              <div className="absolute top-1 left-1 px-1 py-0.2 bg-red-600 text-white text-[8px] font-extrabold flex items-center gap-1 animate-pulse">
+                <span className="w-1 h-1 bg-white rounded-full" /> LIVE
               </div>
             </div>
 
-            <div className="text-[10px] space-y-1 bg-[#F8FAFC] p-2 border border-[#0F172A]">
-              <div className="flex justify-between font-bold">
-                <span>Face Presence:</span>
-                <span
-                  className={
-                    cameraAnalysis?.face_detected ? 'text-emerald-700 font-extrabold' : 'text-slate-500'
-                  }
-                >
-                  {cameraAnalysis?.face_detected ? 'DETECTED' : 'MONITORING'}
-                </span>
-              </div>
-              <div className="flex justify-between font-bold">
-                <span>Gaze Signal:</span>
-                <span className="font-extrabold uppercase">{cameraAnalysis?.gaze_direction || 'CENTER'}</span>
-              </div>
+            <div className="text-[9px] flex justify-between font-bold bg-[#F8FAFC] p-1 border border-[#0F172A]">
+              <span>Face Presence:</span>
+              <span
+                className={
+                  cameraAnalysis?.face_detected ? 'text-emerald-700 font-extrabold' : 'text-slate-500'
+                }
+              >
+                {cameraAnalysis?.face_detected ? 'DETECTED' : 'MONITORING'}
+              </span>
             </div>
           </div>
         ) : (
-          <p className="text-[11px] text-slate-500 italic">
-            Camera is optional. NOVA learns with you equally well through text and audio.
+          <p className="text-[10px] text-slate-500 italic leading-tight">
+            Camera optional. NOVA learns with you via voice and text.
           </p>
         )}
 
         {cameraNotice && (
-          <p className="text-[10px] text-slate-600 bg-slate-50 p-1.5 border border-slate-300">
+          <p className="text-[9px] text-slate-600 bg-slate-50 p-1 border border-slate-300">
             {cameraNotice}
           </p>
         )}
@@ -861,37 +860,35 @@ export const AiTeacher: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col gap-3 max-w-6xl mx-auto w-full font-mono select-none">
+    <div className="flex flex-col w-full h-full min-h-0 font-mono select-none overflow-hidden gap-1.5">
       {/* ==========================================
-          TOP STATUS & MODE BAR
+          TOP STATUS & MODE BAR (COMPACT SINGLE-LINE)
          ========================================== */}
-      <div className="bg-[#FEFCE8] border-2 border-[#0F172A] p-2.5 sm:p-3 shadow-[3px_3px_0px_#0F172A] flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="p-1.5 bg-[#FDE68A] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
-            <Brain className="w-5 h-5 text-[#0F172A]" />
+      <div className="bg-[#FEFCE8] border-2 border-[#0F172A] px-2.5 py-1 shadow-[2px_2px_0px_#0F172A] flex items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="p-1 bg-[#FDE68A] border border-[#0F172A]">
+            <Brain className="w-4 h-4 text-[#0F172A]" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-sm sm:text-base text-[#0F172A] tracking-tight">
-                NOVA AI COMPANION
-              </span>
-              <span className="text-[10px] font-extrabold px-1.5 py-0.2 bg-[#A7F3D0] border border-[#0F172A]">
-                REAL-TIME VOICE
-              </span>
-            </div>
-            <p className="text-[10px] sm:text-[11px] text-slate-600">
-              Cloud AI Orchestration • Zero GPU Requirement • Textbook Grounded
-            </p>
+          <div className="flex items-center gap-1.5">
+            <span className="font-extrabold text-xs sm:text-sm text-[#0F172A] tracking-tight">
+              NOVA AI COMPANION
+            </span>
+            <span className="text-[9px] font-extrabold px-1 py-0.2 bg-[#A7F3D0] border border-[#0F172A]">
+              REAL-TIME VOICE
+            </span>
           </div>
+          <span className="text-[10px] text-slate-600 hidden md:inline">
+            • Cloud AI • Zero GPU • Textbook Grounded
+          </span>
         </div>
 
         {/* Top Controls: Channel Switcher (TEXT | VOICE | LIVE) + Timer */}
-        <div className="flex items-center flex-wrap gap-2">
+        <div className="flex items-center gap-2">
           {/* Interaction Channel Switcher */}
-          <div className="flex items-center border-2 border-[#0F172A] bg-white shadow-[2px_2px_0px_#0F172A] p-0.5">
+          <div className="flex items-center border border-[#0F172A] bg-white p-0.5">
             <button
               onClick={() => handleSelectChannel('text')}
-              className={`px-2 py-1 text-xs font-extrabold transition-all ${
+              className={`px-2 py-0.5 text-[11px] font-extrabold transition-all ${
                 channelMode === 'text'
                   ? 'bg-[#0F172A] text-white'
                   : 'text-slate-700 hover:bg-slate-100'
@@ -902,7 +899,7 @@ export const AiTeacher: React.FC = () => {
             </button>
             <button
               onClick={() => handleSelectChannel('voice')}
-              className={`px-2 py-1 text-xs font-extrabold transition-all flex items-center gap-1 ${
+              className={`px-2 py-0.5 text-[11px] font-extrabold transition-all flex items-center gap-1 ${
                 channelMode === 'voice'
                   ? 'bg-[#C4B5FD] text-[#0F172A]'
                   : 'text-slate-700 hover:bg-slate-100'
@@ -913,7 +910,7 @@ export const AiTeacher: React.FC = () => {
             </button>
             <button
               onClick={() => handleSelectChannel('live')}
-              className={`px-2.5 py-1 text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+              className={`px-2 py-0.5 text-[11px] font-extrabold transition-all flex items-center gap-1 ${
                 channelMode === 'live'
                   ? 'bg-[#A7F3D0] text-[#0F172A] animate-pulse'
                   : 'text-slate-700 hover:bg-slate-100'
@@ -927,16 +924,16 @@ export const AiTeacher: React.FC = () => {
           {/* Mobile Drawer Opener (visible on small screens) */}
           <button
             onClick={() => setIsMobileDrawerOpen(true)}
-            className="lg:hidden flex items-center gap-1.5 px-2.5 py-1.5 bg-[#FDE68A] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] text-xs font-extrabold active:translate-x-[1px] active:translate-y-[1px]"
+            className="lg:hidden flex items-center gap-1 px-2 py-0.5 bg-[#FDE68A] border border-[#0F172A] text-xs font-extrabold active:translate-x-[1px] active:translate-y-[1px]"
           >
-            <Menu className="w-4 h-4 text-[#0F172A]" />
-            <span>LEARNING HUB</span>
+            <Menu className="w-3.5 h-3.5 text-[#0F172A]" />
+            <span className="text-[10px]">LEARNING HUB</span>
           </button>
 
           {/* Active Study Timer */}
-          <div className="hidden sm:flex items-center gap-1.5 bg-white px-2.5 py-1 border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
-            <Clock className="w-3.5 h-3.5 text-[#0F172A] animate-pulse" />
-            <span className="text-[11px] font-extrabold text-[#0F172A]">
+          <div className="hidden sm:flex items-center gap-1 bg-white px-2 py-0.5 border border-[#0F172A]">
+            <Clock className="w-3 h-3 text-[#0F172A] animate-pulse" />
+            <span className="text-[10px] font-extrabold text-[#0F172A]">
               {Math.floor(studySeconds / 60)}m {studySeconds % 60}s
             </span>
           </div>
@@ -944,28 +941,28 @@ export const AiTeacher: React.FC = () => {
       </div>
 
       {/* ==========================================
-          MAIN WORKSPACE (RESIZABLE DESKTOP LAYOUT)
+          MAIN WORKSPACE (SINGLE VIEWPORT CONTAINER)
          ========================================== */}
       <div
         ref={mainContainerRef}
-        className="relative flex flex-col lg:flex-row w-full min-h-[720px] bg-white border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] overflow-hidden"
+        className="flex-1 min-h-0 flex flex-col lg:flex-row w-full bg-white border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] overflow-hidden"
       >
         {/* DESKTOP LEFT LEARNING PANEL */}
         {!isPanelCollapsed && (
           <div
             style={{ width: `${panelWidth}px` }}
-            className="hidden lg:flex flex-col bg-[#F8FAFC] border-r-2 border-[#0F172A] overflow-y-auto p-3.5 shrink-0 transition-[width] duration-75 select-text"
+            className="hidden lg:flex flex-col bg-[#F8FAFC] border-r-2 border-[#0F172A] overflow-y-auto p-2 shrink-0 transition-[width] duration-75 select-text"
           >
-            <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-2 mb-3">
+            <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1 mb-1.5">
               <span className="text-xs font-extrabold uppercase text-[#0F172A] flex items-center gap-1.5">
-                <BookOpen className="w-4 h-4" /> LEARNING HUB
+                <BookOpen className="w-3.5 h-3.5" /> LEARNING HUB
               </span>
               <button
                 onClick={togglePanelCollapse}
                 className="p-1 bg-white border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] hover:bg-[#FDE68A] active:scale-95 text-[#0F172A]"
                 title="Collapse Learning Panel"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-3 h-3" />
               </button>
             </div>
             {renderLearningHubControls()}
@@ -976,7 +973,7 @@ export const AiTeacher: React.FC = () => {
         {!isPanelCollapsed ? (
           <div
             onMouseDown={handleDividerMouseDown}
-            className={`hidden lg:flex flex-col items-center justify-between py-6 w-3 border-r-2 border-[#0F172A] cursor-col-resize select-none shrink-0 transition-colors ${
+            className={`hidden lg:flex flex-col items-center justify-between py-4 w-3 border-r-2 border-[#0F172A] cursor-col-resize select-none shrink-0 transition-colors ${
               isDragging ? 'bg-[#FDE68A]' : 'bg-slate-100 hover:bg-[#C4B5FD]'
             }`}
             title="Drag horizontally to resize learning panel"
@@ -1005,56 +1002,59 @@ export const AiTeacher: React.FC = () => {
           </div>
         ) : (
           /* COLLAPSED EXPAND STRIP (DESKTOP) */
-          <div className="hidden lg:flex flex-col items-center py-4 px-1 bg-[#FEFCE8] border-r-2 border-[#0F172A] shrink-0">
+          <div className="hidden lg:flex flex-col items-center py-3 px-1 bg-[#FEFCE8] border-r-2 border-[#0F172A] shrink-0">
             <button
               onClick={togglePanelCollapse}
-              className="p-1 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] hover:bg-[#FDE68A] text-[#0F172A] mb-4 active:scale-95"
+              className="p-1 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] hover:bg-[#FDE68A] text-[#0F172A] mb-3 active:scale-95"
               title="Expand Learning Panel"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
-            <span className="text-[10px] font-extrabold uppercase text-[#0F172A] [writing-mode:vertical-lr] tracking-widest py-2">
+            <span className="text-[9px] font-extrabold uppercase text-[#0F172A] [writing-mode:vertical-lr] tracking-widest py-1">
               LEARNING HUB
             </span>
           </div>
         )}
 
         {/* RIGHT MAIN CONVERSATION AREA */}
-        <div className="flex-1 min-w-0 flex flex-col h-[720px] bg-white">
-          {/* HEADER BAR: NOVA AVATAR & COMPANION IDENTITY */}
-          <div className="p-3 bg-[#C4B5FD] border-b-2 border-[#0F172A] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0 flex flex-col bg-white overflow-hidden">
+          {/* HEADER BAR: NOVA AVATAR & COMPANION IDENTITY (COMPACT HEIGHT) */}
+          <div className="px-3 py-2 bg-[#C4B5FD] border-b-2 border-[#0F172A] flex items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
               {/* NOVA AI FACE AVATAR */}
               <NovaAvatar
                 expression={currentExpression}
                 voiceState={voiceState}
                 isSpeaking={isSpeaking}
                 isThinking={loading}
-                size="md"
-                showLabel={true}
+                size="compact"
+                showLabel={false}
               />
 
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="font-extrabold text-sm sm:text-base text-[#0F172A] tracking-tight">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h2 className="font-extrabold text-xs sm:text-sm text-[#0F172A] tracking-tight truncate">
                     NOVA // LEARNING COMPANION
                   </h2>
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.2 bg-[#FDE68A] border border-[#0F172A]">
+                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-[#FDE68A] border border-[#0F172A]">
                     {currentSubject?.name || 'Science'}
                   </span>
+                  <span className="text-[8px] font-extrabold px-1 py-0.2 bg-[#0F172A] text-white border border-[#0F172A] uppercase">
+                    {voiceState}
+                  </span>
                 </div>
-                <p className="text-xs font-bold text-slate-800 line-clamp-1">
+                <p className="text-[11px] font-bold text-slate-800 truncate">
                   Topic: {selectedTopic}
                 </p>
               </div>
             </div>
 
             {/* Header Right: Audio Toggle & Quick Interruption Button */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               {isSpeaking && (
                 <button
                   onClick={interruptNova}
-                  className="flex items-center gap-1 px-2 py-1 text-xs font-extrabold bg-[#FED7AA] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] hover:bg-rose-200 active:scale-95 text-[#0F172A]"
+                  className="flex items-center gap-1 px-2 py-0.5 text-xs font-extrabold bg-[#FED7AA] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-rose-200 active:scale-95 text-[#0F172A]"
                   title="Interrupt NOVA speech"
                 >
                   <Square className="w-3 h-3 fill-[#0F172A]" />
@@ -1072,7 +1072,7 @@ export const AiTeacher: React.FC = () => {
                     setSpeakingMessageId(null);
                   }
                 }}
-                className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] transition-all active:translate-x-[1px] active:translate-y-[1px] ${
+                className={`flex items-center gap-1 px-2 py-1 text-xs font-bold border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] transition-all active:translate-x-[1px] active:translate-y-[1px] ${
                   audioEnabled ? 'bg-[#A7F3D0] text-[#0F172A]' : 'bg-white text-slate-700'
                 }`}
                 title="Toggle Text-to-Speech audio"
@@ -1085,12 +1085,12 @@ export const AiTeacher: React.FC = () => {
 
           {/* Sub-banner: Teach-Back or LIVE Voice Status */}
           {mode === 'teach_back' && (
-            <div className="bg-[#FEFCE8] border-b-2 border-[#0F172A] p-2 sm:p-2.5 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-600 animate-spin" />
-                <span className="font-extrabold text-[#0F172A]">"EXPLAIN IT TO NOVA" MODE:</span>
+            <div className="bg-[#FEFCE8] border-b-2 border-[#0F172A] px-3 py-1 flex items-center justify-between text-[11px] shrink-0">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                <span className="font-extrabold text-[#0F172A]">"EXPLAIN IT TO NOVA":</span>
                 <span className="text-slate-700 font-bold hidden sm:inline">
-                  Explain {selectedTopic} in your own words. NOVA evaluates conceptual understanding!
+                  Explain {selectedTopic} in your own words.
                 </span>
               </div>
               <Badge variant="lavender">TEACH-BACK</Badge>
@@ -1098,14 +1098,12 @@ export const AiTeacher: React.FC = () => {
           )}
 
           {channelMode === 'live' && (
-            <div className="bg-[#ECFDF5] border-b-2 border-[#0F172A] px-3 py-1.5 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
+            <div className="bg-[#ECFDF5] border-b-2 border-[#0F172A] px-3 py-1 flex items-center justify-between text-[11px] shrink-0">
+              <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                <span className="font-extrabold text-emerald-900 text-[11px]">
-                  LIVE VOICE ACTIVE:
-                </span>
-                <span className="text-emerald-800 text-[11px] hidden sm:inline">
-                  Speak naturally. Say anything to interrupt or ask a follow-up.
+                <span className="font-extrabold text-emerald-900">LIVE VOICE ACTIVE:</span>
+                <span className="text-emerald-800 hidden sm:inline">
+                  Speak naturally. Say anything to interrupt.
                 </span>
               </div>
               <button
@@ -1117,8 +1115,8 @@ export const AiTeacher: React.FC = () => {
             </div>
           )}
 
-          {/* SCROLLABLE CONVERSATION STREAM */}
-          <div className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-4 bg-[#F8FAFC]">
+          {/* SCROLLABLE CONVERSATION STREAM (FLEX-1 INTERNALLY SCROLLING ONLY) */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5 bg-[#F8FAFC]">
             {messages.map((m) => {
               const isCurrentlyPlaying = speakingMessageId === m.id;
               return (
@@ -1129,24 +1127,24 @@ export const AiTeacher: React.FC = () => {
                   }`}
                 >
                   <div
-                    className={`max-w-[90%] sm:max-w-[85%] p-3.5 border-2 border-[#0F172A] transition-all ${
+                    className={`max-w-[90%] sm:max-w-[85%] p-3 border-2 border-[#0F172A] transition-all ${
                       isCurrentlyPlaying
-                        ? 'border-indigo-600 bg-[#F5F3FF] shadow-[4px_4px_0px_#4338CA]'
+                        ? 'border-indigo-600 bg-[#F5F3FF] shadow-[3px_3px_0px_#4338CA]'
                         : m.sender === 'student'
-                        ? 'bg-[#0F172A] text-white shadow-[3px_3px_0px_#0F172A]'
-                        : 'bg-white text-[#0F172A] shadow-[3px_3px_0px_#0F172A]'
+                        ? 'bg-[#0F172A] text-white shadow-[2px_2px_0px_#0F172A]'
+                        : 'bg-white text-[#0F172A] shadow-[2px_2px_0px_#0F172A]'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-4 mb-1.5 border-b border-slate-300/40 pb-1 text-[10px] font-bold opacity-80 uppercase">
+                    <div className="flex items-center justify-between gap-4 mb-1 border-b border-slate-300/40 pb-0.5 text-[9px] font-bold opacity-80 uppercase">
                       <span className="flex items-center gap-1.5">
                         {m.sender === 'student' ? 'YOU (SCHOLAR)' : 'NOVA MENTOR'}
                         {isCurrentlyPlaying && (
-                          <span className="px-1.5 py-0.2 bg-[#C4B5FD] text-[#0F172A] border border-[#0F172A] text-[9px] font-extrabold animate-pulse">
+                          <span className="px-1 py-0.2 bg-[#C4B5FD] text-[#0F172A] border border-[#0F172A] text-[8px] font-extrabold animate-pulse">
                             SPEAKING NOW
                           </span>
                         )}
                       </span>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         {m.sender === 'nova' && (
                           <button
                             onClick={() => {
@@ -1156,7 +1154,7 @@ export const AiTeacher: React.FC = () => {
                                 speakText(m.text, m.id);
                               }
                             }}
-                            className="p-1 hover:bg-slate-200 border border-[#0F172A] bg-white text-[#0F172A] transition-colors"
+                            className="p-0.5 hover:bg-slate-200 border border-[#0F172A] bg-white text-[#0F172A] transition-colors"
                             title={isCurrentlyPlaying ? 'Stop playback' : 'Replay speech'}
                           >
                             {isCurrentlyPlaying ? (
@@ -1176,7 +1174,7 @@ export const AiTeacher: React.FC = () => {
 
                     {/* Textbook Grounding Source Badge */}
                     {m.sourceBadge && (
-                      <div className="mt-2.5 pt-2 border-t border-slate-200">
+                      <div className="mt-2 pt-1.5 border-t border-slate-200">
                         <SourceBadge
                           bookTitle={m.sourceBadge.bookTitle}
                           pageNumber={m.sourceBadge.pageNumber}
@@ -1188,14 +1186,14 @@ export const AiTeacher: React.FC = () => {
 
                   {/* Socratic Follow-up Prompts */}
                   {m.suggestedFollowUps && m.suggestedFollowUps.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2 max-w-[90%] sm:max-w-[85%]">
+                    <div className="flex flex-wrap gap-1 mt-1.5 max-w-[90%] sm:max-w-[85%]">
                       {m.suggestedFollowUps.map((prompt, idx) => (
                         <button
                           key={idx}
                           onClick={() => handleSendMessage(prompt)}
-                          className="text-[10px] font-bold px-2 py-1 bg-white border border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-[#FDE68A] text-[#0F172A] transition-all text-left active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1.5"
+                          className="text-[10px] font-bold px-2 py-0.5 bg-white border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] hover:bg-[#FDE68A] text-[#0F172A] transition-all text-left active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-1"
                         >
-                          <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                          <Sparkles className="w-2.5 h-2.5 text-amber-600 shrink-0" />
                           <span>{prompt}</span>
                         </button>
                       ))}
@@ -1205,18 +1203,18 @@ export const AiTeacher: React.FC = () => {
               );
             })}
 
-            {/* LIVE INTERIM TRANSCRIPT BADGE (NEVER DUPLICATED) */}
+            {/* LIVE INTERIM TRANSCRIPT BADGE */}
             {interimTranscript && (
-              <div className="flex items-start gap-2.5 p-3 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] max-w-md animate-fade-in">
-                <Mic className="w-4 h-4 text-emerald-600 animate-pulse shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 p-2 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] max-w-md animate-fade-in">
+                <Mic className="w-3.5 h-3.5 text-emerald-600 animate-pulse shrink-0 mt-0.5" />
                 <div>
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-[10px] font-extrabold uppercase text-emerald-800">
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <span className="text-[9px] font-extrabold uppercase text-emerald-800">
                       LISTENING IN REAL-TIME...
                     </span>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                   </div>
-                  <p className="font-sans text-xs sm:text-sm text-[#0F172A] italic font-semibold">
+                  <p className="font-sans text-xs text-[#0F172A] italic font-semibold">
                     "{interimTranscript}"
                   </p>
                 </div>
@@ -1225,48 +1223,48 @@ export const AiTeacher: React.FC = () => {
 
             {/* THINKING INDICATOR */}
             {loading && (
-              <div className="flex items-center gap-2 p-3 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] max-w-xs">
-                <Brain className="w-4 h-4 text-[#0F172A] animate-spin" />
+              <div className="flex items-center gap-2 p-2 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] max-w-xs">
+                <Brain className="w-3.5 h-3.5 text-[#0F172A] animate-spin" />
                 <span className="text-xs font-extrabold text-[#0F172A]">
-                  NOVA is thinking & analyzing concepts...
+                  NOVA is analyzing concepts...
                 </span>
               </div>
             )}
 
             {/* TEACH-BACK EVALUATION REPORT */}
             {teachBackResult && (
-              <div className="p-3.5 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] space-y-3">
-                <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-2">
-                  <div className="flex items-center gap-2">
+              <div className="p-3 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] space-y-2">
+                <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1.5">
+                  <div className="flex items-center gap-1.5">
                     <Award className="w-4 h-4 text-amber-600" />
                     <span className="font-extrabold text-xs text-[#0F172A] uppercase">
                       Concept Mastery Evaluation
                     </span>
                   </div>
-                  <span className="text-[10px] font-extrabold px-1.5 py-0.2 bg-[#A7F3D0] border border-[#0F172A] uppercase">
+                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-[#A7F3D0] border border-[#0F172A] uppercase">
                     STATUS: {teachBackResult.mastery_level}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
-                  <div className="bg-white p-2 border border-[#0F172A]">
-                    <div className="flex justify-between font-bold mb-1">
+                <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                  <div className="bg-white p-1.5 border border-[#0F172A]">
+                    <div className="flex justify-between font-bold mb-0.5">
                       <span>FACTUAL RECALL:</span>
                       <span className="font-extrabold text-blue-700">{teachBackResult.recall_score}%</span>
                     </div>
-                    <div className="w-full bg-slate-100 h-2 border border-[#0F172A] overflow-hidden">
+                    <div className="w-full bg-slate-100 h-1.5 border border-[#0F172A] overflow-hidden">
                       <div className="bg-blue-500 h-full" style={{ width: `${teachBackResult.recall_score}%` }} />
                     </div>
                   </div>
 
-                  <div className="bg-white p-2 border border-[#0F172A]">
-                    <div className="flex justify-between font-bold mb-1">
-                      <span>CONCEPT UNDERSTANDING:</span>
+                  <div className="bg-white p-1.5 border border-[#0F172A]">
+                    <div className="flex justify-between font-bold mb-0.5">
+                      <span>UNDERSTANDING:</span>
                       <span className="font-extrabold text-emerald-700">
                         {teachBackResult.understanding_score}%
                       </span>
                     </div>
-                    <div className="w-full bg-slate-100 h-2 border border-[#0F172A] overflow-hidden">
+                    <div className="w-full bg-slate-100 h-1.5 border border-[#0F172A] overflow-hidden">
                       <div
                         className="bg-emerald-500 h-full"
                         style={{ width: `${teachBackResult.understanding_score}%` }}
@@ -1274,14 +1272,14 @@ export const AiTeacher: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white p-2 border border-[#0F172A]">
-                    <div className="flex justify-between font-bold mb-1">
-                      <span>EXPLAINED IN OWN WORDS:</span>
+                  <div className="bg-white p-1.5 border border-[#0F172A]">
+                    <div className="flex justify-between font-bold mb-0.5">
+                      <span>IN OWN WORDS:</span>
                       <span className="font-extrabold text-purple-700">
                         {teachBackResult.in_own_words_score}%
                       </span>
                     </div>
-                    <div className="w-full bg-slate-100 h-2 border border-[#0F172A] overflow-hidden">
+                    <div className="w-full bg-slate-100 h-1.5 border border-[#0F172A] overflow-hidden">
                       <div
                         className="bg-purple-500 h-full"
                         style={{ width: `${teachBackResult.in_own_words_score}%` }}
@@ -1289,14 +1287,14 @@ export const AiTeacher: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white p-2 border border-[#0F172A]">
-                    <div className="flex justify-between font-bold mb-1">
-                      <span>CAUSAL REASONING:</span>
+                  <div className="bg-white p-1.5 border border-[#0F172A]">
+                    <div className="flex justify-between font-bold mb-0.5">
+                      <span>REASONING:</span>
                       <span className="font-extrabold text-amber-700">
                         {teachBackResult.cause_effect_score}%
                       </span>
                     </div>
-                    <div className="w-full bg-slate-100 h-2 border border-[#0F172A] overflow-hidden">
+                    <div className="w-full bg-slate-100 h-1.5 border border-[#0F172A] overflow-hidden">
                       <div
                         className="bg-amber-500 h-full"
                         style={{ width: `${teachBackResult.cause_effect_score}%` }}
@@ -1306,7 +1304,7 @@ export const AiTeacher: React.FC = () => {
                 </div>
 
                 {teachBackResult.badge_earned && (
-                  <div className="bg-[#A7F3D0] border-2 border-[#0F172A] p-2.5 flex items-center justify-between">
+                  <div className="bg-[#A7F3D0] border-2 border-[#0F172A] p-2 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Award className="w-5 h-5 text-amber-700 shrink-0" />
                       <div>
@@ -1328,23 +1326,23 @@ export const AiTeacher: React.FC = () => {
           </div>
 
           {/* ==========================================
-              VOICE INTERACTION STATE BANNER
+              VOICE INTERACTION STATE BANNER (SLIM)
              ========================================== */}
-          <div className="px-3 py-1.5 border-t-2 border-[#0F172A] bg-[#F1F5F9] flex items-center justify-between text-xs">
+          <div className="px-3 py-1 border-t-2 border-[#0F172A] bg-[#F1F5F9] flex items-center justify-between text-[11px] shrink-0">
             <div className="flex items-center gap-2">
               {voiceState === 'listening' ? (
                 <>
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                   <span className="font-extrabold text-emerald-800">NOVA IS LISTENING...</span>
                 </>
               ) : voiceState === 'thinking' ? (
                 <>
-                  <Brain className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                  <Brain className="w-3 h-3 text-amber-600 animate-spin" />
                   <span className="font-extrabold text-amber-800">NOVA IS THINKING...</span>
                 </>
               ) : voiceState === 'speaking' ? (
                 <>
-                  <Volume2 className="w-3.5 h-3.5 text-indigo-700 animate-pulse" />
+                  <Volume2 className="w-3 h-3 text-indigo-700 animate-pulse" />
                   <span className="font-extrabold text-indigo-900">NOVA IS SPEAKING...</span>
                 </>
               ) : voiceState === 'error' ? (
@@ -1373,7 +1371,7 @@ export const AiTeacher: React.FC = () => {
               {voiceState === 'speaking' && (
                 <button
                   onClick={interruptNova}
-                  className="text-[10px] font-extrabold px-2 py-0.5 bg-[#FED7AA] border border-[#0F172A] hover:bg-rose-200"
+                  className="text-[10px] font-extrabold px-1.5 py-0.2 bg-[#FED7AA] border border-[#0F172A] hover:bg-rose-200"
                 >
                   INTERRUPT
                 </button>
@@ -1381,7 +1379,7 @@ export const AiTeacher: React.FC = () => {
               {voiceState === 'listening' && channelMode !== 'live' && (
                 <button
                   onClick={stopListeningSafely}
-                  className="text-[10px] font-extrabold px-2 py-0.5 bg-slate-200 border border-[#0F172A]"
+                  className="text-[10px] font-extrabold px-1.5 py-0.2 bg-slate-200 border border-[#0F172A]"
                 >
                   DONE SPEAKING
                 </button>
@@ -1390,69 +1388,67 @@ export const AiTeacher: React.FC = () => {
           </div>
 
           {/* ==========================================
-              BOTTOM MESSAGE COMPOSER & VOICE BAR
+              BOTTOM MESSAGE COMPOSER (ALWAYS PINNED)
              ========================================== */}
-          <div className="p-3 bg-white border-t-2 border-[#0F172A] flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSendMessage();
-                }}
-                disabled={loading}
-                placeholder={
-                  channelMode === 'live'
-                    ? `Live voice active — speak naturally or type here...`
-                    : mode === 'teach_back'
-                    ? `Explain ${selectedTopic} in your own words...`
-                    : `Ask NOVA about ${selectedTopic}...`
-                }
-                className="flex-1 text-xs font-bold p-2.5 bg-[#F8FAFC] border-2 border-[#0F172A] placeholder:text-slate-400 focus:outline-hidden"
-              />
+          <div className="p-2 bg-white border-t-2 border-[#0F172A] flex items-center gap-2 shrink-0">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSendMessage();
+              }}
+              disabled={loading}
+              placeholder={
+                channelMode === 'live'
+                  ? `Live voice active — speak naturally or type here...`
+                  : mode === 'teach_back'
+                  ? `Explain ${selectedTopic} in your own words...`
+                  : `Ask NOVA about ${selectedTopic}...`
+              }
+              className="flex-1 text-xs font-bold p-2 bg-[#F8FAFC] border-2 border-[#0F172A] placeholder:text-slate-400 focus:outline-hidden"
+            />
 
-              {/* Microphone Voice Button */}
-              <button
-                onClick={() => {
-                  if (voiceState === 'listening') {
-                    stopListeningSafely();
-                  } else {
-                    if (isSpeaking) interruptNova();
-                    startListeningSafely();
-                  }
-                }}
-                className={`p-2.5 border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] transition-all active:translate-x-[1px] active:translate-y-[1px] ${
-                  voiceState === 'listening'
-                    ? 'bg-red-500 text-white animate-pulse'
-                    : 'bg-white text-[#0F172A] hover:bg-[#FDE68A]'
-                }`}
-                title={
-                  voiceState === 'listening'
-                    ? 'Listening... click to pause'
-                    : 'Click to speak to NOVA'
+            {/* Microphone Voice Button */}
+            <button
+              onClick={() => {
+                if (voiceState === 'listening') {
+                  stopListeningSafely();
+                } else {
+                  if (isSpeaking) interruptNova();
+                  startListeningSafely();
                 }
-              >
-                {voiceState === 'listening' ? (
-                  <MicOff className="w-4 h-4" />
-                ) : (
-                  <Mic className="w-4 h-4" />
-                )}
-              </button>
+              }}
+              className={`p-2 border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] transition-all active:translate-x-[1px] active:translate-y-[1px] shrink-0 ${
+                voiceState === 'listening'
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : 'bg-white text-[#0F172A] hover:bg-[#FDE68A]'
+              }`}
+              title={
+                voiceState === 'listening'
+                  ? 'Listening... click to pause'
+                  : 'Click to speak to NOVA'
+              }
+            >
+              {voiceState === 'listening' ? (
+                <MicOff className="w-4 h-4" />
+              ) : (
+                <Mic className="w-4 h-4" />
+              )}
+            </button>
 
-              {/* Send / Evaluate Button */}
-              <BrutalButton
-                onClick={() => handleSendMessage()}
-                disabled={loading || !input.trim()}
-                variant="primary"
-                className="py-2.5 px-4 text-xs font-extrabold"
-              >
-                <Send className="w-4 h-4" />
-                <span className="hidden sm:inline">
-                  {mode === 'teach_back' ? 'EVALUATE' : 'SEND'}
-                </span>
-              </BrutalButton>
-            </div>
+            {/* Send / Evaluate Button */}
+            <BrutalButton
+              onClick={() => handleSendMessage()}
+              disabled={loading || !input.trim()}
+              variant="primary"
+              className="py-2 px-3 text-xs font-extrabold shrink-0"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">
+                {mode === 'teach_back' ? 'EVALUATE' : 'SEND'}
+              </span>
+            </BrutalButton>
           </div>
         </div>
       </div>
@@ -1469,16 +1465,16 @@ export const AiTeacher: React.FC = () => {
           />
 
           {/* Drawer content panel */}
-          <div className="relative w-80 max-w-[85vw] bg-white h-full border-r-4 border-[#0F172A] p-4 overflow-y-auto space-y-4 shadow-[6px_0px_0px_#0F172A] z-10">
-            <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-2">
-              <span className="font-extrabold text-xs uppercase flex items-center gap-2 text-[#0F172A]">
+          <div className="relative w-80 max-w-[85vw] bg-white h-full border-r-4 border-[#0F172A] p-3 overflow-y-auto space-y-3 shadow-[6px_0px_0px_#0F172A] z-10">
+            <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1.5">
+              <span className="font-extrabold text-xs uppercase flex items-center gap-1.5 text-[#0F172A]">
                 <BookOpen className="w-4 h-4" /> LEARNING HUB
               </span>
               <button
                 onClick={() => setIsMobileDrawerOpen(false)}
                 className="p-1 bg-[#FED7AA] border-2 border-[#0F172A] shadow-[1px_1px_0px_#0F172A] text-[#0F172A] font-extrabold text-xs"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 

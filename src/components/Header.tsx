@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   };
 
   return (
-    <header className="bg-white border-b-2 border-[#0F172A] px-4 md:px-6 py-3 flex items-center justify-between shadow-[0px_3px_0px_#0F172A] sticky top-0 z-30 font-mono">
+    <header className="bg-white border-b-2 border-[#0F172A] px-3 md:px-5 py-2 md:py-2.5 flex items-center justify-between shadow-[0px_2px_0px_#0F172A] shrink-0 font-mono z-30">
       {/* Left: Mobile menu toggle + Breadcrumbs */}
       <div className="flex items-center gap-3">
         {onToggleSidebar && (

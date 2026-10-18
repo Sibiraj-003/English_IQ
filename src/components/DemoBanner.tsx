@@ -6,7 +6,7 @@ export const DemoBanner: React.FC = () => {
   const { role, user } = useAuth();
 
   return (
-    <div className="bg-[#FDE68A] border-b-2 border-[#0F172A] px-4 py-2 font-mono text-xs flex flex-wrap items-center justify-between gap-3 shadow-[0px_2px_0px_#0F172A]">
+    <div className="bg-[#FDE68A] border-b-2 border-[#0F172A] px-3 sm:px-4 py-1.5 font-mono text-xs flex flex-wrap items-center justify-between gap-2 shadow-[0px_2px_0px_#0F172A] shrink-0">
       <div className="flex items-center gap-2 font-bold text-[#0F172A]">
         <span className="px-1.5 py-0.5 bg-[#0F172A] text-white uppercase text-[10px] tracking-wider">
           ACADEMIC_PORTAL

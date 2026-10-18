@@ -9,7 +9,7 @@ interface NovaAvatarProps {
   voiceState?: NovaVoiceState;
   isSpeaking?: boolean;
   isThinking?: boolean;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'compact' | 'md' | 'lg' | 'xl';
   showLabel?: boolean;
 }
 
@@ -132,6 +132,7 @@ export const NovaAvatar: React.FC<NovaAvatarProps> = ({
 
   const sizeClasses = {
     sm: 'w-10 h-10',
+    compact: 'w-11 h-11',
     md: 'w-16 h-16',
     lg: 'w-20 h-20',
     xl: 'w-28 h-28',
