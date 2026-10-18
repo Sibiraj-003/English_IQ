@@ -17,7 +17,7 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { NovaAvatarExpression, CameraAnalysisResult } from '../types';
-import { NovaVoiceState } from './NovaAvatar';
+import { NovaAvatar, NovaVoiceState, NovaState } from './NovaAvatar';
 
 interface NovaRobotCompanionProps {
   expression?: NovaAvatarExpression;
@@ -54,6 +54,28 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
 
   // Reaction resolution
   const reaction = cameraAnalysis?.student_reaction || (cameraActive ? 'focused' : undefined);
+
+  // Resolve avatar state from camera analysis reaction, expression, and voice state
+  let avatarState: NovaState = 'idle';
+  if (effectiveState === 'speaking') {
+    avatarState = 'speaking';
+  } else if (effectiveState === 'listening') {
+    avatarState = 'listening';
+  } else if (effectiveState === 'thinking') {
+    avatarState = 'thinking';
+  } else if (reaction === 'confused') {
+    avatarState = 'confused';
+  } else if (reaction === 'happy') {
+    avatarState = 'happy';
+  } else if (reaction === 'thinking') {
+    avatarState = 'thinking';
+  } else if (expression === 'celebrating') {
+    avatarState = 'success';
+  } else if (expression === 'encouraging') {
+    avatarState = 'happy';
+  } else if (expression === 'concerned') {
+    avatarState = 'confused';
+  }
   const confidence = cameraAnalysis?.reaction_confidence
     ? Math.round(cameraAnalysis.reaction_confidence * 100)
     : 85;
@@ -179,47 +201,29 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
             <div className="absolute bottom-5 left-5 text-indigo-300/30 animate-pulse delay-300">✦</div>
             <div className="absolute top-8 left-6 text-indigo-400/30 text-[9px]">★</div>
 
-            {/* Glowing Holographic Halo over robot */}
-            <div className="relative z-10 flex flex-col items-center">
-              <div
-                className={`w-14 h-3.5 mb-1 rounded-full border-2 border-indigo-300 bg-indigo-500/20 shadow-[0_0_15px_rgba(167,139,250,0.9)] animate-halo-pulse transition-all ${
-                  effectiveState === 'speaking'
-                    ? 'border-indigo-200 shadow-[0_0_22px_rgba(196,181,253,1)] scale-110'
-                    : effectiveState === 'listening'
-                    ? 'border-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.9)] scale-105'
-                    : ''
-                }`}
+            {/* Robot Vector SVG Companion Display */}
+            <div className="relative z-10 flex flex-col items-center justify-center">
+              <NovaAvatar
+                state={avatarState}
+                size="md"
+                speaking={effectiveState === 'speaking'}
+                listening={effectiveState === 'listening'}
+                showStatus={false}
+                interactive={true}
+                className="scale-95 origin-top"
               />
 
-              {/* Robot Image Container with Floating Hover Animation */}
-              <div className="relative group animate-nova-float">
-                {/* Pulsing Headphone Glow Ring */}
-                {isAudioActive && (
-                  <div className="absolute inset-0 rounded-2xl border-2 border-indigo-400/60 animate-ping pointer-events-none" />
-                )}
-
-                <img
-                  src="/assets/nova-robot.png"
-                  alt="NOVA AI Companion Robot"
-                  className="w-28 h-28 object-contain drop-shadow-[0_4px_16px_rgba(99,102,241,0.5)] transition-transform duration-300 hover:scale-105"
-                  onError={(e) => {
-                    // Fallback to root path if assets not reached
-                    (e.target as HTMLImageElement).src = '/nova-robot.png';
-                  }}
-                />
-
-                {/* Pedagogy Emotion Thought Bubble (If student is confused or thinking) */}
-                {reaction === 'confused' && (
-                  <div className="absolute -top-3 -right-6 z-20 bg-[#FDE68A] text-[#0F172A] border-2 border-[#0F172A] px-2 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0px_#0F172A] rounded-md animate-bounce">
-                    Need a hint? 💡
-                  </div>
-                )}
-                {reaction === 'happy' && (
-                  <div className="absolute -top-3 -right-6 z-20 bg-[#A7F3D0] text-[#0F172A] border-2 border-[#0F172A] px-2 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0px_#0F172A] rounded-md">
-                    Brilliant! ★
-                  </div>
-                )}
-              </div>
+              {/* Pedagogy Emotion Thought Bubble (If student is confused or thinking) */}
+              {reaction === 'confused' && (
+                <div className="absolute top-4 -right-2 z-20 bg-[#FDE68A] text-[#0F172A] border-2 border-[#0F172A] px-2 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0px_#0F172A] rounded-md animate-bounce">
+                  Need a hint? 💡
+                </div>
+              )}
+              {reaction === 'happy' && (
+                <div className="absolute top-4 -right-2 z-20 bg-[#A7F3D0] text-[#0F172A] border-2 border-[#0F172A] px-2 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0px_#0F172A] rounded-md">
+                  Brilliant! ★
+                </div>
+              )}
             </div>
 
             {/* 3. REPRODUCING THE ATTACHED IMAGE'S BOTTOM HUD WAVEFORM PILL */}
@@ -372,14 +376,16 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
         /* Compact Minimized State (for small viewports or when collapsed) */
         <div className="p-2 bg-[#1E1B4B] flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <img
-              src="/assets/nova-robot.png"
-              alt="NOVA"
-              className="w-8 h-8 object-contain rounded-md border border-indigo-400 bg-black/40"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/nova-robot.png';
-              }}
-            />
+            <div className="w-10 h-10 overflow-hidden flex items-center justify-center rounded-md border border-indigo-400 bg-[#12122e] shrink-0">
+              <NovaAvatar
+                state={avatarState}
+                size="sm"
+                speaking={effectiveState === 'speaking'}
+                listening={effectiveState === 'listening'}
+                showStatus={false}
+                className="scale-[0.45] origin-top -mt-3"
+              />
+            </div>
             <div>
               <div className="flex items-center gap-1">
                 <span className="text-xs font-black text-white">NOVA</span>

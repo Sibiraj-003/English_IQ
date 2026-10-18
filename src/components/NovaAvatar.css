@@ -1,0 +1,507 @@
+/* =====================================================================
+   NovaAvatar.css — scoped under .nova, transparent background,
+   transform/opacity-only animation (GPU friendly).
+   ===================================================================== */
+
+.nova {
+  --nova-w: 200px;
+  --nova-ink: var(--ink, #12122e);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: var(--nova-w);
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nova--sm { --nova-w: 120px; }
+.nova--md { --nova-w: 200px; }
+.nova--lg { --nova-w: 300px; }
+.nova--xl { --nova-w: 420px; }
+
+@media (max-width: 640px) {
+  .nova--lg { --nova-w: 240px; }
+  .nova--xl { --nova-w: 300px; }
+}
+
+.nova-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  background: transparent;
+  transition: transform 0.2s ease;
+}
+
+.nova--interactive { cursor: pointer; }
+.nova--interactive:hover .nova-svg { transform: translateY(-2px) rotate(-1deg); }
+.nova--interactive:focus-visible {
+  outline: 3px solid #6c5ce7;
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+/* ---------- transform origins (view-box units) ---------- */
+.nova-travel,
+.nova-character,
+.nova-body,
+.nova-head,
+.nova-antenna,
+.nova-arm,
+.nova-leg { transform-box: view-box; }
+
+.nova-character { transform-origin: 200px 470px; }
+.nova-body { transform-origin: 200px 430px; }
+.nova-head { transform-origin: 200px 240px; transform: rotate(-7deg); }
+.nova-antenna { transform-origin: 252px 70px; }
+.nova-arm-l { transform-origin: 100px 290px; transform: rotate(5deg); }
+.nova-arm-r { transform-origin: 300px 290px; transform: rotate(-5deg); }
+.nova-leg-l { transform-origin: 173px 424px; }
+.nova-leg-r { transform-origin: 227px 424px; }
+
+.nova-halo,
+.nova-brow,
+.nova-eye-shape,
+.nova-aura,
+.nova-burst,
+.nova-twinkle,
+.nova-spark,
+.nova-ring-pulse,
+.nova-think-dots circle,
+.nova-question {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* ---------- always-on idle life ---------- */
+.nova-body { animation: nova-breathe 4.2s ease-in-out infinite; }
+.nova-head { animation: nova-head-idle 5.6s ease-in-out infinite; }
+.nova-antenna { animation: nova-antenna-sway 3.6s ease-in-out infinite; }
+.nova-halo { animation: nova-halo-float 2.8s ease-in-out infinite; }
+.nova-halo-glow { animation: nova-glow 2.8s ease-in-out infinite; }
+.nova-twinkle { animation: nova-twinkle 2.8s ease-in-out infinite; }
+.nova-twinkle.t2 { animation-delay: 0.6s; }
+.nova-twinkle.t3 { animation-delay: 1.3s; }
+.nova-twinkle.t4 { animation-delay: 1.9s; }
+.nova-arm-l { animation: nova-arm-idle-l 4.2s ease-in-out infinite; }
+.nova-arm-r { animation: nova-arm-idle-r 4.2s ease-in-out infinite; }
+
+@keyframes nova-breathe {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  50% { transform: translateY(-3px) scale(1.012, 1.01); }
+}
+@keyframes nova-head-idle {
+  0%, 100% { transform: rotate(-7deg) translateY(0); }
+  35% { transform: rotate(-5.5deg) translateY(-3px); }
+  70% { transform: rotate(-8.5deg) translateY(-1px); }
+}
+@keyframes nova-antenna-sway {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+@keyframes nova-halo-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.04); }
+}
+@keyframes nova-glow {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.9; }
+}
+@keyframes nova-twinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.6); }
+  50% { opacity: 1; transform: scale(1); }
+}
+@keyframes nova-arm-idle-l {
+  0%, 100% { transform: rotate(5deg); }
+  50% { transform: rotate(7deg); }
+}
+@keyframes nova-arm-idle-r {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(-7deg); }
+}
+
+/* ---------- face parts ---------- */
+.nova-eye-shape {
+  --eye-s: 1;
+  transform: scale(var(--eye-s));
+  transition: transform 0.09s ease-out, opacity 0.12s;
+}
+.nova-eye-happy { opacity: 0; transition: opacity 0.12s; }
+
+.nova-pupil {
+  transform: translate(calc(var(--look-x, 0) * 5px), calc(var(--look-y, 0) * 5px));
+  transition: transform 0.22s ease-out;
+}
+
+.nova-brow { transition: transform 0.25s ease; }
+
+.nova-mouth-shape { opacity: 0; }
+.nova-mouth-shape.is-active { opacity: 1; }
+
+/* eye modes */
+.nova[data-eyes="happy"] .nova-eye-shape { opacity: 0; }
+.nova[data-eyes="happy"] .nova-eye-happy { opacity: 1; }
+.nova[data-eyes="listening"] .nova-eye-shape { --eye-s: 1.1; }
+.nova[data-eyes="thinking"] .nova-eye-shape { --eye-s: 0.94; }
+.nova[data-eyes="excited"] .nova-eye-shape { --eye-s: 1.2; }
+.nova[data-eyes="confused"] .nova-eye-l .nova-eye-shape { --eye-s: 1.05; }
+.nova[data-eyes="confused"] .nova-eye-r .nova-eye-shape { --eye-s: 0.8; }
+
+/* brows */
+.nova[data-state="listening"] .nova-brow { transform: translateY(-4px); }
+.nova[data-state="thinking"] .nova-brow-l { transform: translateY(-7px) rotate(-6deg); }
+.nova[data-state="thinking"] .nova-brow-r { transform: translateY(-2px); }
+.nova[data-state="excited"] .nova-brow { transform: translateY(-6px); }
+.nova[data-state="happy"] .nova-brow,
+.nova[data-state="success"] .nova-brow { transform: translateY(-3px); }
+.nova[data-state="confused"] .nova-brow-l { transform: translateY(-9px) rotate(-10deg); }
+.nova[data-state="confused"] .nova-brow-r { transform: translateY(3px) rotate(8deg); }
+
+/* blink (last, so it wins over eye modes) */
+.nova[data-blink="true"] .nova-eye-shape { transform: scale(var(--eye-s), 0.08); }
+
+/* ---------- aura + ear ring ---------- */
+.nova-aura { opacity: 0; transition: opacity 0.4s; }
+.nova-ring-glow { opacity: 0.35; }
+.nova-ring-pulse { opacity: 0; }
+.nova-think-dots { opacity: 0; transition: opacity 0.3s; }
+.nova-question { opacity: 0; transition: opacity 0.3s; }
+.nova-burst { opacity: 0; transition: opacity 0.3s; }
+.nova-spark { opacity: 0; }
+.nova-legs { opacity: 0; transition: opacity 0.3s; }
+.nova-mask-full { opacity: 0; transition: opacity 0.35s; }
+.nova-shadow { opacity: 0; transition: opacity 0.3s; }
+
+/* =====================================================================
+   STATES
+   ===================================================================== */
+
+/* ---------- idle: show the little yellow burst like the reference ---------- */
+.nova[data-state="idle"] .nova-burst {
+  opacity: 1;
+  animation: nova-burst 2.6s ease-in-out infinite;
+}
+@keyframes nova-burst {
+  0%, 100% { transform: scale(0.88); opacity: 0.65; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
+/* ---------- listening ---------- */
+.nova[data-state="listening"] .nova-aura { animation: nova-aura-pulse 1.6s ease-in-out infinite; }
+.nova[data-state="listening"] .nova-head { animation: nova-head-listen 3s ease-in-out infinite; }
+.nova[data-state="listening"] .nova-ring-pulse { animation: nova-ping 1.5s ease-out infinite; }
+.nova[data-state="listening"] .nova-ring-pulse.p2 { animation-delay: 0.75s; }
+.nova[data-state="listening"] .nova-ring-glow { animation: nova-glow 1.2s ease-in-out infinite; }
+.nova[data-state="listening"] .nova-halo-glow { animation-duration: 1.2s; }
+@keyframes nova-aura-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.96); }
+  50% { opacity: 0.8; transform: scale(1.06); }
+}
+@keyframes nova-head-listen {
+  0%, 100% { transform: rotate(-4deg) translateY(2px); }
+  50% { transform: rotate(-5.5deg) translateY(0); }
+}
+@keyframes nova-ping {
+  0% { opacity: 0.85; transform: scale(1); }
+  100% { opacity: 0; transform: scale(2.6); }
+}
+
+/* ---------- thinking ---------- */
+.nova[data-state="thinking"] .nova-aura { opacity: 0.22; }
+.nova[data-state="thinking"] .nova-head { animation: nova-head-think 2.6s ease-in-out infinite; }
+.nova[data-state="thinking"] .nova-antenna { animation: nova-antenna-think 1.1s ease-in-out infinite; }
+.nova[data-state="thinking"] .nova-halo { animation: nova-halo-think 1.4s ease-in-out infinite; }
+.nova[data-state="thinking"] .nova-halo-glow { animation-duration: 0.7s; }
+.nova[data-state="thinking"] .nova-think-dots { opacity: 1; }
+.nova[data-state="thinking"] .nova-think-dots circle { animation: nova-dot 1.2s ease-in-out infinite; }
+.nova[data-state="thinking"] .nova-think-dots .d2 { animation-delay: 0.2s; }
+.nova[data-state="thinking"] .nova-think-dots .d3 { animation-delay: 0.4s; }
+@keyframes nova-head-think {
+  0%, 100% { transform: rotate(-3deg) translate(0, 0); }
+  50% { transform: rotate(-11deg) translate(3px, -2px); }
+}
+@keyframes nova-antenna-think {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
+@keyframes nova-halo-think {
+  0%, 100% { transform: rotate(-12deg) scale(1); }
+  50% { transform: rotate(12deg) scale(1.08); }
+}
+@keyframes nova-dot {
+  0%, 100% { transform: scale(0.55); opacity: 0.4; }
+  50% { transform: scale(1); opacity: 1; }
+}
+
+/* ---------- speaking (mouth shapes are driven from React) ---------- */
+.nova[data-state="speaking"] .nova-aura { opacity: 0.3; animation: nova-aura-pulse 2s ease-in-out infinite; }
+.nova[data-state="speaking"] .nova-head { animation: nova-head-speak 1.1s ease-in-out infinite; }
+.nova[data-state="speaking"] .nova-body { animation: nova-body-speak 0.8s ease-in-out infinite; }
+.nova[data-state="speaking"] .nova-arm-r { animation: nova-arm-gesture 1.7s ease-in-out infinite; }
+.nova[data-state="speaking"] .nova-antenna { animation-duration: 1.8s; }
+.nova[data-state="speaking"] .nova-halo-glow { animation-duration: 1.4s; }
+@keyframes nova-head-speak {
+  0%, 100% { transform: rotate(-7deg) translateY(0); }
+  20% { transform: rotate(-5deg) translateY(-3px); }
+  45% { transform: rotate(-8.5deg) translateY(1px); }
+  70% { transform: rotate(-6deg) translateY(-2px); }
+}
+@keyframes nova-body-speak {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  50% { transform: translateY(-2px) scale(1.01, 1.012); }
+}
+@keyframes nova-arm-gesture {
+  0%, 100% { transform: rotate(-5deg); }
+  30% { transform: rotate(-22deg); }
+  60% { transform: rotate(-12deg); }
+}
+
+/* ---------- happy ---------- */
+.nova[data-state="happy"] .nova-burst { opacity: 1; animation: nova-burst 1.2s ease-in-out infinite; }
+.nova[data-state="happy"] .nova-character { animation: nova-bounce 0.8s ease-in-out infinite; }
+.nova[data-state="happy"] .nova-head { animation: nova-head-happy 0.8s ease-in-out infinite; }
+.nova[data-state="happy"] .nova-arm-r { animation: nova-wave 0.5s ease-in-out infinite alternate; }
+.nova[data-state="happy"] .nova-halo-glow { animation-duration: 1.2s; }
+@keyframes nova-bounce {
+  0%, 100% { transform: translateY(0) scale(1.015, 0.985); }
+  50% { transform: translateY(-14px) scale(0.985, 1.015); }
+}
+@keyframes nova-head-happy {
+  0%, 100% { transform: rotate(-9deg); }
+  50% { transform: rotate(-4deg); }
+}
+@keyframes nova-wave {
+  from { transform: rotate(-128deg); }
+  to { transform: rotate(-152deg); }
+}
+
+/* ---------- excited ---------- */
+.nova[data-state="excited"] .nova-burst { opacity: 1; animation: nova-burst 0.7s ease-in-out infinite; }
+.nova[data-state="excited"] .nova-aura { opacity: 0.35; }
+.nova[data-state="excited"] .nova-character { animation: nova-bounce-fast 0.5s ease-in-out infinite; }
+.nova[data-state="excited"] .nova-head { animation: nova-head-excited 0.5s ease-in-out infinite; }
+.nova[data-state="excited"] .nova-arm-l { animation: nova-flap-l 0.5s ease-in-out infinite alternate; }
+.nova[data-state="excited"] .nova-arm-r { animation: nova-flap-r 0.5s ease-in-out infinite alternate; }
+.nova[data-state="excited"] .nova-antenna { animation: nova-antenna-think 0.5s ease-in-out infinite; }
+.nova[data-state="excited"] .nova-halo { animation: nova-halo-think 0.6s ease-in-out infinite; }
+.nova[data-state="excited"] .nova-halo-glow { animation-duration: 0.5s; }
+@keyframes nova-bounce-fast {
+  0%, 100% { transform: translateY(0) scale(1.02, 0.98); }
+  50% { transform: translateY(-18px) scale(0.98, 1.02); }
+}
+@keyframes nova-head-excited {
+  0%, 100% { transform: rotate(-10deg); }
+  50% { transform: rotate(-3deg); }
+}
+@keyframes nova-flap-l {
+  from { transform: rotate(25deg); }
+  to { transform: rotate(60deg); }
+}
+@keyframes nova-flap-r {
+  from { transform: rotate(-25deg); }
+  to { transform: rotate(-60deg); }
+}
+
+/* ---------- confused ---------- */
+.nova[data-state="confused"] .nova-head { animation: nova-head-confused 2.4s ease-in-out infinite; }
+.nova[data-state="confused"] .nova-question { opacity: 1; animation: nova-question 1.6s ease-in-out infinite; }
+.nova[data-state="confused"] .nova-antenna { animation: nova-antenna-think 1.6s ease-in-out infinite; }
+@keyframes nova-head-confused {
+  0%, 100% { transform: rotate(3deg) translateY(0); }
+  50% { transform: rotate(9deg) translateY(-2px); }
+}
+@keyframes nova-question {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50% { transform: translateY(-6px) rotate(8deg); }
+}
+
+/* ---------- success / celebration ---------- */
+.nova[data-state="success"] .nova-burst { opacity: 1; animation: nova-burst 1s ease-in-out infinite; }
+.nova[data-state="success"] .nova-aura { opacity: 0.3; }
+.nova[data-state="success"] .nova-character { animation: nova-bounce 0.9s ease-in-out infinite; }
+.nova[data-state="success"] .nova-head { animation: nova-head-happy 0.9s ease-in-out infinite; }
+.nova[data-state="success"] .nova-arm-l { animation: nova-cheer-l 0.45s ease-in-out infinite alternate; }
+.nova[data-state="success"] .nova-arm-r { animation: nova-cheer-r 0.45s ease-in-out infinite alternate; }
+.nova[data-state="success"] .nova-spark { animation: nova-spark 1.7s ease-out infinite; }
+.nova[data-state="success"] .nova-halo { animation: nova-halo-think 0.8s ease-in-out infinite; }
+@keyframes nova-cheer-l {
+  from { transform: rotate(140deg); }
+  to { transform: rotate(158deg); }
+}
+@keyframes nova-cheer-r {
+  from { transform: rotate(-140deg); }
+  to { transform: rotate(-158deg); }
+}
+@keyframes nova-spark {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.3) rotate(0deg); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.1) rotate(90deg); }
+}
+
+/* ---------- walking ---------- */
+.nova[data-state="walking"] .nova-legs,
+.nova[data-state="running"] .nova-legs { opacity: 1; }
+.nova[data-state="walking"] .nova-mask-full,
+.nova[data-state="running"] .nova-mask-full { opacity: 1; }
+.nova[data-state="walking"] .nova-shadow,
+.nova[data-state="running"] .nova-shadow { opacity: 0.16; }
+
+.nova[data-state="walking"] .nova-travel { animation: nova-walk-x 3s ease-in-out infinite alternate; }
+.nova[data-state="walking"] .nova-character { animation: nova-step 0.45s ease-in-out infinite; }
+.nova[data-state="walking"] .nova-body { animation: nova-sway 0.9s ease-in-out infinite alternate; }
+.nova[data-state="walking"] .nova-head { animation: nova-head-walk 0.45s ease-in-out infinite; }
+.nova[data-state="walking"] .nova-leg-l { animation: nova-leg 0.9s ease-in-out infinite alternate; }
+.nova[data-state="walking"] .nova-leg-r { animation: nova-leg 0.9s ease-in-out infinite alternate-reverse; }
+.nova[data-state="walking"] .nova-arm-l { animation: nova-arm-walk-l 0.9s ease-in-out infinite alternate; }
+.nova[data-state="walking"] .nova-arm-r { animation: nova-arm-walk-r 0.9s ease-in-out infinite alternate; }
+@keyframes nova-walk-x {
+  from { transform: translateX(-18px); }
+  to { transform: translateX(18px); }
+}
+@keyframes nova-step {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes nova-sway {
+  from { transform: rotate(-1.6deg); }
+  to { transform: rotate(1.6deg); }
+}
+@keyframes nova-head-walk {
+  0%, 100% { transform: rotate(-8deg) translateY(0); }
+  50% { transform: rotate(-5deg) translateY(-3px); }
+}
+@keyframes nova-leg {
+  from { transform: rotate(-22deg); }
+  to { transform: rotate(22deg); }
+}
+@keyframes nova-arm-walk-l {
+  from { transform: rotate(-14deg); }
+  to { transform: rotate(30deg); }
+}
+@keyframes nova-arm-walk-r {
+  from { transform: rotate(14deg); }
+  to { transform: rotate(-30deg); }
+}
+
+/* ---------- running ---------- */
+.nova[data-state="running"] .nova-travel { animation: nova-run-x 1.7s ease-in-out infinite alternate; }
+.nova[data-state="running"] .nova-character { animation: nova-run-step 0.28s ease-in-out infinite; }
+.nova[data-state="running"] .nova-body { animation: nova-lean 0.56s ease-in-out infinite alternate; }
+.nova[data-state="running"] .nova-head { animation: nova-head-run 0.28s ease-in-out infinite; }
+.nova[data-state="running"] .nova-leg-l { animation: nova-leg-run 0.56s ease-in-out infinite alternate; }
+.nova[data-state="running"] .nova-leg-r { animation: nova-leg-run 0.56s ease-in-out infinite alternate-reverse; }
+.nova[data-state="running"] .nova-arm-l { animation: nova-arm-run-l 0.56s ease-in-out infinite alternate; }
+.nova[data-state="running"] .nova-arm-r { animation: nova-arm-run-r 0.56s ease-in-out infinite alternate; }
+.nova[data-state="running"] .nova-antenna { animation: nova-antenna-think 0.56s ease-in-out infinite; }
+@keyframes nova-run-x {
+  from { transform: translateX(-30px); }
+  to { transform: translateX(30px); }
+}
+@keyframes nova-run-step {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-11px); }
+}
+@keyframes nova-lean {
+  from { transform: rotate(-3deg); }
+  to { transform: rotate(3deg); }
+}
+@keyframes nova-head-run {
+  0%, 100% { transform: rotate(-9deg) translateY(0); }
+  50% { transform: rotate(-4deg) translateY(-4px); }
+}
+@keyframes nova-leg-run {
+  from { transform: rotate(-38deg); }
+  to { transform: rotate(38deg); }
+}
+@keyframes nova-arm-run-l {
+  from { transform: rotate(-20deg); }
+  to { transform: rotate(52deg); }
+}
+@keyframes nova-arm-run-r {
+  from { transform: rotate(20deg); }
+  to { transform: rotate(-52deg); }
+}
+
+/* =====================================================================
+   STATUS CHIP (Neo-Brutalist, inherits --ink if the app defines it)
+   ===================================================================== */
+.nova-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 3px solid var(--nova-ink);
+  background: #e9e6ff;
+  box-shadow: 3px 3px 0 var(--nova-ink);
+  color: var(--nova-ink);
+  font-family: var(--font-mono, "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.nova-status__dot {
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--nova-ink);
+  background: #7d8cff;
+  border-radius: 50%;
+}
+.nova--sm .nova-status {
+  padding: 4px 8px;
+  border-width: 2px;
+  box-shadow: 2px 2px 0 var(--nova-ink);
+  font-size: 10px;
+  gap: 6px;
+}
+.nova--sm .nova-status__dot { width: 7px; height: 7px; border-width: 1.5px; }
+
+.nova[data-state="listening"] .nova-status { background: #c9f5dd; }
+.nova[data-state="thinking"] .nova-status { background: #fff1b8; }
+.nova[data-state="speaking"] .nova-status { background: #d4dcff; }
+.nova[data-state="happy"] .nova-status { background: #ffd9e6; }
+.nova[data-state="walking"] .nova-status,
+.nova[data-state="running"] .nova-status { background: #d9f0ff; }
+.nova[data-state="excited"] .nova-status { background: #ffe1b8; }
+.nova[data-state="confused"] .nova-status { background: #ffd0d0; }
+.nova[data-state="success"] .nova-status { background: #c9f5dd; }
+
+.nova:not([data-state="idle"]) .nova-status__dot { animation: nova-dot-blink 1s ease-in-out infinite; }
+@keyframes nova-dot-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* =====================================================================
+   REDUCED MOTION: keep expressions + status, drop travel/bounce/swing
+   ===================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .nova-travel,
+  .nova-character,
+  .nova-body,
+  .nova-head,
+  .nova-antenna,
+  .nova-halo,
+  .nova-arm,
+  .nova-leg,
+  .nova-spark,
+  .nova-twinkle,
+  .nova-ring-pulse,
+  .nova-question,
+  .nova-burst,
+  .nova-think-dots circle,
+  .nova-aura,
+  .nova-svg {
+    animation: none !important;
+    transition: none !important;
+  }
+  .nova[data-state="listening"] .nova-aura { opacity: 0.5; }
+}
