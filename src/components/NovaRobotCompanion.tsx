@@ -140,9 +140,6 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
   const reactionConfig = getReactionConfig();
   const ReactionIcon = reactionConfig.icon;
 
-  // Waveform bar visualizer heights generator based on voice state
-  const isAudioActive = effectiveState === 'listening' || effectiveState === 'speaking';
-
   return (
     <div className="flex flex-col bg-white border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] font-mono text-[#0F172A] select-none transition-all duration-300 w-full shrink-0">
       {/* 1. COMPANION TOP BAR */}
@@ -222,61 +219,6 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
                   Brilliant! ★
                 </div>
               )}
-            </div>
-
-            {/* 3. REPRODUCING BOTTOM HUD EQUALIZER WAVEFORM PILL */}
-            <div className="w-full mt-2.5 z-10 shrink-0">
-              <div className="w-full bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] px-3 py-1.5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`w-2.5 h-2.5 rounded-full border border-[#0F172A] ${
-                      effectiveState === 'listening'
-                        ? 'bg-emerald-400 animate-ping'
-                        : effectiveState === 'speaking'
-                        ? 'bg-[#C4B5FD] animate-pulse'
-                        : effectiveState === 'thinking'
-                        ? 'bg-amber-400 animate-spin'
-                        : 'bg-emerald-500'
-                    }`}
-                  />
-                  <span className="text-[11px] font-black tracking-wider text-[#0F172A]">
-                    {effectiveState === 'listening'
-                      ? 'LISTENING...'
-                      : effectiveState === 'speaking'
-                      ? 'SPEAKING...'
-                      : effectiveState === 'thinking'
-                      ? 'THINKING...'
-                      : cameraActive
-                      ? 'OBSERVING...'
-                      : 'READY'}
-                  </span>
-                </div>
-
-                {/* Animated Audio Equalizer Waveform Bars */}
-                <div className="flex items-center gap-0.5 h-4">
-                  {[4, 8, 14, 18, 12, 16, 20, 14, 10, 16, 12, 6].map((h, i) => {
-                    const dynamicHeight = isAudioActive
-                      ? Math.max(3, Math.round(h * (i % 2 === 0 ? 1.1 : 0.8)))
-                      : 4;
-                    return (
-                      <span
-                        key={i}
-                        className={`w-1 rounded-none transition-all duration-150 ${
-                          effectiveState === 'listening'
-                            ? 'bg-emerald-600'
-                            : effectiveState === 'speaking'
-                            ? 'bg-[#7C3AED]'
-                            : 'bg-slate-400'
-                        } ${isAudioActive ? 'animate-audio-wave' : ''}`}
-                        style={{
-                          height: `${dynamicHeight}px`,
-                          animationDelay: `${i * 90}ms`,
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
             </div>
           </div>
 
