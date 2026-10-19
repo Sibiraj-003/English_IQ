@@ -4,7 +4,6 @@ import {
   Sparkles,
   Bot,
   Move,
-  Compass,
   Maximize2,
   Minimize2,
   X,
@@ -18,9 +17,11 @@ import {
   RotateCcw,
   Lightbulb,
   Mic,
-  MicOff,
   Radio,
   ExternalLink,
+  Pause,
+  Play,
+  Zap,
 } from 'lucide-react';
 import { Nova3DAvatar } from './Nova3DAvatar';
 import { Nova3DState } from './novaAnimations';
@@ -28,13 +29,16 @@ import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../services/api';
 import './Nova3DAvatar.css';
 
-interface Position {
-  x: number;
-  y: number;
-}
-
-const STORAGE_POS_KEY = 'nova_floating_position';
-const STORAGE_WANDER_KEY = 'nova_floating_wander_active';
+// Classic DVD Screensaver palette cycling on wall collisions
+const DVD_ACCENT_COLORS = [
+  '#FDE68A', // Amber yellow
+  '#A7F3D0', // Mint emerald
+  '#C4B5FD', // Soft purple
+  '#FBCFE8', // Rose pink
+  '#BAE6FD', // Sky blue
+  '#FED7AA', // Peach orange
+  '#FCA5A5', // Coral red
+];
 
 export const NovaFloatingAssistant: React.FC = () => {
   const location = useLocation();
@@ -45,51 +49,50 @@ export const NovaFloatingAssistant: React.FC = () => {
   const isDedicatedTeacherRoom = location.pathname.includes('/student/ai-teacher');
 
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [isWandering, setIsWandering] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(STORAGE_WANDER_KEY) === 'true';
-    } catch {
-      return false;
-    }
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [bounceCount, setBounceCount] = useState<number>(0);
+  const [activeColorIdx, setActiveColorIdx] = useState<number>(0);
+  const [isSquashing, setIsSquashing] = useState<boolean>(false);
+  const [cornerHitCelebration, setCornerHitCelebration] = useState<boolean>(false);
+
+  // Floating coordinates & physics references (Direct GPU manipulation for 60fps butter-smooth flight)
+  const containerRef = useRef<HTMLDivElement>(null);
+  const posRef = useRef<{ x: number; y: number }>({
+    x: typeof window !== 'undefined' ? Math.max(40, Math.floor(Math.random() * (window.innerWidth - 200))) : 120,
+    y: typeof window !== 'undefined' ? Math.max(40, Math.floor(Math.random() * (window.innerHeight - 200))) : 140,
   });
 
-  // Floating coordinates in viewport
-  const [position, setPosition] = useState<Position>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_POS_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
-          return parsed;
-        }
-      }
-    } catch {}
-    // Default: bottom-right offset
-    const defX = typeof window !== 'undefined' ? Math.max(20, window.innerWidth - 120) : 1000;
-    const defY = typeof window !== 'undefined' ? Math.max(20, window.innerHeight - 150) : 650;
-    return { x: defX, y: defY };
+  // Freestyle Velocity (cruising speed in pixels/sec)
+  const velRef = useRef<{ vx: number; vy: number }>({
+    vx: (Math.random() > 0.5 ? 1 : -1) * (95 + Math.random() * 30),
+    vy: (Math.random() > 0.5 ? 1 : -1) * (85 + Math.random() * 30),
   });
 
-  // Dragging state
+  const lastTimeRef = useRef<number>(performance.now());
+  const animFrameRef = useRef<number | null>(null);
+  const lastBounceTimeRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // Interactive Drag & Throw state
   const isDraggingRef = useRef<boolean>(false);
+  const [isDraggingActive, setIsDraggingActive] = useState<boolean>(false);
+  const [isHovered, setIsHovered] = useState<boolean>(false);
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; posX: number; posY: number }>({
     mouseX: 0,
     mouseY: 0,
     posX: 0,
     posY: 0,
   });
+  const dragHistoryRef = useRef<Array<{ x: number; y: number; t: number }>>([]);
   const hasMovedRef = useRef<boolean>(false);
-  const [isDraggingActive, setIsDraggingActive] = useState<boolean>(false);
-  const [isHovered, setIsHovered] = useState<boolean>(false);
 
-  // Floating AI conversation state
+  // AI Assistant Conversation State
   const [avatarState, setAvatarState] = useState<Nova3DState>('idle');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [speechEnabled, setSpeechEnabled] = useState<boolean>(true);
   const [inputQuery, setInputQuery] = useState<string>('');
   const [lastResponse, setLastResponse] = useState<string | null>(
-    `Hello ${user?.full_name?.split(' ')[0] || 'Friend'}! I'm Nova, your 3D AI companion. I'm floating around to help you learn and explore anywhere on this website!`
+    `Hello ${user?.full_name?.split(' ')[0] || 'Friend'}! I'm Nova, floating freely across the website like the DVD logo! Click me anytime to ask questions, solve homework, or explore!`
   );
   const [copiedResponse, setCopiedResponse] = useState<boolean>(false);
 
@@ -97,78 +100,189 @@ export const NovaFloatingAssistant: React.FC = () => {
   const [speechBubbleText, setSpeechBubbleText] = useState<string | null>(null);
   const speechBubbleTimerRef = useRef<any>(null);
 
-  // Voice speech-to-text recognition
+  // Voice speech recognition
   const [isListeningVoice, setIsListeningVoice] = useState<boolean>(false);
   const recognitionRef = useRef<any>(null);
 
-  // Patrol / Wander Waypoints
-  const wanderStepRef = useRef<number>(0);
+  // Active accent color
+  const currentColor = DVD_ACCENT_COLORS[activeColorIdx % DVD_ACCENT_COLORS.length];
 
-  // Ensure position stays within viewport bounds on window resize
+  // =========================================================================
+  // CONTINUOUS 60FPS DVD SCREENSAVER FREESTYLE FLOATING ENGINE
+  // =========================================================================
   useEffect(() => {
-    const handleResize = () => {
-      const widgetW = isOpen ? 360 : 100;
-      const widgetH = isOpen ? 520 : 100;
-      setPosition((prev) => ({
-        x: Math.min(Math.max(12, prev.x), Math.max(12, window.innerWidth - widgetW - 12)),
-        y: Math.min(Math.max(12, prev.y), Math.max(12, window.innerHeight - widgetH - 12)),
-      }));
+    if (isDedicatedTeacherRoom) return;
+
+    let disposed = false;
+    lastTimeRef.current = performance.now();
+
+    const loop = (now: number) => {
+      if (disposed) return;
+      animFrameRef.current = requestAnimationFrame(loop);
+
+      const dt = Math.min(0.04, (now - lastTimeRef.current) / 1000);
+      lastTimeRef.current = now;
+
+      const container = containerRef.current;
+      if (!container) return;
+
+      // When open in console mode, Nova docks into place
+      if (isOpen) {
+        // Clamp to viewport for console
+        const consoleW = Math.min(380, window.innerWidth - 24);
+        const consoleH = 500;
+        posRef.current.x = Math.max(12, Math.min(posRef.current.x, window.innerWidth - consoleW - 12));
+        posRef.current.y = Math.max(12, Math.min(posRef.current.y, window.innerHeight - consoleH - 12));
+        container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px)`;
+        return;
+      }
+
+      // If dragging, pointer events directly control posRef
+      if (isDraggingRef.current) {
+        container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px) scale(1.08)`;
+        return;
+      }
+
+      const widgetW = 92;
+      const widgetH = 92;
+      const minX = 8;
+      const maxX = Math.max(12, window.innerWidth - widgetW - 8);
+      const minY = 8;
+      const maxY = Math.max(12, window.innerHeight - widgetH - 8);
+
+      // Hover brake: smoothly decelerate to gentle hover while student hovers mouse over Nova
+      if (isHovered || isPaused) {
+        velRef.current.vx *= 0.92;
+        velRef.current.vy *= 0.92;
+        const hoverBob = Math.sin(now * 0.003) * 4;
+        container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y + hoverBob}px, 0px)`;
+        return;
+      }
+
+      // Freestyle Aerodynamic Physics: subtle organic steering drift
+      const targetSpeed = 115; // cruising speed in px/s
+      const currentSpeed = Math.hypot(velRef.current.vx, velRef.current.vy);
+
+      // Gradually restore velocity toward cruising speed if thrown or slowed down
+      if (currentSpeed < 40) {
+        velRef.current.vx = (Math.random() > 0.5 ? 1 : -1) * targetSpeed * 0.7;
+        velRef.current.vy = (Math.random() > 0.5 ? 1 : -1) * targetSpeed * 0.7;
+      } else {
+        const speedFactor = targetSpeed / currentSpeed;
+        velRef.current.vx = THREE_lerp(velRef.current.vx, velRef.current.vx * speedFactor, 0.02);
+        velRef.current.vy = THREE_lerp(velRef.current.vy, velRef.current.vy * speedFactor, 0.02);
+      }
+
+      // Gentle organic freestyle sine drift (wobbles naturally like a flying drone)
+      const drift = Math.sin(now * 0.0014) * 16 * dt;
+      velRef.current.vx += -velRef.current.vy * 0.07 * dt + drift;
+      velRef.current.vy += velRef.current.vx * 0.07 * dt;
+
+      // Update position
+      let nx = posRef.current.x + velRef.current.vx * dt;
+      let ny = posRef.current.y + velRef.current.vy * dt;
+
+      let bouncedX = false;
+      let bouncedY = false;
+
+      // Bounce on Horizontal screen edges (DVD style)
+      if (nx >= maxX) {
+        nx = maxX;
+        velRef.current.vx = -Math.abs(velRef.current.vx);
+        velRef.current.vy += (Math.random() - 0.5) * 35; // freestyle angle deflection
+        bouncedX = true;
+      } else if (nx <= minX) {
+        nx = minX;
+        velRef.current.vx = Math.abs(velRef.current.vx);
+        velRef.current.vy += (Math.random() - 0.5) * 35;
+        bouncedX = true;
+      }
+
+      // Bounce on Vertical screen edges (DVD style)
+      if (ny >= maxY) {
+        ny = maxY;
+        velRef.current.vy = -Math.abs(velRef.current.vy);
+        velRef.current.vx += (Math.random() - 0.5) * 35;
+        bouncedY = true;
+      } else if (ny <= minY) {
+        ny = minY;
+        velRef.current.vy = Math.abs(velRef.current.vy);
+        velRef.current.vx += (Math.random() - 0.5) * 35;
+        bouncedY = true;
+      }
+
+      posRef.current.x = nx;
+      posRef.current.y = ny;
+
+      // Handle Bounce Reaction (DVD Color Shift & Squash)
+      if (bouncedX || bouncedY) {
+        const hitTime = now;
+        if (bouncedX) lastBounceTimeRef.current.x = hitTime;
+        if (bouncedY) lastBounceTimeRef.current.y = hitTime;
+
+        // Check if rare Corner Hit happened! (Both axes bounced within 80ms)
+        if (Math.abs(lastBounceTimeRef.current.x - lastBounceTimeRef.current.y) < 80) {
+          setCornerHitCelebration(true);
+          setAvatarState('excited');
+          setSpeechBubbleText('🎉 DVD CORNER HIT! PERFECT BOUNCE!');
+          setTimeout(() => setCornerHitCelebration(false), 3500);
+          setTimeout(() => setSpeechBubbleText(null), 4500);
+        }
+
+        // Cycle DVD Color
+        setActiveColorIdx((prev) => prev + 1);
+        setBounceCount((prev) => prev + 1);
+
+        // Trigger brief squash & stretch
+        setIsSquashing(true);
+        setTimeout(() => setIsSquashing(false), 320);
+      }
+
+      // Organic aerodynamic banking tilt & hover bobbing
+      const tiltDeg = (velRef.current.vx / targetSpeed) * 8 + Math.sin(now * 0.0035) * 3.5;
+      const hoverBob = Math.sin(now * 0.004) * 3;
+
+      container.style.transform = `translate3d(${nx}px, ${ny + hoverBob}px, 0px) rotate(${tiltDeg}deg)`;
     };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [isOpen]);
 
-  // Patrol / Wander Mode Loop
-  useEffect(() => {
-    if (!isWandering || isHovered || isDraggingActive || isOpen) return;
+    animFrameRef.current = requestAnimationFrame(loop);
 
-    const patrolWaypoints = [
-      () => ({ x: window.innerWidth - 120, y: window.innerHeight - 150 }), // Bottom-Right
-      () => ({ x: window.innerWidth - 120, y: 90 }), // Top-Right
-      () => ({ x: 80, y: 90 }), // Top-Left
-      () => ({ x: 80, y: window.innerHeight - 150 }), // Bottom-Left
-    ];
+    return () => {
+      disposed = true;
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, [isDedicatedTeacherRoom, isOpen, isHovered, isPaused]);
 
-    const patrolInterval = setInterval(() => {
-      wanderStepRef.current = (wanderStepRef.current + 1) % patrolWaypoints.length;
-      const nextPos = patrolWaypoints[wanderStepRef.current]();
-      setPosition(nextPos);
-    }, 9000);
-
-    return () => clearInterval(patrolInterval);
-  }, [isWandering, isHovered, isDraggingActive, isOpen]);
-
-  // Periodic Contextual Tips
+  // Periodic Floating Speech Bubble Tips
   useEffect(() => {
     const tips = [
-      `Need help on ${getPageTitle(location.pathname)}? Ask me!`,
-      'Drag me anywhere on your screen!',
-      'Click me to spin or ask any curriculum question!',
-      'Toggle Patrol Mode to let me float around the site!',
-      'Ready to study? Jump into my Full AI Classroom!',
+      `I'm bouncing around ${getPageTitle(location.pathname)}! Catch me for help!`,
+      'Bouncing all over your screen like a DVD player! 🛸',
+      'Click me to pause, chat, or take a quick quiz!',
+      'You can grab and flick me across your screen!',
+      'Need an answer? Click to open my flying console!',
     ];
 
     speechBubbleTimerRef.current = setInterval(() => {
-      if (!isOpen && !isDraggingActive) {
+      if (!isOpen && !isDraggingActive && !speechBubbleText) {
         const randomTip = tips[Math.floor(Math.random() * tips.length)];
         setSpeechBubbleText(randomTip);
-        setTimeout(() => setSpeechBubbleText(null), 6000);
-      }
-    }, 28000);
-
-    // Initial greeting after 3 seconds
-    const initialTipTimer = setTimeout(() => {
-      if (!isOpen) {
-        setSpeechBubbleText(`Hi ${user?.full_name?.split(' ')[0] || 'there'}! I'm floating with you. Click me for help!`);
         setTimeout(() => setSpeechBubbleText(null), 5500);
       }
-    }, 3000);
+    }, 24000);
+
+    const initialTipTimer = setTimeout(() => {
+      if (!isOpen) {
+        setSpeechBubbleText(`Hi ${user?.full_name?.split(' ')[0] || 'there'}! I'm floating all over the site. Catch me anytime!`);
+        setTimeout(() => setSpeechBubbleText(null), 6000);
+      }
+    }, 2500);
 
     return () => {
       clearInterval(speechBubbleTimerRef.current);
       clearTimeout(initialTipTimer);
     };
-  }, [location.pathname, isOpen, isDraggingActive, user?.full_name]);
+  }, [location.pathname, isOpen, isDraggingActive, user?.full_name, speechBubbleText]);
 
   // TTS Speech Helper
   const speakText = useCallback(
@@ -176,7 +290,6 @@ export const NovaFloatingAssistant: React.FC = () => {
       if (!speechEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
 
-      // Clean markdown tags for natural speech
       const clean = text
         .replace(/[*_#`~]/g, '')
         .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
@@ -206,15 +319,6 @@ export const NovaFloatingAssistant: React.FC = () => {
     },
     [speechEnabled]
   );
-
-  // Stop speech when assistant is minimized or unmounted
-  useEffect(() => {
-    return () => {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []);
 
   // Web Speech Recognition
   const toggleVoiceInput = () => {
@@ -274,16 +378,17 @@ export const NovaFloatingAssistant: React.FC = () => {
     }
   };
 
-  // Dragging handlers with PointerCapture
+  // Interactive Drag & Throw (Flick Physics)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     isDraggingRef.current = true;
     hasMovedRef.current = false;
     dragStartRef.current = {
       mouseX: e.clientX,
       mouseY: e.clientY,
-      posX: position.x,
-      posY: position.y,
+      posX: posRef.current.x,
+      posY: posRef.current.y,
     };
+    dragHistoryRef.current = [{ x: e.clientX, y: e.clientY, t: performance.now() }];
     e.currentTarget.setPointerCapture(e.pointerId);
     setIsDraggingActive(true);
   };
@@ -293,23 +398,28 @@ export const NovaFloatingAssistant: React.FC = () => {
     const dx = e.clientX - dragStartRef.current.mouseX;
     const dy = e.clientY - dragStartRef.current.mouseY;
 
-    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
       hasMovedRef.current = true;
     }
 
-    const widgetW = isOpen ? 360 : 100;
-    const widgetH = isOpen ? 520 : 100;
+    const widgetW = isOpen ? 360 : 92;
+    const widgetH = isOpen ? 520 : 92;
 
-    const newX = Math.min(
-      Math.max(12, dragStartRef.current.posX + dx),
-      window.innerWidth - widgetW - 12
+    posRef.current.x = Math.min(
+      Math.max(8, dragStartRef.current.posX + dx),
+      window.innerWidth - widgetW - 8
     );
-    const newY = Math.min(
-      Math.max(12, dragStartRef.current.posY + dy),
-      window.innerHeight - widgetH - 12
+    posRef.current.y = Math.min(
+      Math.max(8, dragStartRef.current.posY + dy),
+      window.innerHeight - widgetH - 8
     );
 
-    setPosition({ x: newX, y: newY });
+    // Track historical velocities for throw physics
+    const now = performance.now();
+    dragHistoryRef.current.push({ x: e.clientX, y: e.clientY, t: now });
+    if (dragHistoryRef.current.length > 5) {
+      dragHistoryRef.current.shift();
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -320,22 +430,22 @@ export const NovaFloatingAssistant: React.FC = () => {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {}
 
-    // Save final position
-    try {
-      localStorage.setItem(STORAGE_POS_KEY, JSON.stringify(position));
-    } catch {}
-  };
-
-  // Toggle Wandering Patrol Mode
-  const toggleWander = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setIsWandering((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(STORAGE_WANDER_KEY, String(next));
-      } catch {}
-      return next;
-    });
+    // Calculate throw release velocity if user flicked Nova!
+    if (dragHistoryRef.current.length >= 2) {
+      const first = dragHistoryRef.current[0];
+      const last = dragHistoryRef.current[dragHistoryRef.current.length - 1];
+      const dt = (last.t - first.t) / 1000;
+      if (dt > 0.02 && dt < 0.3) {
+        const flickVx = (last.x - first.x) / dt;
+        const flickVy = (last.y - first.y) / dt;
+        const throwSpeed = Math.hypot(flickVx, flickVy);
+        if (throwSpeed > 80) {
+          velRef.current.vx = Math.min(350, Math.max(-350, flickVx));
+          velRef.current.vy = Math.min(350, Math.max(-350, flickVy));
+          setAvatarState('excited');
+        }
+      }
+    }
   };
 
   // Send question to Nova API
@@ -365,8 +475,7 @@ export const NovaFloatingAssistant: React.FC = () => {
       speakText(answer);
     } catch (err) {
       console.warn('Nova floating inquiry fallback:', err);
-      // Friendly contextual fallback
-      const fallback = `Here is a helpful tip about ${getPageTitle(location.pathname)}: You can interact with all student learning materials, quizzes, and track your progress in real time. Would you like to open the Full AI Classroom?`;
+      const fallback = `Here is a helpful tip about ${getPageTitle(location.pathname)}: You can explore interactive quizzes, test your knowledge, and study with me anytime!`;
       setLastResponse(fallback);
       setAvatarState('speaking');
       speakText(fallback);
@@ -382,23 +491,21 @@ export const NovaFloatingAssistant: React.FC = () => {
     setTimeout(() => setCopiedResponse(false), 2000);
   };
 
-  // If in dedicated teacher room, suppress floating widget
   if (isDedicatedTeacherRoom) {
     return null;
   }
 
   return (
     <aside
-      aria-label="Nova 3D Floating Assistant"
-      className="fixed z-50 pointer-events-none select-none transition-all duration-300 ease-out"
+      ref={containerRef}
+      aria-label="Nova 3D Floating DVD Assistant"
+      className="fixed top-0 left-0 z-50 pointer-events-none select-none will-change-transform"
       style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        transition: isDraggingActive ? 'none' : isWandering ? 'all 4s cubic-bezier(0.25, 0.8, 0.25, 1)' : 'transform 0.2s ease-out',
+        transform: `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px)`,
       }}
     >
       {/* ========================================================
-          1. MINIMIZED FLOATING COMPANION POD (IDLE LEVITATION)
+          1. FREESTYLE DVD BOUNCING POD (FLOATING ACROSS ENTIRE WEBSITE)
          ======================================================== */}
       {!isOpen ? (
         <div
@@ -409,22 +516,27 @@ export const NovaFloatingAssistant: React.FC = () => {
           {/* Contextual Floating Speech Bubble */}
           {speechBubbleText && (
             <div
-              onClick={() => setIsOpen(true)}
+              onClick={() => {
+                setIsOpen(true);
+                setSpeechBubbleText(null);
+              }}
               className="absolute -top-14 right-0 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] px-3 py-1.5 rounded-xl text-[11px] font-black text-[#0F172A] whitespace-nowrap cursor-pointer z-50 animate-bounce flex items-center gap-1.5 hover:bg-[#FDE68A]"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500 animate-spin" />
               <span>{speechBubbleText}</span>
-              {/* Downward triangle arrow */}
               <div className="absolute -bottom-2 right-6 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-8 border-t-[#0F172A]" />
             </div>
           )}
 
-          {/* Floating Pod Main Container with Anti-Gravity Levitation */}
+          {/* Floating Pod Main Container */}
           <div className="relative">
-            {/* Pulsing Anti-Gravity Ground Shadow */}
-            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-16 h-3 bg-[#0F172A]/30 rounded-full blur-[2px] nova-floating-shadow pointer-events-none" />
+            {/* Pulsing Anti-Gravity Ground Thruster Halo */}
+            <div
+              className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-16 h-3 rounded-full blur-[3px] pointer-events-none transition-colors duration-300 nova-thruster-halo"
+              style={{ backgroundColor: currentColor }}
+            />
 
-            {/* Floating Robot Capsule */}
+            {/* Bouncing Robot Capsule (DVD Screensaver Object) */}
             <div
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
@@ -435,18 +547,21 @@ export const NovaFloatingAssistant: React.FC = () => {
                   setSpeechBubbleText(null);
                 }
               }}
-              className={`w-24 h-24 sm:w-28 sm:h-28 rounded-2xl border-3 border-[#0F172A] shadow-[5px_5px_0px_#0F172A] bg-gradient-to-b from-[#FEFCE8] via-[#FEFCE8] to-[#FDE68A] overflow-hidden cursor-grab active:cursor-grabbing flex flex-col items-center justify-between p-1 transition-transform ${
-                isDraggingActive ? 'scale-105 shadow-[7px_7px_0px_#0F172A]' : 'nova-floating-levitate'
-              }`}
-              title="NOVA 3D AI Companion • Drag to reposition • Click to open quick console"
+              className={`w-22 h-22 sm:w-24 sm:h-24 rounded-2xl border-3 border-[#0F172A] shadow-[5px_5px_0px_#0F172A] overflow-hidden cursor-grab active:cursor-grabbing flex flex-col items-center justify-between p-1 transition-all duration-150 ${
+                isSquashing ? 'nova-dvd-squash' : ''
+              } ${isDraggingActive ? 'scale-110 shadow-[8px_8px_0px_#0F172A]' : ''}`}
+              style={{
+                backgroundColor: currentColor,
+              }}
+              title="NOVA 3D DVD Floating Companion • Bouncing across the website • Click to chat • Flick to throw!"
             >
-              {/* Top Pod Drag Handle & Badge */}
-              <div className="w-full flex items-center justify-between px-1.5 pt-0.5 z-20">
-                <span className="flex items-center gap-1 text-[8px] font-black uppercase text-[#0F172A] bg-white border border-[#0F172A] px-1 py-0.2 rounded-sm shadow-[1px_1px_0px_#0F172A]">
+              {/* Top Pod Header: DVD Bounce Indicator & Move Grip */}
+              <div className="w-full flex items-center justify-between px-1 pt-0.5 z-20">
+                <span className="flex items-center gap-1 text-[7.5px] font-black uppercase text-[#0F172A] bg-white border border-[#0F172A] px-1 py-0.2 rounded-xs shadow-[1px_1px_0px_#0F172A]">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  NOVA 3D
+                  DVD #{bounceCount}
                 </span>
-                <Move className="w-3 h-3 text-slate-700 opacity-60 group-hover:opacity-100" />
+                <Move className="w-3 h-3 text-slate-800 opacity-60 group-hover:opacity-100" />
               </div>
 
               {/* Real 3D Robot Canvas Area */}
@@ -464,19 +579,20 @@ export const NovaFloatingAssistant: React.FC = () => {
 
               {/* Bottom Status Ribbon */}
               <div className="w-full z-20 flex items-center justify-center pb-0.5">
-                <span className="text-[7.5px] font-black uppercase tracking-wider bg-[#0F172A] text-white px-2 py-0.2 rounded-xs">
-                  {isWandering ? 'PATROL ACTIVE' : 'FLOATING'}
+                <span className="text-[7px] font-black uppercase tracking-wider bg-[#0F172A] text-white px-2 py-0.2 rounded-xs">
+                  {cornerHitCelebration ? '★ CORNER HIT! ★' : isPaused ? 'PAUSED' : 'FREESTYLE DVD'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Quick Hover Action Pills (Flyout Buttons) */}
+          {/* Quick Hover Flyout Controls */}
           <div
             className={`absolute -right-2 top-0 translate-x-full flex flex-col gap-1.5 transition-all duration-200 ${
               isHovered && !isDraggingActive ? 'opacity-100 translate-x-3 pointer-events-auto' : 'opacity-0 pointer-events-none'
             }`}
           >
+            {/* Open Chat */}
             <button
               onClick={() => setIsOpen(true)}
               className="p-1.5 bg-[#FEFCE8] hover:bg-[#FDE68A] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] rounded-lg text-xs font-black text-[#0F172A] flex items-center gap-1 active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
@@ -485,16 +601,21 @@ export const NovaFloatingAssistant: React.FC = () => {
               <MessageSquare className="w-3.5 h-3.5" />
             </button>
 
+            {/* Pause / Resume Flying */}
             <button
-              onClick={toggleWander}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPaused((prev) => !prev);
+              }}
               className={`p-1.5 border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] rounded-lg text-xs font-black flex items-center gap-1 active:translate-x-[1px] active:translate-y-[1px] cursor-pointer ${
-                isWandering ? 'bg-[#A7F3D0] text-[#0F172A]' : 'bg-[#FEFCE8] hover:bg-slate-100 text-[#0F172A]'
+                isPaused ? 'bg-[#A7F3D0] text-[#0F172A]' : 'bg-[#FEFCE8] text-[#0F172A]'
               }`}
-              title={isWandering ? 'Patrol Mode Active (Click to freeze)' : 'Enable Float Around / Patrol Mode'}
+              title={isPaused ? 'Resume floating flight' : 'Freeze / pause in place'}
             >
-              <Compass className={`w-3.5 h-3.5 ${isWandering ? 'animate-spin' : ''}`} />
+              {isPaused ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5" />}
             </button>
 
+            {/* Jump to Full AI Teacher */}
             <button
               onClick={() => navigate('/student/ai-teacher')}
               className="p-1.5 bg-[#C4B5FD] hover:bg-[#A78BFA] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] rounded-lg text-xs font-black text-[#0F172A] flex items-center gap-1 active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
@@ -506,7 +627,7 @@ export const NovaFloatingAssistant: React.FC = () => {
         </div>
       ) : (
         /* ========================================================
-            2. EXPANDED FLOATING AI CONSOLE (INTERACTIVE WORKSPACE)
+            2. EXPANDED FLOATING AI CONSOLE (DOCKED COMMAND STATION)
            ======================================================== */
         <div className="w-[340px] sm:w-[380px] max-h-[540px] bg-[#FEFCE8] border-3 border-[#0F172A] shadow-[8px_8px_0px_#0F172A] rounded-2xl flex flex-col overflow-hidden pointer-events-auto animate-in fade-in zoom-in-95 duration-150">
           {/* Header & Drag Grip Bar */}
@@ -514,32 +635,22 @@ export const NovaFloatingAssistant: React.FC = () => {
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            className="bg-[#FDE68A] border-b-2 border-[#0F172A] px-3 py-2 flex items-center justify-between cursor-grab active:cursor-grabbing select-none"
+            className="border-b-2 border-[#0F172A] px-3 py-2 flex items-center justify-between cursor-grab active:cursor-grabbing select-none transition-colors duration-300"
+            style={{ backgroundColor: currentColor }}
           >
             <div className="flex items-center gap-2">
-              <Move className="w-3.5 h-3.5 text-slate-700" />
+              <Move className="w-3.5 h-3.5 text-slate-800" />
               <div className="flex items-center gap-1.5">
                 <span className="font-black text-xs text-[#0F172A] tracking-wider uppercase">
-                  3D NOVA COMPANION
+                  3D NOVA // DVD PILOT
                 </span>
-                <span className="text-[8px] font-black px-1.5 py-0.2 bg-[#A7F3D0] border border-[#0F172A] uppercase">
-                  FLOATING
+                <span className="text-[8px] font-black px-1.5 py-0.2 bg-white border border-[#0F172A] uppercase">
+                  BOUNCE #{bounceCount}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-1">
-              {/* Wander Patrol Mode Toggle */}
-              <button
-                onClick={toggleWander}
-                className={`p-1 border border-[#0F172A] text-xs font-bold rounded-xs transition-colors cursor-pointer ${
-                  isWandering ? 'bg-[#A7F3D0] text-[#0F172A]' : 'bg-white hover:bg-slate-100 text-slate-700'
-                }`}
-                title={isWandering ? 'Patrol active (drifting)' : 'Turn on Float Around mode'}
-              >
-                <Compass className={`w-3.5 h-3.5 ${isWandering ? 'animate-spin' : ''}`} />
-              </button>
-
               {/* Speech Voice Output Toggle */}
               <button
                 onClick={() => {
@@ -565,7 +676,7 @@ export const NovaFloatingAssistant: React.FC = () => {
                 <Maximize2 className="w-3.5 h-3.5 text-[#0F172A]" />
               </button>
 
-              {/* Minimize Back to Pod */}
+              {/* Minimize Back to DVD Floating Mode */}
               <button
                 onClick={() => {
                   setIsOpen(false);
@@ -574,7 +685,7 @@ export const NovaFloatingAssistant: React.FC = () => {
                   }
                 }}
                 className="p-1 bg-[#FECDD3] hover:bg-rose-300 border border-[#0F172A] text-xs font-bold rounded-xs transition-colors cursor-pointer ml-1"
-                title="Minimize companion"
+                title="Resume floating flight"
               >
                 <X className="w-3.5 h-3.5 text-[#0F172A]" />
               </button>
@@ -709,7 +820,7 @@ export const NovaFloatingAssistant: React.FC = () => {
           {/* Full Classroom Launcher Footer */}
           <div className="px-3 py-1 bg-[#FEFCE8] border-t border-slate-200 flex items-center justify-between">
             <span className="text-[9px] font-bold text-slate-500">
-              Grounded AI Companion
+              Free-Style DVD Floating AI
             </span>
             <button
               onClick={() => navigate('/student/ai-teacher')}
@@ -724,6 +835,11 @@ export const NovaFloatingAssistant: React.FC = () => {
     </aside>
   );
 };
+
+// Helper: Linear Interpolation
+function THREE_lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
 
 // Friendly page title resolver for contextual assistance
 function getPageTitle(pathname: string): string {

@@ -106,3 +106,40 @@
 .nova-floating-glow {
   animation: novaGlowPulse 3s ease-in-out infinite;
 }
+
+/* DVD Screensaver Bounce Squash & Stretch */
+@keyframes novaDvdBounceSquash {
+  0% {
+    transform: scale(1, 1);
+  }
+  30% {
+    transform: scale(1.18, 0.82);
+  }
+  65% {
+    transform: scale(0.92, 1.08);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+.nova-dvd-squash {
+  animation: novaDvdBounceSquash 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Anti-gravity thruster halo ring */
+@keyframes novaThrusterGlow {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.18);
+  }
+}
+
+.nova-thruster-halo {
+  animation: novaThrusterGlow 1.6s ease-in-out infinite;
+}
+
