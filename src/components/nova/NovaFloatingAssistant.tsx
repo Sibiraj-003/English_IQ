@@ -45,9 +45,6 @@ export const NovaFloatingAssistant: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // If already in the dedicated full AI Teacher classroom, hide to prevent dual 3D canvas contention
-  const isDedicatedTeacherRoom = location.pathname.includes('/student/ai-teacher');
-
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [bounceCount, setBounceCount] = useState<number>(0);
@@ -58,8 +55,8 @@ export const NovaFloatingAssistant: React.FC = () => {
   // Floating coordinates & physics references (Direct GPU manipulation for 60fps butter-smooth flight)
   const containerRef = useRef<HTMLDivElement>(null);
   const posRef = useRef<{ x: number; y: number }>({
-    x: typeof window !== 'undefined' ? Math.max(40, Math.floor(Math.random() * (window.innerWidth - 200))) : 120,
-    y: typeof window !== 'undefined' ? Math.max(40, Math.floor(Math.random() * (window.innerHeight - 200))) : 140,
+    x: typeof window !== 'undefined' ? Math.max(40, Math.floor(window.innerWidth * 0.35)) : 160,
+    y: typeof window !== 'undefined' ? Math.max(40, Math.floor(window.innerHeight * 0.25)) : 160,
   });
 
   // Freestyle Velocity (cruising speed in pixels/sec)
@@ -111,8 +108,6 @@ export const NovaFloatingAssistant: React.FC = () => {
   // CONTINUOUS 60FPS DVD SCREENSAVER FREESTYLE FLOATING ENGINE
   // =========================================================================
   useEffect(() => {
-    if (isDedicatedTeacherRoom) return;
-
     let disposed = false;
     lastTimeRef.current = performance.now();
 
@@ -128,7 +123,6 @@ export const NovaFloatingAssistant: React.FC = () => {
 
       // When open in console mode, Nova docks into place
       if (isOpen) {
-        // Clamp to viewport for console
         const consoleW = Math.min(380, window.innerWidth - 24);
         const consoleH = 500;
         posRef.current.x = Math.max(12, Math.min(posRef.current.x, window.innerWidth - consoleW - 12));
@@ -137,40 +131,38 @@ export const NovaFloatingAssistant: React.FC = () => {
         return;
       }
 
-      // If dragging, pointer events directly control posRef
+      // If user is dragging Nova, pointer drag controls posRef directly
       if (isDraggingRef.current) {
         container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px) scale(1.08)`;
         return;
       }
 
-      const widgetW = 92;
-      const widgetH = 92;
-      const minX = 8;
-      const maxX = Math.max(12, window.innerWidth - widgetW - 8);
-      const minY = 8;
-      const maxY = Math.max(12, window.innerHeight - widgetH - 8);
-
-      // Hover brake: smoothly decelerate to gentle hover while student hovers mouse over Nova
-      if (isHovered || isPaused) {
-        velRef.current.vx *= 0.92;
-        velRef.current.vy *= 0.92;
+      // If manually paused via freeze button
+      if (isPaused) {
         const hoverBob = Math.sin(now * 0.003) * 4;
         container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y + hoverBob}px, 0px)`;
         return;
       }
 
-      // Freestyle Aerodynamic Physics: subtle organic steering drift
-      const targetSpeed = 115; // cruising speed in px/s
+      const widgetW = 96;
+      const widgetH = 96;
+      const minX = 6;
+      const maxX = Math.max(minX + 60, (window.innerWidth || 1200) - widgetW - 6);
+      const minY = 6;
+      const maxY = Math.max(minY + 60, (window.innerHeight || 800) - widgetH - 6);
+
+      // Cruising speed (moves at full lively speed, slightly relaxed when hovered so it's catchable)
+      const baseSpeed = 135;
+      const targetSpeed = isHovered ? baseSpeed * 0.55 : baseSpeed;
       const currentSpeed = Math.hypot(velRef.current.vx, velRef.current.vy);
 
-      // Gradually restore velocity toward cruising speed if thrown or slowed down
       if (currentSpeed < 40) {
         velRef.current.vx = (Math.random() > 0.5 ? 1 : -1) * targetSpeed * 0.7;
         velRef.current.vy = (Math.random() > 0.5 ? 1 : -1) * targetSpeed * 0.7;
       } else {
         const speedFactor = targetSpeed / currentSpeed;
-        velRef.current.vx = THREE_lerp(velRef.current.vx, velRef.current.vx * speedFactor, 0.02);
-        velRef.current.vy = THREE_lerp(velRef.current.vy, velRef.current.vy * speedFactor, 0.02);
+        velRef.current.vx = THREE_lerp(velRef.current.vx, velRef.current.vx * speedFactor, 0.05);
+        velRef.current.vy = THREE_lerp(velRef.current.vy, velRef.current.vy * speedFactor, 0.05);
       }
 
       // Gentle organic freestyle sine drift (wobbles naturally like a flying drone)
@@ -251,7 +243,7 @@ export const NovaFloatingAssistant: React.FC = () => {
       disposed = true;
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [isDedicatedTeacherRoom, isOpen, isHovered, isPaused]);
+  }, [isOpen, isHovered, isPaused]);
 
   // Periodic Floating Speech Bubble Tips
   useEffect(() => {
@@ -491,15 +483,11 @@ export const NovaFloatingAssistant: React.FC = () => {
     setTimeout(() => setCopiedResponse(false), 2000);
   };
 
-  if (isDedicatedTeacherRoom) {
-    return null;
-  }
-
   return (
     <aside
       ref={containerRef}
       aria-label="Nova 3D Floating DVD Assistant"
-      className="fixed top-0 left-0 z-50 pointer-events-none select-none will-change-transform"
+      className="fixed top-0 left-0 z-[9999] pointer-events-none select-none will-change-transform"
       style={{
         transform: `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px)`,
       }}
