@@ -1437,9 +1437,6 @@ export const AiTeacher: React.FC = () => {
               REAL-TIME VOICE
             </span>
           </div>
-          <span className="text-[10px] text-slate-600 hidden md:inline">
-            • Cloud AI • Zero GPU • Textbook Grounded
-          </span>
         </div>
 
         {/* Top Controls: Channel Switcher (TEXT | VOICE | LIVE) + Timer */}
