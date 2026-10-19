@@ -82,6 +82,7 @@ export const AiTeacher: React.FC = () => {
 
   // Left Panel Active Tab: 'hub' (Curriculum & Settings) or 'history' (Past Chats)
   const [leftPanelTab, setLeftPanelTab] = useState<'hub' | 'history'>('hub');
+  const [showHubModal, setShowHubModal] = useState(false);
 
   // Storage key for per-student chat sessions
   const storageKey = `nova_chat_sessions_${user?.id || 'default'}`;
@@ -532,17 +533,29 @@ export const AiTeacher: React.FC = () => {
     }, 3500);
   };
 
+  const activeSessionKey = `nova_active_session_id_${user?.id || 'default'}`;
+
   // Safe Session Storage Writer
   const saveSessionsToStorage = useCallback(
     (updated: NovaChatSession[]) => {
       try {
         localStorage.setItem(storageKey, JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('nova_sessions_updated'));
       } catch (err) {
         console.warn('Failed to save chat sessions:', err);
       }
     },
     [storageKey]
   );
+
+  useEffect(() => {
+    if (currentSessionId) {
+      try {
+        localStorage.setItem(activeSessionKey, currentSessionId);
+        window.dispatchEvent(new CustomEvent('nova_sessions_updated'));
+      } catch {}
+    }
+  }, [currentSessionId, activeSessionKey]);
 
   // Initialize or restore active session on mount
   // Initialize or restore active session on mount
@@ -710,6 +723,37 @@ export const AiTeacher: React.FC = () => {
 
     showToast(`Deleted chat: "${toDelete.title}"`);
   };
+
+  // Sync with main Sidebar actions (New Chat, Select Session, Delete Session)
+  useEffect(() => {
+    const handleStartNewChatEvent = () => {
+      handleCreateNewChat();
+    };
+
+    const handleSelectSessionEvent = (e: any) => {
+      const sessId = e.detail?.sessionId;
+      if (sessId) {
+        handleSelectSession(sessId);
+      }
+    };
+
+    const handleDeleteSessionEvent = (e: any) => {
+      const sessId = e.detail?.sessionId;
+      if (sessId) {
+        handleDeleteSession(sessId);
+      }
+    };
+
+    window.addEventListener('nova_start_new_chat', handleStartNewChatEvent);
+    window.addEventListener('nova_select_session', handleSelectSessionEvent);
+    window.addEventListener('nova_delete_session', handleDeleteSessionEvent);
+
+    return () => {
+      window.removeEventListener('nova_start_new_chat', handleStartNewChatEvent);
+      window.removeEventListener('nova_select_session', handleSelectSessionEvent);
+      window.removeEventListener('nova_delete_session', handleDeleteSessionEvent);
+    };
+  }, [sessions, subjects, currentSessionId]);
 
   // Rename chat session
   const handleSaveRename = () => {
@@ -886,6 +930,8 @@ export const AiTeacher: React.FC = () => {
         appendMessageToCurrentSession(novaResponseMsg);
         if (channelModeRef.current === 'voice' || channelModeRef.current === 'live') {
           speakText(cleanFeedback, novaMsgId);
+        } else {
+          setVoiceState('idle');
         }
       } catch (err: any) {
         console.error(err);
@@ -903,6 +949,9 @@ export const AiTeacher: React.FC = () => {
       } finally {
         setLoading(false);
         isSubmittingRef.current = false;
+        if (!isSpeakingRef.current && (channelModeRef.current === 'text' || !audioEnabled)) {
+          setVoiceState('idle');
+        }
       }
       return;
     }
@@ -946,6 +995,8 @@ export const AiTeacher: React.FC = () => {
       appendMessageToCurrentSession(aiMsg);
       if (channelModeRef.current === 'voice' || channelModeRef.current === 'live') {
         speakText(cleanAnswer, novaMsgId);
+      } else {
+        setVoiceState('idle');
       }
     } catch (err: any) {
       console.error(err);
@@ -963,6 +1014,9 @@ export const AiTeacher: React.FC = () => {
     } finally {
       setLoading(false);
       isSubmittingRef.current = false;
+      if (!isSpeakingRef.current && (channelModeRef.current === 'text' || !audioEnabled)) {
+        setVoiceState('idle');
+      }
     }
   };
 
@@ -1451,95 +1505,49 @@ export const AiTeacher: React.FC = () => {
          ========================================== */}
       <div
         ref={mainContainerRef}
-        className="flex-1 min-h-0 flex flex-col lg:flex-row w-full bg-white border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] overflow-hidden"
+        className="flex-1 min-h-0 flex flex-col w-full bg-white border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] overflow-hidden"
       >
-        {/* DESKTOP LEFT LEARNING PANEL */}
-        {!isPanelCollapsed && (
-          <div
-            className="hidden lg:flex flex-col bg-[#F8FAFC] border-r-2 border-[#0F172A] overflow-y-auto p-2 shrink-0 select-text w-72 xl:w-80"
-          >
-            {/* Dual Tabs: LEARNING HUB vs CHATS */}
-            <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-1.5 mb-2 gap-1">
-              <div className="flex items-center border border-[#0F172A] bg-white p-0.5">
-                <button
-                  onClick={() => setLeftPanelTab('hub')}
-                  className={`px-2 py-0.5 text-[10px] font-extrabold flex items-center gap-1 transition-all ${
-                    leftPanelTab === 'hub'
-                      ? 'bg-[#0F172A] text-white'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                  title="Curriculum & Settings"
-                >
-                  <BookOpen className="w-3 h-3" />
-                  <span>HUB</span>
-                </button>
-                <button
-                  onClick={() => setLeftPanelTab('history')}
-                  className={`px-2 py-0.5 text-[10px] font-extrabold flex items-center gap-1 transition-all ${
-                    leftPanelTab === 'history'
-                      ? 'bg-[#FDE68A] text-[#0F172A]'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                  title="Past Chat History"
-                >
-                  <History className="w-3 h-3" />
-                  <span>CHATS ({sessions.length})</span>
-                </button>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleCreateNewChat()}
-                  className="p-1 bg-[#A7F3D0] border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] hover:bg-[#6EE7B7] text-[#0F172A]"
-                  title="Start New Chat"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={togglePanelCollapse}
-                  className="p-1 bg-white border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] hover:bg-[#FDE68A] active:scale-95 text-[#0F172A]"
-                  title="Collapse Learning Panel"
-                >
-                  <ChevronLeft className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-
-            {leftPanelTab === 'hub' ? renderLearningHubControls() : renderChatHistory()}
-          </div>
-        )}
-
-        {/* RIGHT MAIN CONVERSATION AREA */}
+        {/* MAIN CONVERSATION & COMPANION AREA */}
         <div className="flex-1 min-w-0 flex flex-col bg-white overflow-hidden">
           {/* HEADER BAR: COMPANION IDENTITY & CONTROLS (COMPACT HEIGHT) */}
           <div className="px-3 py-2 bg-[#C4B5FD] border-b-2 border-[#0F172A] flex items-center justify-between gap-2 shrink-0">
             <div className="flex items-center gap-2.5 min-w-0">
-              {isPanelCollapsed && (
-                <button
-                  onClick={togglePanelCollapse}
-                  className="hidden lg:flex items-center gap-1 px-2 py-1 bg-white hover:bg-[#FDE68A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] text-xs font-extrabold text-[#0F172A] active:scale-95 transition-all shrink-0 cursor-pointer"
-                  title="Expand Learning Panel & Chats"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                  <span>CHATS</span>
-                </button>
-              )}
+              <button
+                onClick={() => setShowHubModal(true)}
+                className="flex items-center gap-1.5 px-2 py-1 bg-white hover:bg-[#FDE68A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] text-xs font-extrabold text-[#0F172A] active:scale-95 transition-all shrink-0 cursor-pointer"
+                title="Open Curriculum & Learning Hub"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">CURRICULUM</span>
+              </button>
 
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <h2 className="font-extrabold text-xs sm:text-sm text-[#0F172A] tracking-tight truncate">
                     NOVA // LEARNING COMPANION
                   </h2>
-                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-[#FDE68A] border border-[#0F172A]">
-                    {currentSubject?.name || 'Science'}
-                  </span>
+                  <button
+                    onClick={() => setShowHubModal(true)}
+                    className="text-[9px] font-extrabold px-1.5 py-0.2 bg-[#FDE68A] hover:bg-[#FCD34D] border border-[#0F172A] cursor-pointer shadow-[1px_1px_0px_#0F172A]"
+                    title="Change Subject or Topic"
+                  >
+                    {currentSubject?.name || 'Science'} ▾
+                  </button>
                   <span className="text-[8px] font-extrabold px-1 py-0.2 bg-[#0F172A] text-white border border-[#0F172A] uppercase">
                     {voiceState}
                   </span>
                 </div>
-                <p className="text-[11px] font-bold text-slate-800 truncate">
-                  Topic: {selectedTopic}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[11px] font-bold text-slate-800 truncate">
+                    Topic: {selectedTopic}
+                  </p>
+                  <button
+                    onClick={() => setShowHubModal(true)}
+                    className="text-[9px] font-bold text-indigo-900 underline hover:text-black cursor-pointer"
+                  >
+                    Change
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1592,10 +1600,10 @@ export const AiTeacher: React.FC = () => {
                 </div>
               </div>
 
-              {/* Mobile Companion HUD Toggle */}
+              {/* Responsive Companion HUD Toggle */}
               <button
                 onClick={() => setShowMobileCompanion(true)}
-                className="lg:hidden flex items-center gap-1 px-2 py-1 text-xs font-extrabold bg-[#A7F3D0] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] transition-all text-[#0F172A]"
+                className="xl:hidden flex items-center gap-1 px-2 py-1 text-xs font-extrabold bg-[#A7F3D0] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] transition-all text-[#0F172A] cursor-pointer"
                 title="Open Animated AI Companion HUD"
               >
                 <Bot className="w-3.5 h-3.5" />
@@ -2023,8 +2031,8 @@ export const AiTeacher: React.FC = () => {
               </div>
             </div>
 
-            {/* RIGHT MAIN COMPANION DOCK (POSITIONED RIGHT HERE AS REQUESTED) */}
-            <div className="hidden lg:flex w-72 xl:w-80 border-l-2 border-[#0F172A] bg-[#FEFCE8] flex-col shrink-0 h-full overflow-y-auto p-3">
+            {/* RIGHT MAIN COMPANION DOCK (RESPONSIVE: visible on xl screens to protect layout when window is not fullscreen) */}
+            <div className="hidden xl:flex w-72 xl:w-80 border-l-2 border-[#0F172A] bg-[#FEFCE8] flex-col shrink-0 h-full overflow-y-auto p-3">
               <NovaRobotCompanion
                 expression={currentExpression}
                 voiceState={voiceState}
@@ -2043,13 +2051,13 @@ export const AiTeacher: React.FC = () => {
         </div>
       </div>
 
-      {/* MOBILE COMPANION MODAL / POPUP (< 1024px) */}
+      {/* COMPACT / MOBILE COMPANION MODAL / POPUP (< 1280px or non-fullscreen) */}
       {showMobileCompanion && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 lg:hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 xl:hidden">
           <div className="relative w-full max-w-sm bg-[#FEFCE8] border-4 border-[#0F172A] shadow-[6px_6px_0px_#0F172A] p-2 max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowMobileCompanion(false)}
-              className="absolute top-3 right-3 z-30 p-1 bg-white text-[#0F172A] border-2 border-[#0F172A] font-black hover:bg-rose-200"
+              className="absolute top-3 right-3 z-30 p-1 bg-white text-[#0F172A] border-2 border-[#0F172A] font-black hover:bg-rose-200 cursor-pointer"
               title="Close Companion HUD"
             >
               <X className="w-4 h-4" />
@@ -2208,6 +2216,50 @@ export const AiTeacher: React.FC = () => {
                 className="px-3 py-1 bg-white border border-[#0F172A] text-xs font-extrabold text-slate-700 hover:bg-slate-100 cursor-pointer"
               >
                 CLOSE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Curriculum & Learning Hub Modal */}
+      {showHubModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="relative w-full max-w-md bg-[#FEFCE8] border-4 border-[#0F172A] shadow-[6px_6px_0px_#0F172A] p-4 space-y-3 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-2">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-[#0F172A]" />
+                <h3 className="font-extrabold text-sm text-[#0F172A] uppercase tracking-wider">
+                  Curriculum & Interaction Settings
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowHubModal(false)}
+                className="p-1 bg-white hover:bg-rose-200 border-2 border-[#0F172A] text-[#0F172A] font-black cursor-pointer shadow-[1px_1px_0px_#0F172A]"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {renderLearningHubControls()}
+
+            <div className="pt-2 border-t-2 border-[#0F172A] flex items-center justify-between gap-2">
+              <button
+                onClick={() => {
+                  handleCreateNewChat(selectedTopic);
+                  setShowHubModal(false);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#A7F3D0] hover:bg-[#6EE7B7] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] text-xs font-black text-[#0F172A] cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>START CHAT ON THIS TOPIC</span>
+              </button>
+              <button
+                onClick={() => setShowHubModal(false)}
+                className="px-3 py-1.5 bg-white hover:bg-slate-100 border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] text-xs font-black text-[#0F172A] cursor-pointer"
+              >
+                DONE
               </button>
             </div>
           </div>
