@@ -47,6 +47,7 @@ import {
   Download,
   Check,
   History,
+  GraduationCap,
 } from 'lucide-react';
 
 type InteractionChannel = 'text' | 'voice' | 'live';
@@ -61,13 +62,23 @@ export const stripEmojis = (str: string): string => {
     .trim();
 };
 
+export const FALLBACK_SUBJECTS: Subject[] = [
+  { id: 'sub-sci', school_id: 'SCH001', code: 'SCI101', name: 'Science', department: 'Science', is_active: true },
+  { id: 'sub-mat', school_id: 'SCH001', code: 'MAT101', name: 'Mathematics', department: 'Mathematics', is_active: true },
+  { id: 'sub-eng', school_id: 'SCH001', code: 'ENG101', name: 'English', department: 'Languages', is_active: true },
+  { id: 'sub-soc', school_id: 'SCH001', code: 'SOC101', name: 'Social Science', department: 'Social Studies', is_active: true },
+  { id: 'sub-cs', school_id: 'SCH001', code: 'CSC101', name: 'Computer Science', department: 'Technology', is_active: true },
+  { id: 'sub-tam', school_id: 'SCH001', code: 'TAM101', name: 'Tamil', department: 'Languages', is_active: true },
+  { id: 'sub-hin', school_id: 'SCH001', code: 'HIN101', name: 'Hindi', department: 'Languages', is_active: true },
+];
+
 export const AiTeacher: React.FC = () => {
   const { user } = useAuth();
 
   // ==========================================
   // 1. CURRICULUM, SUBJECT & TOPIC STATE
   // ==========================================
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>(FALLBACK_SUBJECTS);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('sub-sci');
   const [selectedTopic, setSelectedTopic] = useState<string>('General Learning');
 
@@ -875,13 +886,53 @@ export const AiTeacher: React.FC = () => {
     api
       .getSubjects()
       .then((subList) => {
-        setSubjects(subList);
-        if (subList.length > 0) {
-          setSelectedSubjectId(subList[0].id);
+        if (Array.isArray(subList) && subList.length > 0) {
+          setSubjects(subList);
+          setSelectedSubjectId((prev) => {
+            const exists = subList.some((s) => s.id === prev);
+            return exists ? prev : subList[0].id;
+          });
         }
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.warn('Failed to load curriculum subjects, using fallbacks:', err);
+      });
   }, []);
+
+  // Dedicated Subject Switcher: Updates state, active session, topic, and saves
+  const handleSubjectChange = (newSubjectId: string) => {
+    const sub = subjects.find((s) => s.id === newSubjectId);
+    if (!sub) return;
+
+    setSelectedSubjectId(newSubjectId);
+    selectedSubjectIdRef.current = newSubjectId;
+
+    // Update active chat session with the chosen subject
+    setSessions((prev) => {
+      const updated = prev.map((s) => {
+        if (s.id === currentSessionIdRef.current) {
+          return {
+            ...s,
+            subject_id: newSubjectId,
+            subject_name: sub.name,
+            updated_at: new Date().toISOString(),
+          };
+        }
+        return s;
+      });
+      saveSessionsToStorage(updated);
+      return updated;
+    });
+
+    // Auto-update topic if generic or matches previous subject concepts
+    if (!selectedTopic || selectedTopic === 'General Learning' || selectedTopic.includes('Concepts')) {
+      const newTopic = `${sub.name} Concepts`;
+      setSelectedTopic(newTopic);
+      selectedTopicRef.current = newTopic;
+    }
+
+    showToast(`Switched subject to ${sub.name}`);
+  };
 
   // ==========================================
   // 7. SEND MESSAGE / SUBMIT TEACH-BACK
@@ -1412,8 +1463,7 @@ export const AiTeacher: React.FC = () => {
             <button
               key={sub.id}
               onClick={() => {
-                setSelectedSubjectId(sub.id);
-                setSelectedTopic(`${sub.name} Concepts`);
+                handleSubjectChange(sub.id);
               }}
               className={`px-1.5 py-1 text-[11px] font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between truncate text-left ${
                 selectedSubjectId === sub.id
@@ -1530,6 +1580,9 @@ export const AiTeacher: React.FC = () => {
             <span className="text-[9px] font-extrabold px-1 py-0.2 bg-[#A7F3D0] border border-[#0F172A]">
               REAL-TIME VOICE
             </span>
+            <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-[#FDE68A] text-[#0F172A] border border-[#0F172A] hidden sm:inline" title="Current Subject">
+              {currentSubject?.name || 'Science'}
+            </span>
           </div>
         </div>
 
@@ -1602,7 +1655,7 @@ export const AiTeacher: React.FC = () => {
         <div className="flex-1 min-w-0 flex flex-col bg-white overflow-hidden">
           {/* HEADER BAR: COMPANION IDENTITY & CONTROLS (COMPACT HEIGHT) */}
           <div className="px-3 py-2 bg-[#C4B5FD] border-b-2 border-[#0F172A] flex items-center justify-between gap-2 shrink-0">
-            <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <button
                 onClick={() => setShowHubModal(true)}
                 className="flex items-center gap-1.5 px-2 py-1 bg-white hover:bg-[#FDE68A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] text-xs font-extrabold text-[#0F172A] active:scale-95 transition-all shrink-0 cursor-pointer"
@@ -1612,29 +1665,47 @@ export const AiTeacher: React.FC = () => {
                 <span className="hidden sm:inline">CURRICULUM</span>
               </button>
 
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <h2 className="font-extrabold text-xs sm:text-sm text-[#0F172A] tracking-tight truncate">
+              {/* DIRECT & PROMINENT SUBJECT CHOOSER DROPDOWN */}
+              <div
+                className="flex items-center gap-1.5 px-2 py-0.5 bg-[#FDE68A] hover:bg-[#FCD34D] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] shrink-0 transition-all cursor-pointer"
+                title="Select learning subject"
+              >
+                <GraduationCap className="w-3.5 h-3.5 text-[#0F172A] shrink-0" />
+                <label htmlFor="nova-subject-select" className="text-[10px] font-black uppercase text-[#0F172A] tracking-wider shrink-0 cursor-pointer">
+                  SUBJECT:
+                </label>
+                <select
+                  id="nova-subject-select"
+                  value={selectedSubjectId}
+                  onChange={(e) => handleSubjectChange(e.target.value)}
+                  className="text-xs font-black bg-transparent text-[#0F172A] focus:outline-none cursor-pointer font-mono pr-1"
+                >
+                  {subjects.map((sub) => (
+                    <option key={sub.id} value={sub.id} className="font-bold text-[#0F172A] bg-white py-1">
+                      {sub.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* TOPIC & COMPANION LABELS */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <h2 className="font-extrabold text-xs sm:text-sm text-[#0F172A] tracking-tight truncate hidden md:inline">
                     NOVA // LEARNING COMPANION
                   </h2>
-                  <button
-                    onClick={() => setShowHubModal(true)}
-                    className="text-[9px] font-extrabold px-1.5 py-0.2 bg-[#FDE68A] hover:bg-[#FCD34D] border border-[#0F172A] cursor-pointer shadow-[1px_1px_0px_#0F172A]"
-                    title="Change Subject or Topic"
-                  >
-                    {currentSubject?.name || 'Science'} ▾
-                  </button>
-                  <span className="text-[8px] font-extrabold px-1 py-0.2 bg-[#0F172A] text-white border border-[#0F172A] uppercase">
+                  <span className="text-[8px] font-extrabold px-1.5 py-0.2 bg-[#0F172A] text-white border border-[#0F172A] uppercase shrink-0">
                     {voiceState}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <p className="text-[11px] font-bold text-slate-800 truncate">
-                    Topic: {selectedTopic}
+                  <p className="text-[11px] font-bold text-slate-900 truncate">
+                    Topic: <span className="font-extrabold">{selectedTopic}</span>
                   </p>
                   <button
                     onClick={() => setShowHubModal(true)}
-                    className="text-[9px] font-bold text-indigo-900 underline hover:text-black cursor-pointer"
+                    className="text-[9px] font-bold text-indigo-950 underline hover:text-black cursor-pointer shrink-0"
+                    title="Change topic"
                   >
                     Change
                   </button>
