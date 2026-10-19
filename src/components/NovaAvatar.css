@@ -20,6 +20,8 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+.nova--xs { --nova-w: 36px; }
+.nova--compact { --nova-w: 48px; }
 .nova--sm { --nova-w: 120px; }
 .nova--md { --nova-w: 200px; }
 .nova--lg { --nova-w: 300px; }

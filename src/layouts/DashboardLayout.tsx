@@ -6,9 +6,26 @@ import { DemoBanner } from '../components/DemoBanner';
 import { MobileBottomNav } from '../components/MobileBottomNav';
 export const DashboardLayout: React.FC = () => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   const toggleSidebar = () => {
-    setMobileSidebarOpen((prev) => !prev);
+    if (window.innerWidth < 768) {
+      setMobileSidebarOpen((prev) => !prev);
+    } else {
+      setDesktopSidebarCollapsed((prev) => {
+        const next = !prev;
+        try {
+          localStorage.setItem('sidebar_collapsed', next.toString());
+        } catch {}
+        return next;
+      });
+    }
   };
 
   return (
@@ -17,10 +34,11 @@ export const DashboardLayout: React.FC = () => {
       <DemoBanner />
 
       <div className="flex flex-1 min-h-0 relative overflow-hidden">
-        {/* Responsive Sidebar */}
+        {/* Responsive Sidebar (Hide & Unhide driven by top three-line menu) */}
         <Sidebar
           isOpen={mobileSidebarOpen}
           onClose={() => setMobileSidebarOpen(false)}
+          isCollapsed={desktopSidebarCollapsed}
         />
 
         {/* Main Content Area */}

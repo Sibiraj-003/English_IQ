@@ -144,31 +144,31 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
   const isAudioActive = effectiveState === 'listening' || effectiveState === 'speaking';
 
   return (
-    <div className="flex flex-col bg-[#0F172A] border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] rounded-lg overflow-hidden font-mono text-white select-none transition-all duration-300 w-full">
-      {/* 1. COMPANION TOP BAR / CYBER TITLE */}
-      <div className="px-2.5 py-1.5 bg-[#1E293B] border-b-2 border-[#334155] flex items-center justify-between text-xs">
+    <div className="flex flex-col bg-white border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] overflow-hidden font-mono text-[#0F172A] select-none transition-all duration-300 w-full">
+      {/* 1. COMPANION TOP BAR */}
+      <div className="px-3 py-2 bg-[#C4B5FD] border-b-2 border-[#0F172A] flex items-center justify-between text-xs">
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-extrabold text-[11px] tracking-wider text-[#A7F3D0]">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse border border-[#0F172A]" />
+          <span className="font-black text-xs tracking-wider text-[#0F172A]">
             NOVA AI // MENTOR
           </span>
-          <span className="text-[9px] px-1 py-0.2 bg-[#334155] text-slate-200 border border-slate-500">
+          <span className="text-[9px] px-1.5 py-0.2 bg-[#FDE68A] text-[#0F172A] border border-[#0F172A] font-extrabold shadow-[1px_1px_0px_#0F172A]">
             LIVE HUD
           </span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {/* Camera Toggle Button */}
           <button
             onClick={onToggleCamera}
-            className={`p-1 border border-slate-600 transition-colors flex items-center gap-1 text-[10px] font-bold ${
+            className={`px-2 py-1 border-2 border-[#0F172A] transition-all flex items-center gap-1 text-[10px] font-black active:translate-x-[1px] active:translate-y-[1px] cursor-pointer ${
               cameraActive
-                ? 'bg-[#A7F3D0] text-[#0F172A] hover:bg-emerald-300'
-                : 'bg-[#334155] text-slate-300 hover:bg-[#475569]'
+                ? 'bg-[#A7F3D0] text-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-emerald-300'
+                : 'bg-white text-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-[#FDE68A]'
             }`}
             title={cameraActive ? 'Camera active (analyzing reactions)' : 'Enable camera to analyze reactions'}
           >
-            {cameraActive ? <Camera className="w-3 h-3" /> : <CameraOff className="w-3 h-3 text-slate-400" />}
+            {cameraActive ? <Camera className="w-3.5 h-3.5" /> : <CameraOff className="w-3.5 h-3.5 text-slate-600" />}
             <span className="hidden sm:inline">{cameraActive ? 'CAM ON' : 'CAM OFF'}</span>
           </button>
 
@@ -176,10 +176,10 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
           {onToggleCompact && (
             <button
               onClick={onToggleCompact}
-              className="p-1 hover:bg-[#334155] text-slate-300 border border-slate-600"
+              className="p-1 bg-white hover:bg-[#FDE68A] text-[#0F172A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
               title={isCompact ? 'Expand avatar' : 'Compact view'}
             >
-              {isCompact ? <Maximize2 className="w-3 h-3" /> : <Minimize2 className="w-3 h-3" />}
+              {isCompact ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
             </button>
           )}
         </div>
@@ -187,19 +187,13 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
 
       {!isCompact ? (
         <>
-          {/* 2. MAIN ROBOT AVATAR DISPLAY (MATCHING ATTACHED IMAGE) */}
-          <div className="relative p-3 bg-gradient-to-b from-[#1E1B4B] via-[#0F172A] to-[#0B0F19] flex flex-col items-center justify-center overflow-hidden min-h-[170px]">
-            {/* Cyber Circuit Lines & Corner Brackets in Background */}
-            <div className="absolute inset-2 border border-indigo-500/20 rounded-md pointer-events-none" />
-            <div className="absolute top-2 left-2 w-2 h-2 border-t-2 border-l-2 border-indigo-400 pointer-events-none" />
-            <div className="absolute top-2 right-2 w-2 h-2 border-t-2 border-r-2 border-indigo-400 pointer-events-none" />
-            <div className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2 border-indigo-400 pointer-events-none" />
-            <div className="absolute bottom-2 right-2 w-2 h-2 border-b-2 border-r-2 border-indigo-400 pointer-events-none" />
-
-            {/* Glowing Aura / Particle Stars */}
-            <div className="absolute top-4 right-5 text-indigo-300/40 animate-pulse">✦</div>
-            <div className="absolute bottom-5 left-5 text-indigo-300/30 animate-pulse delay-300">✦</div>
-            <div className="absolute top-8 left-6 text-indigo-400/30 text-[9px]">★</div>
+          {/* 2. MAIN ROBOT AVATAR DISPLAY (NEO-BRUTALIST STYLING) */}
+          <div className="relative p-4 bg-[#FEFCE8] border-b-2 border-[#0F172A] flex flex-col items-center justify-center overflow-hidden min-h-[180px]">
+            {/* Neo-brutalist corner brackets */}
+            <div className="absolute top-2 left-2 w-2 h-2 bg-[#0F172A]" />
+            <div className="absolute top-2 right-2 w-2 h-2 bg-[#0F172A]" />
+            <div className="absolute bottom-2 left-2 w-2 h-2 bg-[#0F172A]" />
+            <div className="absolute bottom-2 right-2 w-2 h-2 bg-[#0F172A]" />
 
             {/* Robot Vector SVG Companion Display */}
             <div className="relative z-10 flex flex-col items-center justify-center">
@@ -215,33 +209,33 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
 
               {/* Pedagogy Emotion Thought Bubble (If student is confused or thinking) */}
               {reaction === 'confused' && (
-                <div className="absolute top-4 -right-2 z-20 bg-[#FDE68A] text-[#0F172A] border-2 border-[#0F172A] px-2 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0px_#0F172A] rounded-md animate-bounce">
+                <div className="absolute top-4 -right-2 z-20 bg-[#FDE68A] text-[#0F172A] border-2 border-[#0F172A] px-2 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0px_#0F172A] rounded-none animate-bounce">
                   Need a hint? 💡
                 </div>
               )}
               {reaction === 'happy' && (
-                <div className="absolute top-4 -right-2 z-20 bg-[#A7F3D0] text-[#0F172A] border-2 border-[#0F172A] px-2 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0px_#0F172A] rounded-md">
+                <div className="absolute top-4 -right-2 z-20 bg-[#A7F3D0] text-[#0F172A] border-2 border-[#0F172A] px-2 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0px_#0F172A] rounded-none">
                   Brilliant! ★
                 </div>
               )}
             </div>
 
-            {/* 3. REPRODUCING THE ATTACHED IMAGE'S BOTTOM HUD WAVEFORM PILL */}
-            <div className="w-full mt-2.5 z-10">
-              <div className="w-full bg-[#090D16] border-2 border-[#334155] rounded-xl px-3 py-1.5 flex items-center justify-between shadow-[0_0_10px_rgba(0,0,0,0.5)]">
+            {/* 3. REPRODUCING BOTTOM HUD EQUALIZER WAVEFORM PILL */}
+            <div className="w-full mt-3 z-10">
+              <div className="w-full bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] px-3 py-1.5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`w-2 h-2 rounded-full ${
+                    className={`w-2.5 h-2.5 rounded-full border border-[#0F172A] ${
                       effectiveState === 'listening'
                         ? 'bg-emerald-400 animate-ping'
                         : effectiveState === 'speaking'
-                        ? 'bg-indigo-400 animate-pulse'
+                        ? 'bg-[#C4B5FD] animate-pulse'
                         : effectiveState === 'thinking'
                         ? 'bg-amber-400 animate-spin'
                         : 'bg-emerald-500'
                     }`}
                   />
-                  <span className="text-[11px] font-black tracking-wider text-slate-200">
+                  <span className="text-[11px] font-black tracking-wider text-[#0F172A]">
                     {effectiveState === 'listening'
                       ? 'LISTENING...'
                       : effectiveState === 'speaking'
@@ -254,7 +248,7 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
                   </span>
                 </div>
 
-                {/* Animated Audio Equalizer Waveform Bars (like in user image) */}
+                {/* Animated Audio Equalizer Waveform Bars */}
                 <div className="flex items-center gap-0.5 h-4">
                   {[4, 8, 14, 18, 12, 16, 20, 14, 10, 16, 12, 6].map((h, i) => {
                     const dynamicHeight = isAudioActive
@@ -263,12 +257,12 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
                     return (
                       <span
                         key={i}
-                        className={`w-0.5 rounded-full transition-all duration-150 ${
+                        className={`w-1 rounded-none transition-all duration-150 ${
                           effectiveState === 'listening'
-                            ? 'bg-emerald-400'
+                            ? 'bg-emerald-600'
                             : effectiveState === 'speaking'
-                            ? 'bg-indigo-400'
-                            : 'bg-emerald-600/50'
+                            ? 'bg-[#7C3AED]'
+                            : 'bg-slate-400'
                         } ${isAudioActive ? 'animate-audio-wave' : ''}`}
                         style={{
                           height: `${dynamicHeight}px`,
@@ -283,11 +277,11 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
           </div>
 
           {/* 4. LIVE CAMERA & STUDENT REACTION ANALYSIS HUD */}
-          <div className="p-2.5 bg-[#0F172A] border-t-2 border-[#1E293B] space-y-2">
+          <div className="p-3 bg-[#F8FAFC] space-y-2.5">
             {cameraActive ? (
               <div className="space-y-2">
                 {/* Live Webcam Frame with Face Detection HUD Overlays */}
-                <div className="relative border-2 border-indigo-500/60 rounded-md overflow-hidden bg-black aspect-[4/3] w-full flex items-center justify-center">
+                <div className="relative border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] bg-black aspect-[4/3] w-full flex items-center justify-center overflow-hidden">
                   <video
                     ref={videoRef as any}
                     autoPlay
@@ -298,7 +292,7 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
 
                   {/* Face Detection Bounding Box Overlay */}
                   <div className="absolute inset-0 pointer-events-none p-2 flex flex-col justify-between">
-                    <div className="flex items-center justify-between text-[9px] font-bold text-emerald-400 bg-black/70 px-1.5 py-0.5 rounded">
+                    <div className="flex items-center justify-between text-[9px] font-black text-emerald-300 bg-black/80 px-2 py-0.5 border border-emerald-400/40">
                       <span className="flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                         FACE DETECTED
@@ -307,12 +301,12 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
                     </div>
 
                     {/* HUD Center Crosshair */}
-                    <div className="self-center w-24 h-28 border border-emerald-400/60 rounded-sm flex items-center justify-center">
+                    <div className="self-center w-24 h-28 border-2 border-emerald-400/80 rounded-none flex items-center justify-center">
                       <div className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
                     </div>
 
                     {/* Gaze & Signal note */}
-                    <div className="flex items-center justify-between text-[8px] text-slate-300 bg-black/70 px-1.5 py-0.5 rounded">
+                    <div className="flex items-center justify-between text-[8px] font-bold text-slate-200 bg-black/80 px-1.5 py-0.5 border border-slate-700">
                       <span>GAZE: {cameraAnalysis?.gaze_direction?.toUpperCase() || 'CENTER'}</span>
                       <span>PRIVACY: LOCAL SNAPSHOT</span>
                     </div>
@@ -321,51 +315,51 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
 
                 {/* Reaction Status Badge */}
                 <div
-                  className={`p-1.5 rounded-md border text-[11px] flex items-center justify-between font-bold ${reactionConfig.color}`}
+                  className={`p-2 border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] text-xs flex items-center justify-between font-black ${reactionConfig.color}`}
                 >
                   <div className="flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${reactionConfig.dotColor}`} />
                     <ReactionIcon className="w-3.5 h-3.5" />
                     <span>{reactionConfig.label}</span>
                   </div>
-                  <span className="text-[10px] font-extrabold opacity-90">{confidence}%</span>
+                  <span className="text-[10px] font-black opacity-90">{confidence}%</span>
                 </div>
 
                 {/* Reaction-based Pedagogical Assist Prompt */}
-                <div className="bg-[#1E293B] border border-slate-700 p-2 rounded-md space-y-1.5">
-                  <p className="text-[10px] text-slate-300 leading-tight">
+                <div className="bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] p-2.5 space-y-2">
+                  <p className="text-[11px] font-bold text-[#0F172A] leading-tight">
                     {cameraAnalysis?.pedagogical_suggestion || reactionConfig.tip}
                   </p>
 
                   {onReactionHelpClick && (
                     <button
                       onClick={() => onReactionHelpClick(reactionConfig.actionPrompt)}
-                      className="w-full py-1 px-2 text-[10px] font-extrabold bg-[#FDE68A] text-[#0F172A] border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] hover:bg-amber-300 active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1 transition-all"
+                      className="w-full py-1.5 px-2 text-xs font-black bg-[#FDE68A] hover:bg-amber-300 text-[#0F172A] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
-                      <Sparkles className="w-3 h-3 text-amber-700" />
+                      <Sparkles className="w-3.5 h-3.5 text-[#0F172A]" />
                       <span>{reactionConfig.actionText}</span>
                     </button>
                   )}
                 </div>
               </div>
             ) : (
-              /* Camera Inactive State: Call to Action */
-              <div className="bg-[#1E293B] border border-slate-700 p-2.5 rounded-md space-y-2 text-center">
-                <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-slate-200">
-                  <Camera className="w-4 h-4 text-[#A7F3D0]" />
+              /* Camera Inactive State: Neo-Brutalist Call to Action */
+              <div className="bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] p-3 space-y-2 text-center">
+                <div className="flex items-center justify-center gap-1.5 text-xs font-black text-[#0F172A]">
+                  <Camera className="w-4 h-4 text-[#0F172A]" />
                   <span>Reaction-Based Teaching</span>
                 </div>
-                <p className="text-[10px] text-slate-400 leading-tight">
+                <p className="text-[11px] font-bold text-slate-700 leading-tight">
                   Enable live camera to let NOVA detect your reactions (puzzled, focused, thinking) and adapt lessons automatically!
                 </p>
                 <button
                   onClick={onToggleCamera}
-                  className="w-full py-1.5 px-2 bg-[#A7F3D0] text-[#0F172A] border border-[#0F172A] shadow-[2px_2px_0px_#0F172A] hover:bg-emerald-300 font-extrabold text-[11px] active:translate-x-[1px] active:translate-y-[1px] transition-all flex items-center justify-center gap-1.5"
+                  className="w-full py-2 px-3 bg-[#A7F3D0] hover:bg-emerald-300 text-[#0F172A] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] font-black text-xs active:translate-x-[1px] active:translate-y-[1px] transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Camera className="w-3.5 h-3.5" />
+                  <Camera className="w-4 h-4" />
                   <span>ENABLE FACE & REACTION MONITOR</span>
                 </button>
-                <span className="text-[9px] text-slate-500 block">
+                <span className="text-[9px] font-bold text-slate-500 block">
                   Zero video recording • 100% privacy protected
                 </span>
               </div>
@@ -373,10 +367,10 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
           </div>
         </>
       ) : (
-        /* Compact Minimized State (for small viewports or when collapsed) */
-        <div className="p-2 bg-[#1E1B4B] flex items-center justify-between gap-2">
+        /* Compact Minimized State (Neo-Brutalist) */
+        <div className="p-2 bg-[#FEFCE8] border-b-2 border-[#0F172A] flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 overflow-hidden flex items-center justify-center rounded-md border border-indigo-400 bg-[#12122e] shrink-0">
+            <div className="w-10 h-10 overflow-hidden flex items-center justify-center border-2 border-[#0F172A] bg-white shadow-[1px_1px_0px_#0F172A] shrink-0">
               <NovaAvatar
                 state={avatarState}
                 size="sm"
@@ -388,12 +382,12 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-1">
-                <span className="text-xs font-black text-white">NOVA</span>
-                <span className="text-[9px] px-1 py-0.2 bg-emerald-400 text-black font-bold">
+                <span className="text-xs font-black text-[#0F172A]">NOVA</span>
+                <span className="text-[9px] px-1 py-0.2 bg-[#A7F3D0] text-[#0F172A] font-black border border-[#0F172A]">
                   {effectiveState.toUpperCase()}
                 </span>
               </div>
-              <p className="text-[9px] text-slate-300 truncate max-w-[120px]">
+              <p className="text-[9px] font-bold text-slate-700 truncate max-w-[120px]">
                 {cameraActive ? `Reaction: ${reactionConfig.label}` : 'Camera Standby'}
               </p>
             </div>
@@ -401,7 +395,7 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
 
           <button
             onClick={onToggleCompact}
-            className="p-1 text-slate-300 hover:text-white border border-slate-600 bg-[#334155]"
+            className="p-1 text-[#0F172A] hover:bg-[#FDE68A] border-2 border-[#0F172A] shadow-[1px_1px_0px_#0F172A] bg-white cursor-pointer"
             title="Expand NOVA HUD"
           >
             <Maximize2 className="w-3.5 h-3.5" />

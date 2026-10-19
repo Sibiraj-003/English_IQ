@@ -23,7 +23,7 @@ export type NovaVoiceState = "idle" | "listening" | "thinking" | "speaking" | "e
 export interface NovaAvatarProps {
   /** Base animation state. */
   state?: NovaState;
-  size?: "sm" | "md" | "lg" | "xl" | "compact";
+  size?: "xs" | "compact" | "sm" | "md" | "lg" | "xl";
   /** Connect to TTS state. When true it overrides `state` with "speaking". */
   speaking?: boolean;
   /** Connect to microphone state. Overrides `state` with "listening" (speaking wins). */
@@ -370,7 +370,7 @@ export function NovaAvatar({
     "--look-y": look.y,
   } as React.CSSProperties;
 
-  const normalizedSize = size === "compact" ? "sm" : size;
+  const normalizedSize = size;
 
   const rootClass = [
     "nova",

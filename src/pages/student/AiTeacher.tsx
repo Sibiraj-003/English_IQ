@@ -512,11 +512,6 @@ export const AiTeacher: React.FC = () => {
       sender: 'nova',
       text: `Hello ${user?.full_name || 'Scholar'}! I am NOVA, your AI Learning Companion.\n\nAsk me any question, type a topic you want to learn, or speak to me in real-time. I will guide you step-by-step!`,
       expression: 'greeting',
-      suggestedFollowUps: [
-        'What would you like to help me study today?',
-        'Ask me a quick concept challenge question',
-        'Explain how the solar system works with real-world examples',
-      ],
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -558,11 +553,6 @@ export const AiTeacher: React.FC = () => {
         sender: 'nova',
         text: `Hello ${user?.full_name || 'Scholar'}! I am NOVA, your AI Learning Companion.\n\nAsk me any question, type a topic you want to learn, or speak to me in real-time. I will guide you step-by-step!`,
         expression: 'greeting',
-        suggestedFollowUps: [
-          'What would you like to help me study today?',
-          'Ask me a quick concept challenge question',
-          'Explain how the solar system works with real-world examples',
-        ],
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -652,17 +642,6 @@ export const AiTeacher: React.FC = () => {
         ? `Hello ${user?.full_name || 'Scholar'}! Starting a new learning session on **${topicToUse}** (${subName}). How would you like to explore this topic?`
         : `Hello ${user?.full_name || 'Scholar'}! What would you like to explore or learn today? Ask me any question to get started!`,
       expression: 'greeting',
-      suggestedFollowUps: isCustom
-        ? [
-            `What are the core fundamentals of ${topicToUse}?`,
-            `Ask me a concept question on ${topicToUse}`,
-            `Explain ${topicToUse} with a real-world example`,
-          ]
-        : [
-            'Help me understand a difficult topic',
-            'Quiz me with a concept challenge question',
-            'Explain how gravity works in real life',
-          ],
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
@@ -1409,30 +1388,8 @@ export const AiTeacher: React.FC = () => {
           </span>
         </div>
 
-        {/* Top Controls: Channel Switcher (TEXT | VOICE | LIVE) + Chat History + Timer */}
+        {/* Top Controls: Channel Switcher (TEXT | VOICE | LIVE) + Timer */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Quick Chat Actions */}
-          <button
-            onClick={() => handleCreateNewChat()}
-            className="flex items-center gap-1 px-2 py-0.5 bg-[#A7F3D0] border border-[#0F172A] text-xs font-extrabold hover:bg-[#6EE7B7] active:translate-x-[1px] active:translate-y-[1px] text-[#0F172A] shadow-[1px_1px_0px_#0F172A]"
-            title="Start a new chat session"
-          >
-            <Plus className="w-3 h-3" />
-            <span className="hidden sm:inline text-[10px]">NEW CHAT</span>
-          </button>
-
-          <button
-            onClick={() => {
-              if (isPanelCollapsed) setIsPanelCollapsed(false);
-              setLeftPanelTab('history');
-            }}
-            className="hidden sm:flex items-center gap-1 px-2 py-0.5 bg-white border border-[#0F172A] text-xs font-extrabold hover:bg-[#FDE68A] active:translate-x-[1px] active:translate-y-[1px] text-[#0F172A] shadow-[1px_1px_0px_#0F172A]"
-            title="View past chat history"
-          >
-            <History className="w-3 h-3 text-[#0F172A]" />
-            <span className="text-[10px]">HISTORY ({sessions.length})</span>
-          </button>
-
           {/* Interaction Channel Switcher */}
           <div className="flex items-center border border-[#0F172A] bg-white p-0.5">
             <button
@@ -1554,7 +1511,7 @@ export const AiTeacher: React.FC = () => {
 
         {/* RIGHT MAIN CONVERSATION AREA */}
         <div className="flex-1 min-w-0 flex flex-col bg-white overflow-hidden">
-          {/* HEADER BAR: NOVA AVATAR & COMPANION IDENTITY (COMPACT HEIGHT) */}
+          {/* HEADER BAR: COMPANION IDENTITY & CONTROLS (COMPACT HEIGHT) */}
           <div className="px-3 py-2 bg-[#C4B5FD] border-b-2 border-[#0F172A] flex items-center justify-between gap-2 shrink-0">
             <div className="flex items-center gap-2.5 min-w-0">
               {isPanelCollapsed && (
@@ -1567,16 +1524,6 @@ export const AiTeacher: React.FC = () => {
                   <span>CHATS</span>
                 </button>
               )}
-
-              {/* NOVA AI FACE AVATAR */}
-              <NovaAvatar
-                expression={currentExpression}
-                voiceState={voiceState}
-                isSpeaking={isSpeaking}
-                isThinking={loading}
-                size="compact"
-                showLabel={false}
-              />
 
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -1596,8 +1543,55 @@ export const AiTeacher: React.FC = () => {
               </div>
             </div>
 
-            {/* Header Right: Mobile HUD Toggle, Share Chat, Audio Toggle & Quick Interruption Button */}
-            <div className="flex items-center gap-1.5 shrink-0">
+            {/* Header Right: Animated Nova Avatar ("Move here" as marked) + Controls */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Animated AI Avatar in Header ("Move here" as marked in diagram) */}
+              <div
+                className="flex items-center gap-2 px-2 py-1 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]"
+                title={`NOVA AI Companion • State: ${voiceState.toUpperCase()}`}
+              >
+                <div className="w-9 h-9 flex items-center justify-center overflow-hidden shrink-0">
+                  <NovaAvatar
+                    expression={currentExpression}
+                    voiceState={voiceState}
+                    isSpeaking={isSpeaking}
+                    isThinking={loading}
+                    size="compact"
+                    showStatus={false}
+                    interactive={true}
+                  />
+                </div>
+                <div className="hidden sm:flex flex-col text-[10px] leading-tight select-none">
+                  <div className="flex items-center gap-1">
+                    <span
+                      className={`w-2 h-2 rounded-full border border-[#0F172A] ${
+                        isSpeaking
+                          ? 'bg-purple-500 animate-pulse'
+                          : loading
+                          ? 'bg-amber-400 animate-spin'
+                          : voiceState === 'listening'
+                          ? 'bg-emerald-400 animate-ping'
+                          : 'bg-emerald-500'
+                      }`}
+                    />
+                    <span className="font-extrabold text-[#0F172A] uppercase tracking-wider text-[10px]">
+                      {isSpeaking
+                        ? 'SPEAKING'
+                        : loading
+                        ? 'THINKING'
+                        : voiceState === 'listening'
+                        ? 'LISTENING'
+                        : 'ONLINE'}
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-bold text-slate-600 truncate max-w-[90px]">
+                    {cameraActive && cameraAnalysis?.student_reaction
+                      ? cameraAnalysis.student_reaction.toUpperCase()
+                      : 'NOVA MENTOR'}
+                  </span>
+                </div>
+              </div>
+
               {/* Mobile Companion HUD Toggle */}
               <button
                 onClick={() => setShowMobileCompanion(true)}
@@ -1614,7 +1608,7 @@ export const AiTeacher: React.FC = () => {
                   const active = sessions.find((s) => s.id === currentSessionId);
                   if (active) setSharingSession(active);
                 }}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-bold bg-white hover:bg-[#FDE68A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] transition-all text-[#0F172A]"
+                className="flex items-center gap-1 px-2 py-1 text-xs font-extrabold bg-white hover:bg-[#FDE68A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] transition-all text-[#0F172A]"
                 title="Share current chat transcript"
               >
                 <Share2 className="w-3.5 h-3.5" />
@@ -1642,7 +1636,7 @@ export const AiTeacher: React.FC = () => {
                     setSpeakingMessageId(null);
                   }
                 }}
-                className={`flex items-center gap-1 px-2 py-1 text-xs font-bold border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] transition-all active:translate-x-[1px] active:translate-y-[1px] ${
+                className={`flex items-center gap-1 px-2 py-1 text-xs font-extrabold border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] transition-all active:translate-x-[1px] active:translate-y-[1px] ${
                   audioEnabled ? 'bg-[#A7F3D0] text-[#0F172A]' : 'bg-white text-slate-700'
                 }`}
                 title="Toggle Text-to-Speech audio"
@@ -1774,21 +1768,7 @@ export const AiTeacher: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Socratic Follow-up Prompts */}
-                        {m.suggestedFollowUps && m.suggestedFollowUps.length > 0 && (
-                          <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-2.5 w-full">
-                            {m.suggestedFollowUps.map((prompt, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => handleSendMessage(prompt)}
-                                className="text-xs font-bold px-3 py-1.5 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] hover:bg-[#FDE68A] text-[#0F172A] transition-all text-left active:translate-x-[1px] active:translate-y-[1px] flex items-center gap-2 rounded-xs w-full sm:w-auto"
-                              >
-                                <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                <span>{prompt}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
+
                       </div>
                     );
                   })}
@@ -2044,7 +2024,7 @@ export const AiTeacher: React.FC = () => {
             </div>
 
             {/* RIGHT MAIN COMPANION DOCK (POSITIONED RIGHT HERE AS REQUESTED) */}
-            <div className="hidden lg:flex w-72 xl:w-80 border-l-2 border-[#0F172A] bg-[#0F172A] flex-col shrink-0 h-full overflow-y-auto p-3">
+            <div className="hidden lg:flex w-72 xl:w-80 border-l-2 border-[#0F172A] bg-[#FEFCE8] flex-col shrink-0 h-full overflow-y-auto p-3">
               <NovaRobotCompanion
                 expression={currentExpression}
                 voiceState={voiceState}
@@ -2066,7 +2046,7 @@ export const AiTeacher: React.FC = () => {
       {/* MOBILE COMPANION MODAL / POPUP (< 1024px) */}
       {showMobileCompanion && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 lg:hidden">
-          <div className="relative w-full max-w-sm bg-[#0F172A] border-4 border-[#0F172A] shadow-[6px_6px_0px_#0F172A] rounded-lg p-2 max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-sm bg-[#FEFCE8] border-4 border-[#0F172A] shadow-[6px_6px_0px_#0F172A] p-2 max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowMobileCompanion(false)}
               className="absolute top-3 right-3 z-30 p-1 bg-white text-[#0F172A] border-2 border-[#0F172A] font-black hover:bg-rose-200"
