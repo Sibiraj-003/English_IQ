@@ -4,6 +4,8 @@ import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { DemoBanner } from '../components/DemoBanner';
 import { MobileBottomNav } from '../components/MobileBottomNav';
+import { NovaFloatingAssistant } from '../components/nova/NovaFloatingAssistant';
+
 export const DashboardLayout: React.FC = () => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState<boolean>(() => {
@@ -52,6 +54,9 @@ export const DashboardLayout: React.FC = () => {
 
       {/* Android Mobile Navigation Bar */}
       <MobileBottomNav />
+
+      {/* Persistent 3D AI Floating Companion */}
+      <NovaFloatingAssistant />
     </div>
   );
 };

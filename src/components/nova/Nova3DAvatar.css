@@ -14,6 +14,10 @@
   background: radial-gradient(circle at 50% 35%, #FEFCE8 0%, #FEFCE8 65%, #FDE68A 120%);
 }
 
+.nova-3d-avatar-container.compact {
+  min-height: 0 !important;
+}
+
 .nova-3d-canvas-wrapper {
   position: relative;
   width: 100%;
@@ -27,7 +31,9 @@
 
 /* Reduced motion accessibility support */
 @media (prefers-reduced-motion: reduce) {
-  .nova-3d-avatar-container * {
+  .nova-3d-avatar-container *,
+  .nova-floating-levitate,
+  .nova-floating-shadow {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
@@ -47,3 +53,56 @@
 .nova-3d-corner-tr { top: 6px; right: 6px; }
 .nova-3d-corner-bl { bottom: 6px; left: 6px; }
 .nova-3d-corner-br { bottom: 6px; right: 6px; }
+
+/* Anti-Gravity Floating Keyframes for the Website */
+@keyframes novaLevitateFloat {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-5px) rotate(0.8deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-5px) rotate(-0.8deg);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+}
+
+@keyframes novaShadowPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(0.8);
+    opacity: 0.18;
+  }
+}
+
+@keyframes novaGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.4), 0 0 32px rgba(167, 243, 208, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 26px rgba(245, 158, 11, 0.7), 0 0 48px rgba(196, 181, 253, 0.45);
+  }
+}
+
+.nova-floating-levitate {
+  animation: novaLevitateFloat 4.2s ease-in-out infinite;
+  will-change: transform;
+}
+
+.nova-floating-shadow {
+  animation: novaShadowPulse 4.2s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.nova-floating-glow {
+  animation: novaGlowPulse 3s ease-in-out infinite;
+}

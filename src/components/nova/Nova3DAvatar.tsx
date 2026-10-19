@@ -23,6 +23,7 @@ export interface Nova3DAvatarProps {
   className?: string;
   onAvatarClick?: () => void;
   showControls?: boolean;
+  compact?: boolean;
 }
 
 export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
@@ -35,6 +36,7 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
   className = '',
   onAvatarClick,
   showControls = true,
+  compact = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasMountRef = useRef<HTMLDivElement>(null);
@@ -345,13 +347,17 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
             const robot = robotGroupRef.current;
 
             if (!reducedMotion) {
-              const floatFreq = currentlySpeaking ? 4.5 : currentlyThinking ? 1.8 : 2.4;
-              const floatAmp = currentlySpeaking ? 0.06 : 0.04;
-              let posY = Math.sin(elapsedTime * floatFreq) * floatAmp;
+              // Enhanced Anti-Gravity Levitation: multi-harmonic floating oscillation
+              const floatFreq = currentlySpeaking ? 3.6 : currentlyThinking ? 1.6 : 2.2;
+              const floatAmp = currentlySpeaking ? 0.085 : 0.07;
+              let posY =
+                Math.sin(elapsedTime * floatFreq) * floatAmp +
+                Math.sin(elapsedTime * (floatFreq * 1.6)) * (floatAmp * 0.22);
 
-              let rotY = mousePosRef.current.x + Math.sin(elapsedTime * 1.2) * 0.05;
-              let rotX = -mousePosRef.current.y;
-              let rotZ = 0;
+              // Organic anti-gravity banking, roll and pitch tilt
+              let rotY = mousePosRef.current.x + Math.sin(elapsedTime * 1.2) * 0.06;
+              let rotX = -mousePosRef.current.y + Math.cos(elapsedTime * (floatFreq * 0.8)) * 0.025;
+              let rotZ = Math.sin(elapsedTime * (floatFreq * 0.6)) * 0.035;
 
               if (currentlySpeaking) {
                 const nod = Math.sin(elapsedTime * 11);
@@ -467,7 +473,7 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`nova-3d-avatar-container ${className}`}
+      className={`nova-3d-avatar-container ${compact ? 'compact' : ''} ${className}`}
       style={{ height }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
@@ -477,11 +483,15 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
       {/* Three.js Canvas Mount Point - Never replaces React child elements */}
       <div ref={canvasMountRef} className="absolute inset-0 w-full h-full overflow-hidden" />
 
-      {/* Corner Brackets */}
-      <div className="nova-3d-corner nova-3d-corner-tl" />
-      <div className="nova-3d-corner nova-3d-corner-tr" />
-      <div className="nova-3d-corner nova-3d-corner-bl" />
-      <div className="nova-3d-corner nova-3d-corner-br" />
+      {/* Corner Brackets (hidden in compact mode) */}
+      {!compact && (
+        <>
+          <div className="nova-3d-corner nova-3d-corner-tl" />
+          <div className="nova-3d-corner nova-3d-corner-tr" />
+          <div className="nova-3d-corner nova-3d-corner-bl" />
+          <div className="nova-3d-corner nova-3d-corner-br" />
+        </>
+      )}
 
       {/* Loading Screen */}
       {!isLoaded && (
@@ -555,8 +565,8 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
         </div>
       )}
 
-      {/* Interaction Hint */}
-      {isLoaded && (
+      {/* Interaction Hint (hidden in compact mode) */}
+      {isLoaded && !compact && (
         <div className="absolute bottom-2.5 left-2.5 z-20 pointer-events-none">
           <span className="text-[8px] font-bold text-slate-600 bg-white/80 border border-[#0F172A]/40 px-1 py-0.2">
             DRAG: 360° ROTATE • CLICK: JUMP
