@@ -18,6 +18,11 @@
   min-height: 0 !important;
 }
 
+.nova-3d-avatar-container.transparent-bg {
+  background: transparent !important;
+  min-height: 0 !important;
+}
+
 .nova-3d-canvas-wrapper {
   position: relative;
   width: 100%;

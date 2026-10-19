@@ -24,6 +24,7 @@ export interface Nova3DAvatarProps {
   onAvatarClick?: () => void;
   showControls?: boolean;
   compact?: boolean;
+  transparent?: boolean;
 }
 
 export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
@@ -37,6 +38,7 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
   onAvatarClick,
   showControls = true,
   compact = false,
+  transparent = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasMountRef = useRef<HTMLDivElement>(null);
@@ -473,7 +475,7 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`nova-3d-avatar-container ${compact ? 'compact' : ''} ${className}`}
+      className={`nova-3d-avatar-container ${compact ? 'compact' : ''} ${transparent ? 'transparent-bg' : ''} ${className}`}
       style={{ height }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
@@ -483,8 +485,8 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
       {/* Three.js Canvas Mount Point - Never replaces React child elements */}
       <div ref={canvasMountRef} className="absolute inset-0 w-full h-full overflow-hidden" />
 
-      {/* Corner Brackets (hidden in compact mode) */}
-      {!compact && (
+      {/* Corner Brackets (hidden in compact/transparent mode) */}
+      {!compact && !transparent && (
         <>
           <div className="nova-3d-corner nova-3d-corner-tl" />
           <div className="nova-3d-corner nova-3d-corner-tr" />
@@ -494,7 +496,7 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
       )}
 
       {/* Loading Screen */}
-      {!isLoaded && (
+      {!isLoaded && !transparent && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-[#FEFCE8]/95 p-4 space-y-2">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#0F172A] animate-spin" />
@@ -514,45 +516,47 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
         </div>
       )}
 
-      {/* Active State Badge */}
-      <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none flex items-center gap-1">
-        <span
-          className={`text-[8px] font-black px-1.5 py-0.5 border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] uppercase flex items-center gap-1 transition-all ${
-            isSpeaking || state === 'speaking'
-              ? 'bg-[#C4B5FD] text-[#0F172A] animate-pulse'
-              : isThinking || state === 'thinking'
-              ? 'bg-[#FDE68A] text-[#0F172A]'
-              : state === 'listening'
-              ? 'bg-[#A7F3D0] text-[#0F172A] animate-ping'
-              : state === 'happy' || state === 'success'
-              ? 'bg-[#A7F3D0] text-[#0F172A]'
-              : 'bg-white text-slate-800'
-          }`}
-        >
-          {isSpeaking || state === 'speaking' ? (
-            <>
-              <Volume2 className="w-2.5 h-2.5" /> SPEAKING
-            </>
-          ) : isThinking || state === 'thinking' ? (
-            <>
-              <Brain className="w-2.5 h-2.5" /> THINKING
-            </>
-          ) : state === 'listening' ? (
-            <>
-              <Mic className="w-2.5 h-2.5" /> LISTENING
-            </>
-          ) : state === 'happy' || state === 'success' ? (
-            <>
-              <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" /> HAPPY
-            </>
-          ) : (
-            '3D NOVA // ACTIVE'
-          )}
-        </span>
-      </div>
+      {/* Active State Badge (hidden in transparent mode) */}
+      {!transparent && (
+        <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none flex items-center gap-1">
+          <span
+            className={`text-[8px] font-black px-1.5 py-0.5 border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] uppercase flex items-center gap-1 transition-all ${
+              isSpeaking || state === 'speaking'
+                ? 'bg-[#C4B5FD] text-[#0F172A] animate-pulse'
+                : isThinking || state === 'thinking'
+                ? 'bg-[#FDE68A] text-[#0F172A]'
+                : state === 'listening'
+                ? 'bg-[#A7F3D0] text-[#0F172A] animate-ping'
+                : state === 'happy' || state === 'success'
+                ? 'bg-[#A7F3D0] text-[#0F172A]'
+                : 'bg-white text-slate-800'
+            }`}
+          >
+            {isSpeaking || state === 'speaking' ? (
+              <>
+                <Volume2 className="w-2.5 h-2.5" /> SPEAKING
+              </>
+            ) : isThinking || state === 'thinking' ? (
+              <>
+                <Brain className="w-2.5 h-2.5" /> THINKING
+              </>
+            ) : state === 'listening' ? (
+              <>
+                <Mic className="w-2.5 h-2.5" /> LISTENING
+              </>
+            ) : state === 'happy' || state === 'success' ? (
+              <>
+                <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" /> HAPPY
+              </>
+            ) : (
+              '3D NOVA // ACTIVE'
+            )}
+          </span>
+        </div>
+      )}
 
       {/* Interactive Controls Overlay */}
-      {showControls && isLoaded && (
+      {showControls && !transparent && isLoaded && (
         <div className="absolute bottom-2.5 right-2.5 z-20 flex items-center gap-1.5">
           <button
             onClick={handleResetCamera}
@@ -565,8 +569,8 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
         </div>
       )}
 
-      {/* Interaction Hint (hidden in compact mode) */}
-      {isLoaded && !compact && (
+      {/* Interaction Hint (hidden in compact/transparent mode) */}
+      {isLoaded && !compact && !transparent && (
         <div className="absolute bottom-2.5 left-2.5 z-20 pointer-events-none">
           <span className="text-[8px] font-bold text-slate-600 bg-white/80 border border-[#0F172A]/40 px-1 py-0.2">
             DRAG: 360° ROTATE • CLICK: JUMP
