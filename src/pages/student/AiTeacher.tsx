@@ -1874,31 +1874,19 @@ export const AiTeacher: React.FC = () => {
 
                   {/* LIVE INTERIM TRANSCRIPT BADGE */}
                   {interimTranscript && (
-                    <div className="flex items-start justify-between gap-3 p-3 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] max-w-md animate-fade-in">
-                      <div className="flex items-start gap-2.5">
-                        <Mic className="w-4 h-4 text-emerald-600 animate-pulse shrink-0 mt-0.5" />
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <span className="text-[10px] font-extrabold uppercase text-emerald-800">
-                              LISTENING IN REAL-TIME...
-                            </span>
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                          </div>
-                          <p className="font-sans text-sm text-[#0F172A] italic font-semibold">
-                            "{interimTranscript}"
-                          </p>
+                    <div className="flex items-start gap-2.5 p-3 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] max-w-md animate-fade-in">
+                      <Mic className="w-4 h-4 text-emerald-600 animate-pulse shrink-0 mt-0.5" />
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-[10px] font-extrabold uppercase text-emerald-800">
+                            LISTENING IN REAL-TIME...
+                          </span>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                         </div>
+                        <p className="font-sans text-sm text-[#0F172A] italic font-semibold">
+                          "{interimTranscript}"
+                        </p>
                       </div>
-
-                      {/* Instant Send Shortcut Button */}
-                      <button
-                        type="button"
-                        onClick={() => commitAndSendLiveSpeech()}
-                        className="px-2 py-1 bg-[#A7F3D0] hover:bg-emerald-300 text-[#0F172A] border border-[#0F172A] font-extrabold text-[10px] shrink-0 self-center shadow-[1px_1px_0px_#0F172A] transition-all cursor-pointer"
-                        title="Send speech immediately"
-                      >
-                        SEND NOW ↵
-                      </button>
                     </div>
                   )}
 
