@@ -15,9 +15,11 @@ import {
   Minimize2,
   RefreshCw,
   Lightbulb,
+  Boxes,
 } from 'lucide-react';
 import { NovaAvatarExpression, CameraAnalysisResult } from '../types';
 import { NovaAvatar, NovaVoiceState, NovaState } from './NovaAvatar';
+import { Nova3DRobot } from './Nova3DRobot';
 
 interface NovaRobotCompanionProps {
   expression?: NovaAvatarExpression;
@@ -47,6 +49,23 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
   onToggleCompact,
 }) => {
   const [showWebcamPreview, setShowWebcamPreview] = useState(true);
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>(() => {
+    try {
+      return localStorage.getItem('nova_avatar_view_mode') === '2d' ? '2d' : '3d';
+    } catch {
+      return '3d';
+    }
+  });
+
+  const toggleViewMode = () => {
+    setViewMode((prev) => {
+      const next = prev === '3d' ? '2d' : '3d';
+      try {
+        localStorage.setItem('nova_avatar_view_mode', next);
+      } catch {}
+      return next;
+    });
+  };
 
   // Effective voice state
   const effectiveState: NovaVoiceState =
@@ -155,6 +174,20 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* 3D / 2D Avatar Toggle Button */}
+          <button
+            onClick={toggleViewMode}
+            className={`px-2 py-1 border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer text-[10px] font-black flex items-center gap-1 shrink-0 leading-none transition-all ${
+              viewMode === '3d'
+                ? 'bg-[#FDE68A] hover:bg-[#FCD34D] text-[#0F172A]'
+                : 'bg-white hover:bg-slate-100 text-slate-700'
+            }`}
+            title="Switch between 3D Mini Robot and 2D Vector Avatar"
+          >
+            <Boxes className="w-3.5 h-3.5" />
+            <span>{viewMode === '3d' ? '3D' : '2D'}</span>
+          </button>
+
           {/* Camera Toggle Button */}
           <button
             onClick={onToggleCamera}
@@ -188,38 +221,51 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
 
       {!isCompact ? (
         <>
-          {/* 2. MAIN ROBOT AVATAR DISPLAY (NEO-BRUTALIST STYLING) */}
-          <div className="relative p-3.5 bg-[#FEFCE8] border-b-2 border-[#0F172A] flex flex-col items-center justify-center shrink-0">
+          {/* 2. MAIN ROBOT AVATAR DISPLAY (3D OR 2D) */}
+          <div className="relative bg-[#FEFCE8] border-b-2 border-[#0F172A] flex flex-col items-center justify-center shrink-0 overflow-hidden">
             {/* Neo-brutalist corner brackets */}
-            <div className="absolute top-2 left-2 w-2 h-2 bg-[#0F172A]" />
-            <div className="absolute top-2 right-2 w-2 h-2 bg-[#0F172A]" />
-            <div className="absolute bottom-2 left-2 w-2 h-2 bg-[#0F172A]" />
-            <div className="absolute bottom-2 right-2 w-2 h-2 bg-[#0F172A]" />
+            <div className="absolute top-2 left-2 w-2 h-2 bg-[#0F172A] z-20 pointer-events-none" />
+            <div className="absolute top-2 right-2 w-2 h-2 bg-[#0F172A] z-20 pointer-events-none" />
+            <div className="absolute bottom-2 left-2 w-2 h-2 bg-[#0F172A] z-20 pointer-events-none" />
+            <div className="absolute bottom-2 right-2 w-2 h-2 bg-[#0F172A] z-20 pointer-events-none" />
 
-            {/* Robot Vector SVG Companion Display */}
-            <div className="relative z-10 flex flex-col items-center justify-center shrink-0">
-              <NovaAvatar
-                state={avatarState}
-                size="md"
-                speaking={effectiveState === 'speaking'}
-                listening={effectiveState === 'listening'}
-                showStatus={false}
-                interactive={true}
-                className="nova--companion"
-              />
+            {viewMode === '3d' ? (
+              <div className="w-full relative">
+                <Nova3DRobot
+                  modelPath="/models/mini_robot.glb"
+                  voiceState={voiceState}
+                  avatarState={avatarState}
+                  isSpeaking={isSpeaking}
+                  isThinking={isThinking}
+                  height="260px"
+                />
+              </div>
+            ) : (
+              /* Robot Vector SVG Companion Display */
+              <div className="relative z-10 p-3.5 flex flex-col items-center justify-center shrink-0">
+                <NovaAvatar
+                  state={avatarState}
+                  size="md"
+                  speaking={effectiveState === 'speaking'}
+                  listening={effectiveState === 'listening'}
+                  showStatus={false}
+                  interactive={true}
+                  className="nova--companion"
+                />
+              </div>
+            )}
 
-              {/* Pedagogy Emotion Thought Bubble (If student is confused or thinking) */}
-              {reaction === 'confused' && (
-                <div className="absolute top-4 -right-2 z-20 bg-[#FDE68A] text-[#0F172A] border-2 border-[#0F172A] px-2 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0px_#0F172A] rounded-none animate-bounce">
-                  Need a hint? 💡
-                </div>
-              )}
-              {reaction === 'happy' && (
-                <div className="absolute top-4 -right-2 z-20 bg-[#A7F3D0] text-[#0F172A] border-2 border-[#0F172A] px-2 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0px_#0F172A] rounded-none">
-                  Brilliant! ★
-                </div>
-              )}
-            </div>
+            {/* Pedagogy Emotion Thought Bubble (If student is confused or thinking) */}
+            {reaction === 'confused' && (
+              <div className="absolute top-3 right-3 z-30 bg-[#FDE68A] text-[#0F172A] border-2 border-[#0F172A] px-2 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0px_#0F172A] rounded-none animate-bounce">
+                Need a hint? 💡
+              </div>
+            )}
+            {reaction === 'happy' && (
+              <div className="absolute top-3 right-3 z-30 bg-[#A7F3D0] text-[#0F172A] border-2 border-[#0F172A] px-2 py-0.5 text-[9px] font-extrabold shadow-[2px_2px_0px_#0F172A] rounded-none">
+                Brilliant! ★
+              </div>
+            )}
           </div>
 
           {/* 4. LIVE CAMERA & STUDENT REACTION ANALYSIS HUD */}
