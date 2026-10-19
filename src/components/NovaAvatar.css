@@ -27,6 +27,16 @@
 .nova--lg { --nova-w: 300px; }
 .nova--xl { --nova-w: 420px; }
 
+.nova--companion {
+  --nova-w: 175px;
+}
+
+@media (min-height: 850px) {
+  .nova--companion {
+    --nova-w: 195px;
+  }
+}
+
 @media (max-width: 640px) {
   .nova--lg { --nova-w: 240px; }
   .nova--xl { --nova-w: 300px; }

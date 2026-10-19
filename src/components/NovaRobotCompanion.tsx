@@ -144,7 +144,7 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
   const isAudioActive = effectiveState === 'listening' || effectiveState === 'speaking';
 
   return (
-    <div className="flex flex-col bg-white border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] overflow-hidden font-mono text-[#0F172A] select-none transition-all duration-300 w-full">
+    <div className="flex flex-col bg-white border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] font-mono text-[#0F172A] select-none transition-all duration-300 w-full shrink-0">
       {/* 1. COMPANION TOP BAR */}
       <div className="px-3 py-2 bg-[#C4B5FD] border-b-2 border-[#0F172A] flex items-center justify-between gap-2 text-xs select-none shrink-0">
         <div className="flex items-center gap-1.5 min-w-0 shrink">
@@ -192,7 +192,7 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
       {!isCompact ? (
         <>
           {/* 2. MAIN ROBOT AVATAR DISPLAY (NEO-BRUTALIST STYLING) */}
-          <div className="relative p-4 bg-[#FEFCE8] border-b-2 border-[#0F172A] flex flex-col items-center justify-center overflow-hidden min-h-[180px]">
+          <div className="relative p-3.5 bg-[#FEFCE8] border-b-2 border-[#0F172A] flex flex-col items-center justify-center shrink-0">
             {/* Neo-brutalist corner brackets */}
             <div className="absolute top-2 left-2 w-2 h-2 bg-[#0F172A]" />
             <div className="absolute top-2 right-2 w-2 h-2 bg-[#0F172A]" />
@@ -200,7 +200,7 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
             <div className="absolute bottom-2 right-2 w-2 h-2 bg-[#0F172A]" />
 
             {/* Robot Vector SVG Companion Display */}
-            <div className="relative z-10 flex flex-col items-center justify-center">
+            <div className="relative z-10 flex flex-col items-center justify-center shrink-0">
               <NovaAvatar
                 state={avatarState}
                 size="md"
@@ -208,7 +208,7 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
                 listening={effectiveState === 'listening'}
                 showStatus={false}
                 interactive={true}
-                className="scale-95 origin-top"
+                className="nova--companion"
               />
 
               {/* Pedagogy Emotion Thought Bubble (If student is confused or thinking) */}
@@ -225,7 +225,7 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
             </div>
 
             {/* 3. REPRODUCING BOTTOM HUD EQUALIZER WAVEFORM PILL */}
-            <div className="w-full mt-3 z-10">
+            <div className="w-full mt-2.5 z-10 shrink-0">
               <div className="w-full bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] px-3 py-1.5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span
@@ -281,7 +281,7 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
           </div>
 
           {/* 4. LIVE CAMERA & STUDENT REACTION ANALYSIS HUD */}
-          <div className="p-3 bg-[#F8FAFC] space-y-2.5">
+          <div className="p-3 bg-[#F8FAFC] space-y-2.5 shrink-0">
             {cameraActive ? (
               <div className="space-y-2">
                 {/* Live Webcam Frame with Face Detection HUD Overlays */}
