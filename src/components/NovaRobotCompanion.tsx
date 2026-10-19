@@ -19,7 +19,8 @@ import {
 } from 'lucide-react';
 import { NovaAvatarExpression, CameraAnalysisResult } from '../types';
 import { NovaAvatar, NovaVoiceState, NovaState } from './NovaAvatar';
-import { Nova3DRobot } from './Nova3DRobot';
+import { Nova3DAvatar } from './nova/Nova3DAvatar';
+import { Nova3DState } from './nova/novaAnimations';
 
 interface NovaRobotCompanionProps {
   expression?: NovaAvatarExpression;
@@ -95,6 +96,23 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
   } else if (expression === 'concerned') {
     avatarState = 'confused';
   }
+
+  // Resolve Nova3DState
+  let nova3dState: Nova3DState = 'idle';
+  if (isSpeaking || effectiveState === 'speaking') {
+    nova3dState = 'speaking';
+  } else if (effectiveState === 'listening') {
+    nova3dState = 'listening';
+  } else if (isThinking || effectiveState === 'thinking') {
+    nova3dState = 'thinking';
+  } else if (reaction === 'confused' || expression === 'concerned') {
+    nova3dState = 'confused';
+  } else if (reaction === 'happy' || expression === 'celebrating') {
+    nova3dState = 'happy';
+  } else if (expression === 'encouraging') {
+    nova3dState = 'success';
+  }
+
   const confidence = cameraAnalysis?.reaction_confidence
     ? Math.round(cameraAnalysis.reaction_confidence * 100)
     : 85;
@@ -230,14 +248,14 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
             <div className="absolute bottom-2 right-2 w-2 h-2 bg-[#0F172A] z-20 pointer-events-none" />
 
             {viewMode === '3d' ? (
-              <div className="w-full relative">
-                <Nova3DRobot
-                  modelPath="/models/mini_robot.glb"
-                  voiceState={voiceState}
-                  avatarState={avatarState}
-                  isSpeaking={isSpeaking}
-                  isThinking={isThinking}
-                  height="260px"
+              <div className="w-full relative h-[270px]">
+                <Nova3DAvatar
+                  state={nova3dState}
+                  isSpeaking={isSpeaking || effectiveState === 'speaking'}
+                  isThinking={isThinking || effectiveState === 'thinking'}
+                  cameraActive={cameraActive}
+                  height="270px"
+                  interactive={true}
                 />
               </div>
             ) : (
