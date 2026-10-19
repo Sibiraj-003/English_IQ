@@ -22,6 +22,37 @@ import { NovaAvatar, NovaVoiceState, NovaState } from './NovaAvatar';
 import { Nova3DAvatar } from './nova/Nova3DAvatar';
 import { Nova3DState } from './nova/novaAnimations';
 
+interface ErrorBoundaryProps {
+  fallback: React.ReactNode;
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class NovaAvatarErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('Nova 3D Avatar runtime error caught by boundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
 interface NovaRobotCompanionProps {
   expression?: NovaAvatarExpression;
   voiceState?: NovaVoiceState;
@@ -249,14 +280,30 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
 
             {viewMode === '3d' ? (
               <div className="w-full relative h-[270px]">
-                <Nova3DAvatar
-                  state={nova3dState}
-                  isSpeaking={isSpeaking || effectiveState === 'speaking'}
-                  isThinking={isThinking || effectiveState === 'thinking'}
-                  cameraActive={cameraActive}
-                  height="270px"
-                  interactive={true}
-                />
+                <NovaAvatarErrorBoundary
+                  fallback={
+                    <div className="relative z-10 p-3.5 flex flex-col items-center justify-center shrink-0">
+                      <NovaAvatar
+                        state={avatarState}
+                        size="md"
+                        speaking={effectiveState === 'speaking'}
+                        listening={effectiveState === 'listening'}
+                        showStatus={false}
+                        interactive={true}
+                        className="nova--companion"
+                      />
+                    </div>
+                  }
+                >
+                  <Nova3DAvatar
+                    state={nova3dState}
+                    isSpeaking={isSpeaking || effectiveState === 'speaking'}
+                    isThinking={isThinking || effectiveState === 'thinking'}
+                    cameraActive={cameraActive}
+                    height="270px"
+                    interactive={true}
+                  />
+                </NovaAvatarErrorBoundary>
               </div>
             ) : (
               /* Robot Vector SVG Companion Display */

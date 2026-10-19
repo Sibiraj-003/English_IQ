@@ -37,6 +37,7 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
   showControls = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasMountRef = useRef<HTMLDivElement>(null);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [loadProgress, setLoadProgress] = useState<number>(0);
   const [hasError, setHasError] = useState<boolean>(false);
@@ -102,351 +103,345 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    const canvasMount = canvasMountRef.current;
+    if (!container || !canvasMount) return;
 
-    // Detect WebGL capability
+    let disposed = false;
+    let resizeObserver: ResizeObserver | null = null;
+    let controls: OrbitControls | null = null;
+    let renderer: THREE.WebGLRenderer | null = null;
+    let faceTexture: NovaFaceTexture | null = null;
+
     try {
+      // Detect WebGL capability
       const testCanvas = document.createElement('canvas');
       const gl = testCanvas.getContext('webgl') || testCanvas.getContext('experimental-webgl');
       if (!gl) {
         setHasError(true);
         return;
       }
-    } catch {
-      setHasError(true);
-      return;
-    }
 
-    const width = container.clientWidth || 320;
-    const heightPx = container.clientHeight || 280;
+      const width = container.clientWidth || 320;
+      const heightPx = container.clientHeight || 280;
 
-    // 1. Scene
-    const scene = new THREE.Scene();
-    sceneRef.current = scene;
+      // 1. Scene
+      const scene = new THREE.Scene();
+      sceneRef.current = scene;
 
-    // 2. Camera (Portrait framing: head + upper body clearly visible)
-    const camera = new THREE.PerspectiveCamera(38, width / heightPx, 0.1, 100);
-    camera.position.set(0, 0.42, 3.1);
-    cameraRef.current = camera;
+      // 2. Camera (Portrait framing: head + upper body clearly visible)
+      const camera = new THREE.PerspectiveCamera(38, width / heightPx, 0.1, 100);
+      camera.position.set(0, 0.42, 3.1);
+      cameraRef.current = camera;
 
-    // 3. Renderer with antialiasing and tone mapping
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-      powerPreference: 'high-performance',
-    });
-    renderer.setSize(width, heightPx);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.25;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    rendererRef.current = renderer;
+      // 3. Renderer with antialiasing and tone mapping
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: 'high-performance',
+      });
+      renderer.setSize(width, heightPx);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.25;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      rendererRef.current = renderer;
 
-    container.replaceChildren(renderer.domElement);
+      // Mount into dedicated canvasMount container (never replace React children)
+      canvasMount.innerHTML = '';
+      canvasMount.appendChild(renderer.domElement);
 
-    // 4. OrbitControls
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.enableZoom = true;
-    controls.minDistance = 2.0;
-    controls.maxDistance = 5.0;
-    controls.maxPolarAngle = Math.PI / 2 + 0.15;
-    controls.minPolarAngle = Math.PI / 6;
-    controls.target.set(0, 0.28, 0);
-    controlsRef.current = controls;
+      // 4. OrbitControls
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.enableZoom = true;
+      controls.minDistance = 2.0;
+      controls.maxDistance = 5.0;
+      controls.maxPolarAngle = Math.PI / 2 + 0.15;
+      controls.minPolarAngle = Math.PI / 6;
+      controls.target.set(0, 0.28, 0);
+      controlsRef.current = controls;
 
-    // 5. Lighting Studio
-    // Ambient light
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
-    scene.add(ambientLight);
+      // 5. Lighting Studio
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
+      scene.add(ambientLight);
 
-    // Key Light
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
-    keyLight.position.set(3, 4, 3);
-    keyLight.castShadow = true;
-    scene.add(keyLight);
+      const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
+      keyLight.position.set(3, 4, 3);
+      keyLight.castShadow = true;
+      scene.add(keyLight);
 
-    // Fill Light
-    const fillLight = new THREE.DirectionalLight(0xc4b5fd, 1.1);
-    fillLight.position.set(-3, 2, -1);
-    scene.add(fillLight);
+      const fillLight = new THREE.DirectionalLight(0xc4b5fd, 1.1);
+      fillLight.position.set(-3, 2, -1);
+      scene.add(fillLight);
 
-    // Rim Light (backlight for silhouette)
-    const rimLight = new THREE.DirectionalLight(0xfde68a, 1.2);
-    rimLight.position.set(0, 4, -3);
-    scene.add(rimLight);
+      const rimLight = new THREE.DirectionalLight(0xfde68a, 1.2);
+      rimLight.position.set(0, 4, -3);
+      scene.add(rimLight);
 
-    // Dynamic Face Screen Glow Light
-    const glowLight = new THREE.PointLight(0x38bdf8, 2.6, 3.5);
-    glowLight.position.set(0, 0.65, 1.2);
-    scene.add(glowLight);
-    glowLightRef.current = glowLight;
+      const glowLight = new THREE.PointLight(0x38bdf8, 2.6, 3.5);
+      glowLight.position.set(0, 0.65, 1.2);
+      scene.add(glowLight);
+      glowLightRef.current = glowLight;
 
-    // 6. Facial Texture System
-    const faceTexture = new NovaFaceTexture();
-    faceTextureRef.current = faceTexture;
+      // 6. Facial Texture System
+      faceTexture = new NovaFaceTexture();
+      faceTextureRef.current = faceTexture;
 
-    // 7. Load GLB Model
-    const loader = new GLTFLoader();
-    setHasError(false);
+      // 7. Load GLB Model
+      const loader = new GLTFLoader();
+      setHasError(false);
 
-    loader.load(
-      '/models/mini_robot.glb',
-      (gltf) => {
-        const root = gltf.scene;
+      loader.load(
+        '/models/mini_robot.glb',
+        (gltf) => {
+          if (disposed) return;
+          try {
+            const root = gltf.scene;
 
-        // Auto-center and normalize size
-        const box = new THREE.Box3().setFromObject(root);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
+            // Auto-center and normalize size
+            const box = new THREE.Box3().setFromObject(root);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
 
-        // Center root at (0, 0, 0)
-        root.position.x = -center.x;
-        root.position.y = -center.y;
-        root.position.z = -center.z;
+            // Center root at (0, 0, 0)
+            root.position.x = -center.x;
+            root.position.y = -center.y;
+            root.position.z = -center.z;
 
-        // Scale to standard height ~2.1 units
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = maxDim > 0 ? 2.15 / maxDim : 1;
+            // Scale to standard height ~2.1 units
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scale = maxDim > 0 ? 2.15 / maxDim : 1;
 
-        const robotGroup = new THREE.Group();
-        robotGroup.add(root);
-        robotGroup.scale.setScalar(scale);
+            const robotGroup = new THREE.Group();
+            robotGroup.add(root);
+            robotGroup.scale.setScalar(scale);
 
-        // Find the 'screen' node to align the facial overlay with absolute precision
-        let screenMesh: THREE.Object3D | null = null;
-        root.traverse((child) => {
-          if (child.name === 'screen' || child.parent?.name === 'screen') {
-            screenMesh = child;
+            root.traverse((child) => {
+              if ((child as THREE.Mesh).isMesh) {
+                const mesh = child as THREE.Mesh;
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+              }
+            });
+
+            const facePlaneWidth = 0.42 * scale;
+            const facePlaneHeight = 0.33 * scale;
+            const facePlaneGeo = new THREE.PlaneGeometry(facePlaneWidth, facePlaneHeight);
+
+            const faceMaterial = new THREE.MeshBasicMaterial({
+              map: faceTexture!.texture,
+              transparent: true,
+              depthWrite: false,
+              polygonOffset: true,
+              polygonOffsetFactor: -1,
+              polygonOffsetUnits: -4,
+            });
+
+            const facePlaneMesh = new THREE.Mesh(facePlaneGeo, faceMaterial);
+            facePlaneMesh.position.set(0, 0.672, 0.335);
+            facePlaneMesh.renderOrder = 999;
+
+            robotGroup.add(facePlaneMesh);
+            faceMeshRef.current = facePlaneMesh;
+
+            scene.add(robotGroup);
+            robotGroupRef.current = robotGroup;
+            setIsLoaded(true);
+          } catch (modelErr) {
+            console.error('Error processing 3D robot model:', modelErr);
+            setHasError(true);
           }
-          if ((child as THREE.Mesh).isMesh) {
-            const mesh = child as THREE.Mesh;
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
+        },
+        (xhr) => {
+          if (disposed) return;
+          if (xhr.total > 0) {
+            setLoadProgress(Math.round((xhr.loaded / xhr.total) * 100));
           }
-        });
-
-        // Compute screen surface coordinates in robotGroup space
-        const screenBox = new THREE.Box3();
-        if (screenMesh) {
-          screenBox.setFromObject(screenMesh);
+        },
+        (err) => {
+          if (disposed) return;
+          console.error('Error loading 3D mini_robot.glb:', err);
+          setHasError(true);
         }
+      );
 
-        // Relative to root center:
-        // Screen width ~ 0.402 * scale, height ~ 0.322 * scale, front surface Z ≈ 0.259 * scale
-        const facePlaneWidth = 0.42 * scale;
-        const facePlaneHeight = 0.33 * scale;
-        const facePlaneGeo = new THREE.PlaneGeometry(facePlaneWidth, facePlaneHeight);
-
-        // Face Material using the dynamic CanvasTexture with alpha transparency
-        const faceMaterial = new THREE.MeshBasicMaterial({
-          map: faceTexture.texture,
-          transparent: true,
-          depthWrite: false,
-          polygonOffset: true,
-          polygonOffsetFactor: -1,
-          polygonOffsetUnits: -4,
-        });
-
-        const facePlaneMesh = new THREE.Mesh(facePlaneGeo, faceMaterial);
-        // Position on front face visor (calculated from model dimensions)
-        facePlaneMesh.position.set(0, 0.672, 0.335);
-        facePlaneMesh.renderOrder = 999; // Ensure face always renders cleanly on top of helmet glass
-
-        robotGroup.add(facePlaneMesh);
-        faceMeshRef.current = facePlaneMesh;
-
-        scene.add(robotGroup);
-        robotGroupRef.current = robotGroup;
-        setIsLoaded(true);
-      },
-      (xhr) => {
-        if (xhr.total > 0) {
-          setLoadProgress(Math.round((xhr.loaded / xhr.total) * 100));
+      // 8. Resize Observer
+      resizeObserver = new ResizeObserver(() => {
+        if (!container || !renderer || !camera) return;
+        const nw = container.clientWidth;
+        const nh = container.clientHeight;
+        if (nw > 0 && nh > 0) {
+          camera.aspect = nw / nh;
+          camera.updateProjectionMatrix();
+          renderer.setSize(nw, nh);
         }
-      },
-      (err) => {
-        console.error('Error loading 3D mini_robot.glb:', err);
-        setHasError(true);
-      }
-    );
+      });
+      resizeObserver.observe(container);
 
-    // 8. Resize Observer
-    const resizeObserver = new ResizeObserver(() => {
-      if (!container || !renderer || !camera) return;
-      const nw = container.clientWidth;
-      const nh = container.clientHeight;
-      if (nw > 0 && nh > 0) {
-        camera.aspect = nw / nh;
-        camera.updateProjectionMatrix();
-        renderer.setSize(nw, nh);
-      }
-    });
-    resizeObserver.observe(container);
+      // 9. Continuous Animation Loop (60 FPS)
+      const clock = new THREE.Clock();
 
-    // 9. Continuous Animation Loop (60 FPS)
-    const clock = new THREE.Clock();
+      const animate = () => {
+        if (disposed) return;
+        animFrameIdRef.current = requestAnimationFrame(animate);
 
-    const animate = () => {
-      animFrameIdRef.current = requestAnimationFrame(animate);
+        try {
+          const delta = Math.min(0.1, clock.getDelta());
+          const elapsedTime = clock.getElapsedTime();
+          const reducedMotion = isReducedMotion();
 
-      const delta = Math.min(0.1, clock.getDelta());
-      const elapsedTime = clock.getElapsedTime();
-      const reducedMotion = isReducedMotion();
+          // Smooth mouse follow interpolation
+          mousePosRef.current.x += (mousePosRef.current.targetX - mousePosRef.current.x) * 0.1;
+          mousePosRef.current.y += (mousePosRef.current.targetY - mousePosRef.current.y) * 0.1;
 
-      // Smooth mouse follow interpolation
-      mousePosRef.current.x += (mousePosRef.current.targetX - mousePosRef.current.x) * 0.1;
-      mousePosRef.current.y += (mousePosRef.current.targetY - mousePosRef.current.y) * 0.1;
+          // Update OrbitControls
+          if (controls) controls.update();
 
-      // Update OrbitControls
-      controls.update();
+          const currentState = stateRef.current;
+          const currentlySpeaking = isSpeakingRef.current || currentState === 'speaking';
+          const currentlyThinking = isThinkingRef.current || currentState === 'thinking';
 
-      const currentState = stateRef.current;
-      const currentlySpeaking = isSpeakingRef.current || currentState === 'speaking';
-      const currentlyThinking = isThinkingRef.current || currentState === 'thinking';
+          // --- PROCEDURAL EYE BLINKING & MOVEMENT ---
+          const eyeOpenness = blinkCtrlRef.current.update(delta);
+          const isSurprised = currentState === 'surprised' || currentState === 'excited';
+          const isHappy = currentState === 'happy' || currentState === 'success';
 
-      // --- PROCEDURAL EYE BLINKING & MOVEMENT ---
-      const eyeOpenness = blinkCtrlRef.current.update(delta);
-      const isSurprised = currentState === 'surprised' || currentState === 'excited';
-      const isHappy = currentState === 'happy' || currentState === 'success';
+          let lookX = mousePosRef.current.x * 0.8;
+          let lookY = mousePosRef.current.y * 0.8;
 
-      let lookX = mousePosRef.current.x * 0.8;
-      let lookY = mousePosRef.current.y * 0.8;
-
-      if (currentlyThinking) {
-        // Thinking eyes glance sideways/upward
-        lookX = Math.sin(elapsedTime * 1.5) * 0.6;
-        lookY = 0.4 + Math.sin(elapsedTime * 2.0) * 0.2;
-      }
-
-      // --- PROCEDURAL MOUTH SYLLABLE INTERPOLATION ---
-      const mouthAnim = mouthCtrlRef.current.update(delta, currentlySpeaking, currentState);
-
-      // Render updated canvas face frame
-      if (faceTextureRef.current) {
-        faceTextureRef.current.render(
-          {
-            eyeOpenness,
-            eyeSurprise: isSurprised ? 1 : 0,
-            eyeHappy: isHappy ? 1 : 0,
-            eyeThinking: currentlyThinking ? 1 : 0,
-            eyeFocused: currentState === 'listening' ? 1 : 0,
-            eyeLookX: lookX,
-            eyeLookY: lookY,
-            mouthOpenness: mouthAnim.openness,
-            mouthWidth: mouthAnim.width,
-            mouthCurve: mouthAnim.curve,
-            glowColor: '#38BDF8',
-            pupilPulse: 0.5 + Math.sin(elapsedTime * 4) * 0.5,
-          },
-          currentState
-        );
-      }
-
-      // --- PROCEDURAL BODY KINEMATICS ---
-      if (robotGroupRef.current) {
-        const robot = robotGroupRef.current;
-
-        if (!reducedMotion) {
-          // Base idle floating & breathing
-          const floatFreq = currentlySpeaking ? 4.5 : currentlyThinking ? 1.8 : 2.4;
-          const floatAmp = currentlySpeaking ? 0.06 : 0.04;
-          let posY = Math.sin(elapsedTime * floatFreq) * floatAmp;
-
-          // Head / Body sway & mouse look-at
-          let rotY = mousePosRef.current.x + Math.sin(elapsedTime * 1.2) * 0.05;
-          let rotX = -mousePosRef.current.y;
-          let rotZ = 0;
-
-          // Speaking: Rhythmic nodding synced with speech
-          if (currentlySpeaking) {
-            const nod = Math.sin(elapsedTime * 11);
-            rotX += nod * 0.07;
-            posY += Math.abs(nod) * 0.04;
-          }
-
-          // Thinking: Curious head tilt & slight elevation
           if (currentlyThinking) {
-            rotZ += 0.12 * Math.sin(elapsedTime * 1.8);
-            posY += 0.05;
+            lookX = Math.sin(elapsedTime * 1.5) * 0.6;
+            lookY = 0.4 + Math.sin(elapsedTime * 2.0) * 0.2;
           }
 
-          // Listening: Attentive forward lean
-          if (currentState === 'listening') {
-            rotX += 0.08;
-            posY += 0.02;
+          // --- PROCEDURAL MOUTH SYLLABLE INTERPOLATION ---
+          const mouthAnim = mouthCtrlRef.current.update(delta, currentlySpeaking, currentState);
+
+          // Render updated canvas face frame
+          if (faceTextureRef.current) {
+            faceTextureRef.current.render(
+              {
+                eyeOpenness,
+                eyeSurprise: isSurprised ? 1 : 0,
+                eyeHappy: isHappy ? 1 : 0,
+                eyeThinking: currentlyThinking ? 1 : 0,
+                eyeFocused: currentState === 'listening' ? 1 : 0,
+                eyeLookX: lookX,
+                eyeLookY: lookY,
+                mouthOpenness: mouthAnim.openness,
+                mouthWidth: mouthAnim.width,
+                mouthCurve: mouthAnim.curve,
+                glowColor: '#38BDF8',
+                pupilPulse: 0.5 + Math.sin(elapsedTime * 4) * 0.5,
+              },
+              currentState
+            );
           }
 
-          // Happy / Success / Excited: Joyful bouncy celebration
-          if (isHappy || currentState === 'excited') {
-            const bounce = Math.abs(Math.sin(elapsedTime * 6)) * 0.08;
-            posY += bounce;
-            rotZ += Math.sin(elapsedTime * 5) * 0.06;
+          // --- PROCEDURAL BODY KINEMATICS ---
+          if (robotGroupRef.current) {
+            const robot = robotGroupRef.current;
+
+            if (!reducedMotion) {
+              const floatFreq = currentlySpeaking ? 4.5 : currentlyThinking ? 1.8 : 2.4;
+              const floatAmp = currentlySpeaking ? 0.06 : 0.04;
+              let posY = Math.sin(elapsedTime * floatFreq) * floatAmp;
+
+              let rotY = mousePosRef.current.x + Math.sin(elapsedTime * 1.2) * 0.05;
+              let rotX = -mousePosRef.current.y;
+              let rotZ = 0;
+
+              if (currentlySpeaking) {
+                const nod = Math.sin(elapsedTime * 11);
+                rotX += nod * 0.07;
+                posY += Math.abs(nod) * 0.04;
+              }
+
+              if (currentlyThinking) {
+                rotZ += 0.12 * Math.sin(elapsedTime * 1.8);
+                posY += 0.05;
+              }
+
+              if (currentState === 'listening') {
+                rotX += 0.08;
+                posY += 0.02;
+              }
+
+              if (isHappy || currentState === 'excited') {
+                const bounce = Math.abs(Math.sin(elapsedTime * 6)) * 0.08;
+                posY += bounce;
+                rotZ += Math.sin(elapsedTime * 5) * 0.06;
+              }
+
+              if (spinReactionRef.current > 0) {
+                const spin = (1 - spinReactionRef.current) * Math.PI * 2;
+                rotY += spin;
+                spinReactionRef.current = Math.max(0, spinReactionRef.current - delta * 2.2);
+              }
+
+              if (jumpReactionRef.current > 0) {
+                const jump = Math.sin((1 - jumpReactionRef.current) * Math.PI) * 0.32;
+                posY += jump;
+                jumpReactionRef.current = Math.max(0, jumpReactionRef.current - delta * 2.6);
+              }
+
+              robot.position.y = THREE.MathUtils.lerp(robot.position.y, posY, 0.12);
+              robot.rotation.y = THREE.MathUtils.lerp(robot.rotation.y, rotY, 0.12);
+              robot.rotation.x = THREE.MathUtils.lerp(robot.rotation.x, rotX, 0.12);
+              robot.rotation.z = THREE.MathUtils.lerp(robot.rotation.z, rotZ, 0.12);
+            } else {
+              robot.position.set(0, 0, 0);
+              robot.rotation.set(0, 0, 0);
+            }
           }
 
-          // Spin reaction on click
-          if (spinReactionRef.current > 0) {
-            const spin = (1 - spinReactionRef.current) * Math.PI * 2;
-            rotY += spin;
-            spinReactionRef.current = Math.max(0, spinReactionRef.current - delta * 2.2);
+          // Dynamic Chest/Face Point-Light Coloring
+          if (glowLightRef.current) {
+            const glow = glowLightRef.current;
+            if (currentlySpeaking) {
+              glow.color.setHex(0xa855f7);
+              glow.intensity = 3.0 + Math.sin(elapsedTime * 8) * 1.5;
+            } else if (currentlyThinking) {
+              glow.color.setHex(0xf59e0b);
+              glow.intensity = 2.2 + Math.sin(elapsedTime * 4) * 0.8;
+            } else if (currentState === 'listening') {
+              glow.color.setHex(0x10b981);
+              glow.intensity = 3.0 + Math.sin(elapsedTime * 6) * 1.0;
+            } else if (isHappy) {
+              glow.color.setHex(0x34d399);
+              glow.intensity = 2.8;
+            } else {
+              glow.color.setHex(0x38bdf8);
+              glow.intensity = 2.0 + Math.sin(elapsedTime * 2) * 0.5;
+            }
           }
 
-          // Jump reaction on click
-          if (jumpReactionRef.current > 0) {
-            const jump = Math.sin((1 - jumpReactionRef.current) * Math.PI) * 0.32;
-            posY += jump;
-            jumpReactionRef.current = Math.max(0, jumpReactionRef.current - delta * 2.6);
+          if (renderer && scene && camera) {
+            renderer.render(scene, camera);
           }
-
-          // Apply smooth damping
-          robot.position.y = THREE.MathUtils.lerp(robot.position.y, posY, 0.12);
-          robot.rotation.y = THREE.MathUtils.lerp(robot.rotation.y, rotY, 0.12);
-          robot.rotation.x = THREE.MathUtils.lerp(robot.rotation.x, rotX, 0.12);
-          robot.rotation.z = THREE.MathUtils.lerp(robot.rotation.z, rotZ, 0.12);
-        } else {
-          // Reduced motion: stable stationary position
-          robot.position.set(0, 0, 0);
-          robot.rotation.set(0, 0, 0);
+        } catch (animErr) {
+          console.error('Nova 3D animation loop error:', animErr);
         }
-      }
+      };
 
-      // Dynamic Chest/Face Point-Light Coloring
-      if (glowLightRef.current) {
-        const glow = glowLightRef.current;
-        if (currentlySpeaking) {
-          glow.color.setHex(0xa855f7); // Purple
-          glow.intensity = 3.0 + Math.sin(elapsedTime * 8) * 1.5;
-        } else if (currentlyThinking) {
-          glow.color.setHex(0xf59e0b); // Amber
-          glow.intensity = 2.2 + Math.sin(elapsedTime * 4) * 0.8;
-        } else if (currentState === 'listening') {
-          glow.color.setHex(0x10b981); // Emerald
-          glow.intensity = 3.0 + Math.sin(elapsedTime * 6) * 1.0;
-        } else if (isHappy) {
-          glow.color.setHex(0x34d399); // Cheerful green
-          glow.intensity = 2.8;
-        } else {
-          glow.color.setHex(0x38bdf8); // Cyber blue
-          glow.intensity = 2.0 + Math.sin(elapsedTime * 2) * 0.5;
-        }
-      }
-
-      renderer.render(scene, camera);
-    };
-
-    animate();
+      animate();
+    } catch (initErr) {
+      console.error('Nova 3D avatar init error:', initErr);
+      setHasError(true);
+    }
 
     // Cleanup resources
     return () => {
+      disposed = true;
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
-      resizeObserver.disconnect();
-      controls.dispose();
-      renderer.dispose();
-      faceTexture.dispose();
-      if (container.contains(renderer.domElement)) {
-        container.removeChild(renderer.domElement);
+      resizeObserver?.disconnect();
+      controls?.dispose();
+      renderer?.dispose();
+      faceTexture?.dispose();
+      if (canvasMount && renderer && canvasMount.contains(renderer.domElement)) {
+        canvasMount.removeChild(renderer.domElement);
       }
     };
   }, []);
@@ -479,6 +474,9 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
       onClick={handleContainerClick}
       title="NOVA 3D Companion • Drag to rotate • Click to interact"
     >
+      {/* Three.js Canvas Mount Point - Never replaces React child elements */}
+      <div ref={canvasMountRef} className="absolute inset-0 w-full h-full overflow-hidden" />
+
       {/* Corner Brackets */}
       <div className="nova-3d-corner nova-3d-corner-tl" />
       <div className="nova-3d-corner nova-3d-corner-tr" />

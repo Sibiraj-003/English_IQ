@@ -1,6 +1,60 @@
 import * as THREE from 'three';
 import { Nova3DState, FaceParameters } from './novaAnimations';
 
+function drawSafeRoundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius: number
+) {
+  const r = Math.max(0, Math.min(radius, w / 2, h / 2));
+  if (typeof ctx.roundRect === 'function') {
+    try {
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    } catch {
+      // Fall through to manual arcTo
+    }
+  }
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+function drawSafeEllipse(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  rx: number,
+  ry: number
+) {
+  const safeRx = Math.max(1, Math.abs(rx));
+  const safeRy = Math.max(1, Math.abs(ry));
+  if (typeof ctx.ellipse === 'function') {
+    try {
+      ctx.ellipse(x, y, safeRx, safeRy, 0, 0, Math.PI * 2);
+      return;
+    } catch {
+      // Fall through to scaled arc
+    }
+  }
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(safeRx, safeRy);
+  ctx.arc(0, 0, 1, 0, Math.PI * 2);
+  ctx.restore();
+}
+
 export class NovaFaceTexture {
   public canvas: HTMLCanvasElement;
   public ctx: CanvasRenderingContext2D;
@@ -25,20 +79,24 @@ export class NovaFaceTexture {
     this.texture.magFilter = THREE.LinearFilter;
     this.texture.colorSpace = THREE.SRGBColorSpace;
 
-    this.render({
-      eyeOpenness: 1,
-      eyeSurprise: 0,
-      eyeHappy: 0,
-      eyeThinking: 0,
-      eyeFocused: 0,
-      eyeLookX: 0,
-      eyeLookY: 0,
-      mouthOpenness: 0,
-      mouthWidth: 1,
-      mouthCurve: 0.2,
-      glowColor: '#38BDF8',
-      pupilPulse: 0.5,
-    }, 'idle');
+    try {
+      this.render({
+        eyeOpenness: 1,
+        eyeSurprise: 0,
+        eyeHappy: 0,
+        eyeThinking: 0,
+        eyeFocused: 0,
+        eyeLookX: 0,
+        eyeLookY: 0,
+        mouthOpenness: 0,
+        mouthWidth: 1,
+        mouthCurve: 0.2,
+        glowColor: '#38BDF8',
+        pupilPulse: 0.5,
+      }, 'idle');
+    } catch (e) {
+      console.warn('NovaFaceTexture initial render warning:', e);
+    }
   }
 
   public render(params: FaceParameters, state: Nova3DState) {
@@ -115,22 +173,23 @@ export class NovaFaceTexture {
       const mouthW = (32 + openness * 22) * width;
       const mouthH = Math.max(12, openness * 44);
 
-      ctx.beginPath();
       if (state === 'surprised' || params.eyeSurprise > 0.4) {
         // Round O mouth
-        ctx.ellipse(mouthX, mouthY, mouthW * 0.65, mouthH * 0.9, 0, 0, Math.PI * 2);
+        ctx.beginPath();
+        drawSafeEllipse(ctx, mouthX, mouthY, mouthW * 0.65, mouthH * 0.9);
+        ctx.fill();
       } else {
         // Expressive speech capsule mouth
         const r = Math.min(mouthW / 2, mouthH / 2);
-        ctx.roundRect(mouthX - mouthW / 2, mouthY - mouthH / 2, mouthW, mouthH, [r]);
+        drawSafeRoundRect(ctx, mouthX - mouthW / 2, mouthY - mouthH / 2, mouthW, mouthH, r);
+        ctx.fill();
       }
-      ctx.fill();
 
       // Subtle inner depth highlight
       ctx.fillStyle = '#FFFFFF';
       ctx.shadowBlur = 0;
       ctx.beginPath();
-      ctx.ellipse(mouthX, mouthY - mouthH * 0.22, mouthW * 0.3, mouthH * 0.2, 0, 0, Math.PI * 2);
+      drawSafeEllipse(ctx, mouthX, mouthY - mouthH * 0.22, mouthW * 0.3, mouthH * 0.2);
       ctx.fill();
     }
 
@@ -146,9 +205,8 @@ export class NovaFaceTexture {
     height: number,
     params: FaceParameters
   ) {
-    ctx.beginPath();
     const radius = Math.min(width / 2, height / 2);
-    ctx.roundRect(x - width / 2, y - height / 2, width, height, [radius]);
+    drawSafeRoundRect(ctx, x - width / 2, y - height / 2, width, height, radius);
     ctx.fill();
 
     // Cyber eye pupil catchlight
