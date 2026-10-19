@@ -146,37 +146,41 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
   return (
     <div className="flex flex-col bg-white border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] overflow-hidden font-mono text-[#0F172A] select-none transition-all duration-300 w-full">
       {/* 1. COMPANION TOP BAR */}
-      <div className="px-3 py-2 bg-[#C4B5FD] border-b-2 border-[#0F172A] flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse border border-[#0F172A]" />
-          <span className="font-black text-xs tracking-wider text-[#0F172A]">
-            NOVA AI // MENTOR
+      <div className="px-3 py-2 bg-[#C4B5FD] border-b-2 border-[#0F172A] flex items-center justify-between gap-2 text-xs select-none shrink-0">
+        <div className="flex items-center gap-1.5 min-w-0 shrink">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse border border-[#0F172A] shrink-0" />
+          <span className="font-black text-xs tracking-wider text-[#0F172A] whitespace-nowrap truncate">
+            NOVA AI
           </span>
-          <span className="text-[9px] px-1.5 py-0.2 bg-[#FDE68A] text-[#0F172A] border border-[#0F172A] font-extrabold shadow-[1px_1px_0px_#0F172A]">
+          <span className="text-[9px] px-1.5 py-1 bg-[#FDE68A] text-[#0F172A] border-2 border-[#0F172A] font-extrabold shadow-[1.5px_1.5px_0px_#0F172A] whitespace-nowrap shrink-0 leading-none">
             LIVE HUD
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           {/* Camera Toggle Button */}
           <button
             onClick={onToggleCamera}
-            className={`px-2 py-1 border-2 border-[#0F172A] transition-all flex items-center gap-1 text-[10px] font-black active:translate-x-[1px] active:translate-y-[1px] cursor-pointer ${
+            className={`px-2 py-1 border-2 border-[#0F172A] transition-all flex items-center gap-1 text-[10px] font-black active:translate-x-[1px] active:translate-y-[1px] cursor-pointer whitespace-nowrap shrink-0 leading-none ${
               cameraActive
                 ? 'bg-[#A7F3D0] text-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-emerald-300'
-                : 'bg-white text-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-[#FDE68A]'
+                : 'bg-white text-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] hover:bg-slate-100'
             }`}
             title={cameraActive ? 'Camera active (analyzing reactions)' : 'Enable camera to analyze reactions'}
           >
-            {cameraActive ? <Camera className="w-3.5 h-3.5" /> : <CameraOff className="w-3.5 h-3.5 text-slate-600" />}
-            <span className="hidden sm:inline">{cameraActive ? 'CAM ON' : 'CAM OFF'}</span>
+            {cameraActive ? (
+              <Camera className="w-3.5 h-3.5 shrink-0" />
+            ) : (
+              <CameraOff className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+            )}
+            <span className="whitespace-nowrap">{cameraActive ? 'CAM ON' : 'CAM OFF'}</span>
           </button>
 
           {/* Compact / Expand Toggle */}
           {onToggleCompact && (
             <button
               onClick={onToggleCompact}
-              className="p-1 bg-white hover:bg-[#FDE68A] text-[#0F172A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
+              className="p-1 bg-white hover:bg-[#FDE68A] text-[#0F172A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer shrink-0"
               title={isCompact ? 'Expand avatar' : 'Compact view'}
             >
               {isCompact ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}

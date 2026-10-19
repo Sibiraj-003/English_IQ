@@ -2032,7 +2032,7 @@ export const AiTeacher: React.FC = () => {
             </div>
 
             {/* RIGHT MAIN COMPANION DOCK (RESPONSIVE: visible on xl screens to protect layout when window is not fullscreen) */}
-            <div className="hidden xl:flex w-72 xl:w-80 border-l-2 border-[#0F172A] bg-[#FEFCE8] flex-col shrink-0 h-full overflow-y-auto p-3">
+            <div className="hidden xl:flex w-80 border-l-2 border-[#0F172A] bg-[#FEFCE8] flex-col shrink-0 h-full overflow-y-auto p-3">
               <NovaRobotCompanion
                 expression={currentExpression}
                 voiceState={voiceState}
