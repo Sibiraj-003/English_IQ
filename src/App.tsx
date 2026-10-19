@@ -20,6 +20,7 @@ import { AuditLogs } from './pages/admin/AuditLogs';
 
 // Teacher Pages
 import { TeacherDashboard } from './pages/teacher/TeacherDashboard';
+import { TeacherClassroom } from './pages/teacher/TeacherClassroom';
 import { ClassManagement } from './pages/teacher/ClassManagement';
 import { ClassDetail } from './pages/teacher/ClassDetail';
 import { BookLibrary } from './pages/teacher/BookLibrary';
@@ -117,6 +118,8 @@ export const App: React.FC = () => {
       >
         <Route index element={<Navigate to="/teacher/dashboard" replace />} />
         <Route path="dashboard" element={<TeacherDashboard />} />
+        <Route path="classroom" element={<TeacherClassroom />} />
+        <Route path="classroom/:classId" element={<TeacherClassroom />} />
         <Route path="attendance" element={<TeacherAttendance />} />
         <Route path="homework" element={<TeacherHomework />} />
         <Route path="marks" element={<TeacherMarks />} />

@@ -108,6 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const teacherLinks: NavItem[] = [
     { to: '/teacher/dashboard', label: 'Assigned Classes', icon: LayoutDashboard },
+    { to: '/teacher/classroom', label: 'Class Workspace', icon: GraduationCap },
     { to: '/teacher/attendance', label: 'Mark Attendance', icon: CalendarCheck2 },
     { to: '/teacher/homework', label: 'Homework & Tasks', icon: Layers },
     { to: '/teacher/marks', label: 'Exams & Marks', icon: ClipboardCheck },
