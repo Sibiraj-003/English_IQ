@@ -220,6 +220,11 @@ export const AiTeacher: React.FC = () => {
   loadingRef.current = loading;
   const isSubmittingRef = useRef<boolean>(false);
 
+  // Live Voice Speech Buffers & Voice Activity Silence Detection
+  const speechAccumulatorRef = useRef<string>('');
+  const latestInterimRef = useRef<string>('');
+  const silenceTimerRef = useRef<any>(null);
+
   // Preferred synthesized voice cache
   const cachedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
 
@@ -339,6 +344,13 @@ export const AiTeacher: React.FC = () => {
     if (!recognitionRef.current) return;
     try {
       setVoiceErrorNotice(null);
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      speechAccumulatorRef.current = '';
+      latestInterimRef.current = '';
+      setInterimTranscript('');
       recognitionRef.current.start();
       setVoiceState('listening');
     } catch (err: any) {
@@ -350,13 +362,19 @@ export const AiTeacher: React.FC = () => {
   }, []);
 
   const stopListeningSafely = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    speechAccumulatorRef.current = '';
+    latestInterimRef.current = '';
+    setInterimTranscript('');
     if (!recognitionRef.current) return;
     try {
       recognitionRef.current.stop();
     } catch {
       // Ignored
     }
-    setInterimTranscript('');
     if (!isSpeakingRef.current && !loadingRef.current) {
       setVoiceState('idle');
     }
@@ -1021,7 +1039,42 @@ export const AiTeacher: React.FC = () => {
   };
 
   // ==========================================
-  // 8. WEB SPEECH INITIALIZATION (NO DUPLICATION)
+  // 8. LIVE SPEECH COMMIT & SEND FUNCTION
+  // ==========================================
+  const commitAndSendLiveSpeech = useCallback(
+    (directText?: string) => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+
+      const textToSend = (
+        directText ||
+        input.trim() ||
+        (speechAccumulatorRef.current + ' ' + latestInterimRef.current).trim()
+      ).trim();
+
+      if (!textToSend || loadingRef.current || isSubmittingRef.current) return;
+
+      speechAccumulatorRef.current = '';
+      latestInterimRef.current = '';
+      setInterimTranscript('');
+      setInput('');
+
+      // Temporarily pause recognizer so student speech isn't doubled or echo captured
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+
+      handleSendMessage(textToSend);
+    },
+    [input]
+  );
+
+  // ==========================================
+  // 9. WEB SPEECH INITIALIZATION (WITH AUTOMATIC SILENCE DETECTION)
   // ==========================================
   useEffect(() => {
     const SpeechRecognition =
@@ -1060,23 +1113,42 @@ export const AiTeacher: React.FC = () => {
         }
       }
 
+      if (finalChunk) {
+        speechAccumulatorRef.current = (speechAccumulatorRef.current + ' ' + finalChunk).trim();
+        latestInterimRef.current = '';
+      }
       if (interimChunk) {
-        setInterimTranscript(interimChunk.trim());
-        setVoiceState('listening');
+        latestInterimRef.current = interimChunk.trim();
       }
 
-      if (finalChunk.trim()) {
-        const finalizedText = finalChunk.trim();
-        setInterimTranscript('');
+      const currentTotal = (speechAccumulatorRef.current + ' ' + latestInterimRef.current).trim();
+      if (!currentTotal) return;
 
-        // If in LIVE mode, auto-submit student speech directly to NOVA!
-        if (channelModeRef.current === 'live') {
-          handleSendMessage(finalizedText);
-        } else {
-          // Standard Voice mode: populate input bar cleanly without repeating
-          setInput((prev) => (prev ? `${prev} ${finalizedText}` : finalizedText));
+      setInterimTranscript(currentTotal);
+      setVoiceState('listening');
+
+      // Clear any pending silence timer
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+
+      // In LIVE mode: automatically detect when student finishes speaking!
+      if (channelModeRef.current === 'live') {
+        // If finalChunk is received, 750ms silence is sufficient. For interimChunk, 1000ms pause.
+        const delay = finalChunk ? 750 : 1000;
+        silenceTimerRef.current = setTimeout(() => {
+          commitAndSendLiveSpeech();
+        }, delay);
+      } else if (channelModeRef.current === 'voice') {
+        // Standard Voice mode: wait 1.2s then commit to input bar
+        silenceTimerRef.current = setTimeout(() => {
+          setInput((prev) => (prev ? `${prev} ${currentTotal}` : currentTotal));
+          speechAccumulatorRef.current = '';
+          latestInterimRef.current = '';
+          setInterimTranscript('');
           setVoiceState('idle');
-        }
+        }, 1200);
       }
     };
 
@@ -1092,7 +1164,25 @@ export const AiTeacher: React.FC = () => {
     };
 
     recognizer.onend = () => {
-      setInterimTranscript('');
+      // Check if there is pending spoken text that hasn't been sent yet
+      const pendingText = (speechAccumulatorRef.current + ' ' + latestInterimRef.current).trim();
+
+      if (pendingText && channelModeRef.current === 'live' && !loadingRef.current && !isSubmittingRef.current) {
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+        speechAccumulatorRef.current = '';
+        latestInterimRef.current = '';
+        setInterimTranscript('');
+        handleSendMessage(pendingText);
+        return;
+      }
+
+      if (!pendingText) {
+        setInterimTranscript('');
+      }
+
       // In LIVE mode: automatically restart listening if NOVA is not currently speaking or thinking
       if (channelModeRef.current === 'live' && !loadingRef.current && !isSpeakingRef.current) {
         try {
@@ -1109,6 +1199,10 @@ export const AiTeacher: React.FC = () => {
     recognitionRef.current = recognizer;
 
     return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
       try {
         recognizer.stop();
       } catch {
@@ -1780,19 +1874,31 @@ export const AiTeacher: React.FC = () => {
 
                   {/* LIVE INTERIM TRANSCRIPT BADGE */}
                   {interimTranscript && (
-                    <div className="flex items-start gap-2.5 p-3 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] max-w-md animate-fade-in">
-                      <Mic className="w-4 h-4 text-emerald-600 animate-pulse shrink-0 mt-0.5" />
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <span className="text-[10px] font-extrabold uppercase text-emerald-800">
-                            LISTENING IN REAL-TIME...
-                          </span>
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                    <div className="flex items-start justify-between gap-3 p-3 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] max-w-md animate-fade-in">
+                      <div className="flex items-start gap-2.5">
+                        <Mic className="w-4 h-4 text-emerald-600 animate-pulse shrink-0 mt-0.5" />
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-[10px] font-extrabold uppercase text-emerald-800">
+                              LISTENING IN REAL-TIME...
+                            </span>
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                          </div>
+                          <p className="font-sans text-sm text-[#0F172A] italic font-semibold">
+                            "{interimTranscript}"
+                          </p>
                         </div>
-                        <p className="font-sans text-sm text-[#0F172A] italic font-semibold">
-                          "{interimTranscript}"
-                        </p>
                       </div>
+
+                      {/* Instant Send Shortcut Button */}
+                      <button
+                        type="button"
+                        onClick={() => commitAndSendLiveSpeech()}
+                        className="px-2 py-1 bg-[#A7F3D0] hover:bg-emerald-300 text-[#0F172A] border border-[#0F172A] font-extrabold text-[10px] shrink-0 self-center shadow-[1px_1px_0px_#0F172A] transition-all cursor-pointer"
+                        title="Send speech immediately"
+                      >
+                        SEND NOW ↵
+                      </button>
                     </div>
                   )}
 
@@ -1951,12 +2057,18 @@ export const AiTeacher: React.FC = () => {
                         INTERRUPT
                       </button>
                     )}
-                    {voiceState === 'listening' && channelMode !== 'live' && (
+                    {voiceState === 'listening' && (
                       <button
-                        onClick={stopListeningSafely}
-                        className="text-[10px] font-extrabold px-1.5 py-0.5 bg-slate-200 border border-[#0F172A]"
+                        onClick={() => {
+                          if (channelMode === 'live') {
+                            commitAndSendLiveSpeech();
+                          } else {
+                            stopListeningSafely();
+                          }
+                        }}
+                        className="text-[10px] font-extrabold px-1.5 py-0.5 bg-[#A7F3D0] border border-[#0F172A] hover:bg-emerald-300"
                       >
-                        DONE SPEAKING
+                        {channelMode === 'live' ? 'DONE SPEAKING ↵' : 'DONE SPEAKING'}
                       </button>
                     )}
                   </div>
@@ -1971,12 +2083,20 @@ export const AiTeacher: React.FC = () => {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSendMessage();
+                      if (e.key === 'Enter') {
+                        if (interimTranscript.trim() && !input.trim()) {
+                          commitAndSendLiveSpeech();
+                        } else {
+                          handleSendMessage();
+                        }
+                      }
                     }}
                     disabled={loading}
                     placeholder={
                       channelMode === 'live'
-                        ? `Live voice active — speak naturally or type here...`
+                        ? interimTranscript
+                          ? `Speaking: "${interimTranscript}" (auto-sending or press Enter)...`
+                          : `Live voice active — speak naturally or type here...`
                         : mode === 'teach_back'
                         ? `Explain ${selectedTopic} in your own words...`
                         : `Ask NOVA about ${selectedTopic}...`
@@ -2014,8 +2134,14 @@ export const AiTeacher: React.FC = () => {
 
                   {/* Send / Evaluate Button */}
                   <BrutalButton
-                    onClick={() => handleSendMessage()}
-                    disabled={loading || !input.trim()}
+                    onClick={() => {
+                      if (interimTranscript.trim() && !input.trim()) {
+                        commitAndSendLiveSpeech();
+                      } else {
+                        handleSendMessage();
+                      }
+                    }}
+                    disabled={loading || (!input.trim() && !interimTranscript.trim())}
                     variant="primary"
                     className="py-2.5 px-4 text-xs font-extrabold shrink-0"
                   >
