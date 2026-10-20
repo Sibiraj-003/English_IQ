@@ -337,7 +337,7 @@ router.get('/realtime/metrics', async (_req, res) => {
     groq: {
       status: groqPing.ok ? 'ONLINE' : 'OFFLINE',
       latency_ms: groqPing.ok ? groqPing.latencyMs : null,
-      text_model: config.groqTextModel,
+      text_model: 'NOVA Neural Cloud Engine v2.5',
     },
     vector_store: {
       total_chunks: vectorStore.getAllChunksCount(),

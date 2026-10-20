@@ -10,8 +10,8 @@ router.get('/status', async (_req, res) => {
   const isHealthy = await groqClient.isHealthy();
   return res.json({
     status: isHealthy ? 'ONLINE' : 'OFFLINE',
-    service: 'GROQ_AI',
-    model: process.env.GROQ_TEXT_MODEL || 'qwen/qwen3.8-27b',
+    service: 'NOVA_AI',
+    model: 'NOVA-Neural-Edu-v2.5',
   });
 });
 

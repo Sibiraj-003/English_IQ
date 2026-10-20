@@ -144,10 +144,10 @@ export const RealtimeTelemetry: React.FC<{ compact?: boolean }> = ({ compact = f
 
       {/* Real-time KPI Metric Gauges */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-        {/* Groq AI Latency */}
+        {/* NOVA AI Inference Latency */}
         <div className="p-3.5 bg-[#F8FAFC] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
           <div className="flex justify-between items-center text-slate-500 font-bold mb-1">
-            <span>GROQ INFERENCE</span>
+            <span>NOVA AI INFERENCE</span>
             <Cpu className="w-4 h-4 text-[#0F172A]" />
           </div>
           <div className="text-2xl font-extrabold text-[#0F172A] font-sans">
@@ -161,7 +161,7 @@ export const RealtimeTelemetry: React.FC<{ compact?: boolean }> = ({ compact = f
           </div>
           <div className="text-[10px] text-emerald-700 font-bold mt-1 flex items-center gap-1">
             <span className={`w-1.5 h-1.5 rounded-full ${data.groq?.status === 'ONLINE' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-            {data.groq?.status === 'ONLINE' ? data.groq.text_model : 'GROQ_AI // OFFLINE'}
+            {data.groq?.status === 'ONLINE' ? (data.groq.text_model || 'NOVA Neural Cloud Engine') : 'NOVA_AI // OFFLINE'}
           </div>
         </div>
 
