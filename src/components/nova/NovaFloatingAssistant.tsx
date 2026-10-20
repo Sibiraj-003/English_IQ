@@ -76,6 +76,7 @@ export const NovaFloatingAssistant: React.FC = () => {
   const [activeColorIdx, setActiveColorIdx] = useState<number>(0);
   const [speechBubbleText, setSpeechBubbleText] = useState<string | null>(null);
   const [resetKey, setResetKey] = useState<number>(0);
+  const [isHovered, setIsHovered] = useState<boolean>(false);
 
   // 3D Avatar state
   const [avatarState, setAvatarState] = useState<Nova3DState>('idle');
@@ -264,33 +265,6 @@ export const NovaFloatingAssistant: React.FC = () => {
     };
   }, []);
 
-  // Periodic Floating Speech Bubble Tips
-  useEffect(() => {
-    const tips = [
-      `I'm Nova! Right-click hold to rotate me 360°! 🛸`,
-      `Zero gravity flight active! 💫`,
-      `Hold right mouse button to spin my 3D model! ✨`,
-      `Left-click drag to move me across your screen! 🚀`,
-    ];
-
-    const timer = setInterval(() => {
-      if (!isDraggingRef.current && !speechBubbleText && remoteVoiceState === 'idle' && !remoteThinking) {
-        const randomTip = tips[Math.floor(Math.random() * tips.length)];
-        setSpeechBubbleText(randomTip);
-        setTimeout(() => setSpeechBubbleText(null), 4500);
-      }
-    }, 24000);
-
-    const initialTimer = setTimeout(() => {
-      setSpeechBubbleText(`Hello ${user?.full_name?.split(' ')[0] || 'there'}! Right-click drag to rotate 360° • Left-click drag to move!`);
-      setTimeout(() => setSpeechBubbleText(null), 5500);
-    }, 2000);
-
-    return () => {
-      clearInterval(timer);
-      clearTimeout(initialTimer);
-    };
-  }, [user?.full_name, speechBubbleText, remoteVoiceState, remoteThinking]);
 
   // Dragging & Throw (Flick Physics) directly on the 3D model
   // LEFT-CLICK DRAGS NOVA ACROSS SCREEN
@@ -306,6 +280,7 @@ export const NovaFloatingAssistant: React.FC = () => {
 
     isDraggingRef.current = true;
     hasMovedRef.current = false;
+    setIsHovered(false);
 
     // Guard starting position
     if (!Number.isFinite(posRef.current.x) || !Number.isFinite(posRef.current.y)) {
@@ -418,15 +393,22 @@ export const NovaFloatingAssistant: React.FC = () => {
   };
 
   // Determine Cartoon Thinking Cloud visibility and content
+  // 1. While listening: displays live speech transcript
+  // 2. While thinking: displays thinking indicator
+  // 3. ONLY while mouse hovers over the 3D model: displays interaction controls guide
+  // 4. On direct click: displays greeting
   const isListening = remoteVoiceState === 'listening';
   const isThinking = remoteThinking || remoteVoiceState === 'thinking';
+  const showHoverGuide = isHovered && !isDraggingRef.current && !isListening && !isThinking;
+
   const hasCloudText = Boolean(
     isListening ||
     isThinking ||
+    showHoverGuide ||
     speechBubbleText
   );
 
-  let cloudMode: 'listening' | 'thinking' | 'speech' = 'speech';
+  let cloudMode: 'listening' | 'thinking' | 'guide' | 'speech' = 'guide';
   let cloudText = '';
 
   if (isListening) {
@@ -438,6 +420,9 @@ export const NovaFloatingAssistant: React.FC = () => {
   } else if (speechBubbleText) {
     cloudMode = 'speech';
     cloudText = speechBubbleText;
+  } else if (showHoverGuide) {
+    cloudMode = 'guide';
+    cloudText = 'Right-click hold to rotate 360° • Left-click drag to move!';
   }
 
   // Visibility Coordination:
@@ -468,15 +453,19 @@ export const NovaFloatingAssistant: React.FC = () => {
         className="relative pointer-events-auto w-48 h-64 sm:w-52 sm:h-72 flex flex-col items-center justify-between"
         onMouseEnter={() => {
           isHoveredRef.current = true;
+          setIsHovered(true);
         }}
         onMouseLeave={() => {
           isHoveredRef.current = false;
+          setIsHovered(false);
         }}
         onContextMenu={(e) => e.preventDefault()}
       >
         {/* =========================================================================
             CARTOON THINKING CLOUD (PUFFY COMIC CLOUD WITH 3 TRAILING THOUGHT BUBBLES)
-            Displays live speech transcript while listening, thinking dots, or messages
+            - Shown while listening (displays live speech transcript)
+            - Shown while thinking (displays thinking dots)
+            - Shown ONLY while mouse hovers over the 3D model (interaction guide)
            ========================================================================= */}
         {hasCloudText && (
           <div
@@ -511,6 +500,13 @@ export const NovaFloatingAssistant: React.FC = () => {
                         THINKING
                       </span>
                     </>
+                  ) : cloudMode === 'guide' ? (
+                    <>
+                      <Sparkles className="w-3 h-3 text-amber-500 fill-amber-500" />
+                      <span className="text-[9px] font-mono font-black uppercase tracking-wider text-[#0F172A]">
+                        3D NOVA CONTROLS
+                      </span>
+                    </>
                   ) : (
                     <>
                       <Sparkles className="w-3 h-3 text-amber-500 fill-amber-500" />
@@ -521,7 +517,7 @@ export const NovaFloatingAssistant: React.FC = () => {
                   )}
                 </div>
 
-                {/* Live Speech Recognition Transcript / Thought Text inside the cloud */}
+                {/* Live Speech Recognition Transcript / Thought Text / Hover Guide inside the cloud */}
                 <div className="text-xs font-black text-[#0F172A] leading-snug tracking-tight break-words max-h-24 overflow-y-auto px-1">
                   {cloudText}
                   {cloudMode === 'thinking' && (
