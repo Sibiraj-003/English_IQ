@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Mic, Brain, Volume2 } from 'lucide-react';
 import { Nova3DAvatar } from './Nova3DAvatar';
 import { Nova3DState } from './novaAnimations';
+import { NovaVoiceState } from '../NovaAvatar';
 import { useAuth } from '../../contexts/AuthContext';
 import './Nova3DAvatar.css';
 
@@ -52,6 +53,25 @@ export const NovaFloatingAssistant: React.FC = () => {
     };
   }, []);
 
+  // Live Speech Recognition & AI Thinking State synchronized with AiTeacher
+  const [remoteVoiceState, setRemoteVoiceState] = useState<NovaVoiceState>('idle');
+  const [remoteTranscript, setRemoteTranscript] = useState<string>('');
+  const [remoteThinking, setRemoteThinking] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleVoiceEvent = (e: any) => {
+      if (e?.detail) {
+        if (e.detail.voiceState !== undefined) setRemoteVoiceState(e.detail.voiceState);
+        if (e.detail.interimTranscript !== undefined) setRemoteTranscript(e.detail.interimTranscript);
+        if (e.detail.isThinking !== undefined) setRemoteThinking(e.detail.isThinking);
+      }
+    };
+    window.addEventListener('nova_voice_state', handleVoiceEvent);
+    return () => {
+      window.removeEventListener('nova_voice_state', handleVoiceEvent);
+    };
+  }, []);
+
   const [bounceCount, setBounceCount] = useState<number>(0);
   const [activeColorIdx, setActiveColorIdx] = useState<number>(0);
   const [speechBubbleText, setSpeechBubbleText] = useState<string | null>(null);
@@ -60,6 +80,16 @@ export const NovaFloatingAssistant: React.FC = () => {
   // 3D Avatar state
   const [avatarState, setAvatarState] = useState<Nova3DState>('idle');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+
+  // Derive active avatar state from remote voice / thinking activity
+  const effectiveAvatarState: Nova3DState =
+    remoteVoiceState === 'listening'
+      ? 'listening'
+      : remoteThinking || remoteVoiceState === 'thinking'
+      ? 'thinking'
+      : remoteVoiceState === 'speaking' || isSpeaking
+      ? 'speaking'
+      : avatarState;
 
   // Continuous 60FPS Direct GPU coordinates & physics references
   const containerRef = useRef<HTMLDivElement>(null);
@@ -126,17 +156,11 @@ export const NovaFloatingAssistant: React.FC = () => {
       if (disposed) return;
       animFrameRef.current = requestAnimationFrame(loop);
 
-      const dt = Math.min(0.04, (now - lastTimeRef.current) / 1000);
+      const dt = Math.min(0.04, Math.max(0.001, (now - lastTimeRef.current) / 1000));
       lastTimeRef.current = now;
 
       const container = containerRef.current;
       if (!container) return;
-
-      // If user is currently dragging Nova directly, pointer drag controls position
-      if (isDraggingRef.current) {
-        container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px) scale(1.04)`;
-        return;
-      }
 
       // Full robot dimensions
       const robotW = 190;
@@ -146,12 +170,28 @@ export const NovaFloatingAssistant: React.FC = () => {
       const minY = 6;
       const maxY = Math.max(minY + 60, (window.innerHeight || 800) - robotH - 6);
 
+      // Guard against any NaN / non-finite coordinates from disappearing
+      if (!Number.isFinite(posRef.current.x) || !Number.isFinite(posRef.current.y)) {
+        posRef.current.x = Math.max(minX, Math.floor((window.innerWidth || 1200) * 0.4));
+        posRef.current.y = Math.max(minY, Math.floor((window.innerHeight || 800) * 0.2));
+      }
+      if (!Number.isFinite(velRef.current.vx) || !Number.isFinite(velRef.current.vy)) {
+        velRef.current.vx = 55;
+        velRef.current.vy = 45;
+      }
+
+      // If user is currently dragging Nova directly with primary mouse or touch, pointer drag controls position
+      if (isDraggingRef.current) {
+        container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px) scale(1.03)`;
+        return;
+      }
+
       // Cruising speed (Reduced to exactly 50% of original speed: 125 -> 62.5 px/sec)
       const baseSpeed = 62.5;
       const targetSpeed = isHoveredRef.current ? baseSpeed * 0.45 : baseSpeed;
       const currentSpeed = Math.hypot(velRef.current.vx, velRef.current.vy);
 
-      if (currentSpeed < 20) {
+      if (!Number.isFinite(currentSpeed) || currentSpeed < 20) {
         velRef.current.vx = (Math.random() > 0.5 ? 1 : -1) * targetSpeed * 0.7;
         velRef.current.vy = (Math.random() > 0.5 ? 1 : -1) * targetSpeed * 0.7;
       } else {
@@ -197,8 +237,9 @@ export const NovaFloatingAssistant: React.FC = () => {
         hitWall = true;
       }
 
-      posRef.current.x = nx;
-      posRef.current.y = ny;
+      // Always clamp strictly within screen boundaries
+      posRef.current.x = Math.min(Math.max(minX, nx), maxX);
+      posRef.current.y = Math.min(Math.max(minY, ny), maxY);
 
       // Handle Bounce Reaction (DVD Color Shift & 3D Robot Reaction)
       if (hitWall) {
@@ -212,7 +253,7 @@ export const NovaFloatingAssistant: React.FC = () => {
       const tiltDeg = (velRef.current.vx / targetSpeed) * 5 + Math.sin(now * 0.0025) * 2.5;
       const hoverBob = Math.sin(now * 0.003) * 4.5;
 
-      container.style.transform = `translate3d(${nx}px, ${ny + hoverBob}px, 0px) rotate(${tiltDeg}deg)`;
+      container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y + hoverBob}px, 0px) rotate(${tiltDeg}deg)`;
     };
 
     animFrameRef.current = requestAnimationFrame(loop);
@@ -226,38 +267,52 @@ export const NovaFloatingAssistant: React.FC = () => {
   // Periodic Floating Speech Bubble Tips
   useEffect(() => {
     const tips = [
-      `I'm Nova! Drag me anywhere or rotate me 360°! 🛸`,
+      `I'm Nova! Right-click hold to rotate me 360°! 🛸`,
       `Zero gravity flight active! 💫`,
-      `You can spin my 3D model with your mouse! ✨`,
-      `Drag my move handle to place me where you want! 🚀`,
+      `Hold right mouse button to spin my 3D model! ✨`,
+      `Left-click drag to move me across your screen! 🚀`,
     ];
 
     const timer = setInterval(() => {
-      if (!isDraggingRef.current && !speechBubbleText) {
+      if (!isDraggingRef.current && !speechBubbleText && remoteVoiceState === 'idle' && !remoteThinking) {
         const randomTip = tips[Math.floor(Math.random() * tips.length)];
         setSpeechBubbleText(randomTip);
-        setTimeout(() => setSpeechBubbleText(null), 4000);
+        setTimeout(() => setSpeechBubbleText(null), 4500);
       }
-    }, 22000);
+    }, 24000);
 
     const initialTimer = setTimeout(() => {
-      setSpeechBubbleText(`Hello ${user?.full_name?.split(' ')[0] || 'there'}! Rotate me 360° or drag me anywhere!`);
-      setTimeout(() => setSpeechBubbleText(null), 5000);
+      setSpeechBubbleText(`Hello ${user?.full_name?.split(' ')[0] || 'there'}! Right-click drag to rotate 360° • Left-click drag to move!`);
+      setTimeout(() => setSpeechBubbleText(null), 5500);
     }, 2000);
 
     return () => {
       clearInterval(timer);
       clearTimeout(initialTimer);
     };
-  }, [user?.full_name, speechBubbleText]);
+  }, [user?.full_name, speechBubbleText, remoteVoiceState, remoteThinking]);
 
   // Dragging & Throw (Flick Physics) directly on the 3D model
+  // LEFT-CLICK DRAGS NOVA ACROSS SCREEN
+  // RIGHT-CLICK IS PRESERVED FOR 3D 360° ORBIT ROTATION
   const handleDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
-    // Only handle primary button (left click or touch)
+    // Only handle primary button (left click = 0 or touch)
+    // If user clicked right mouse button (button 2), DO NOT DRAG - let OrbitControls rotate in 3D!
     if (e.button !== 0 && e.pointerType === 'mouse') return;
+
+    // Prevent default browser drag selection & gestures
+    e.preventDefault();
+    e.stopPropagation();
 
     isDraggingRef.current = true;
     hasMovedRef.current = false;
+
+    // Guard starting position
+    if (!Number.isFinite(posRef.current.x) || !Number.isFinite(posRef.current.y)) {
+      posRef.current.x = Math.max(40, Math.floor((window.innerWidth || 1200) * 0.4));
+      posRef.current.y = Math.max(40, Math.floor((window.innerHeight || 800) * 0.2));
+    }
+
     dragStartRef.current = {
       mouseX: e.clientX,
       mouseY: e.clientY,
@@ -268,24 +323,34 @@ export const NovaFloatingAssistant: React.FC = () => {
 
     const onPointerMove = (ev: PointerEvent) => {
       if (!isDraggingRef.current) return;
+      ev.preventDefault();
+
       const dx = ev.clientX - dragStartRef.current.mouseX;
       const dy = ev.clientY - dragStartRef.current.mouseY;
 
-      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
         hasMovedRef.current = true;
       }
 
       const robotW = 190;
       const robotH = 260;
+      const minX = 6;
+      const maxX = Math.max(minX + 60, (window.innerWidth || 1200) - robotW - 6);
+      const minY = 6;
+      const maxY = Math.max(minY + 60, (window.innerHeight || 800) - robotH - 6);
 
-      posRef.current.x = Math.min(
-        Math.max(6, dragStartRef.current.posX + dx),
-        (window.innerWidth || 1200) - robotW - 6
-      );
-      posRef.current.y = Math.min(
-        Math.max(6, dragStartRef.current.posY + dy),
-        (window.innerHeight || 800) - robotH - 6
-      );
+      const targetX = dragStartRef.current.posX + dx;
+      const targetY = dragStartRef.current.posY + dy;
+
+      if (Number.isFinite(targetX) && Number.isFinite(targetY)) {
+        posRef.current.x = Math.min(Math.max(minX, targetX), maxX);
+        posRef.current.y = Math.min(Math.max(minY, targetY), maxY);
+      }
+
+      // Immediately update DOM transform for silky responsive drag
+      if (containerRef.current) {
+        containerRef.current.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px) scale(1.03)`;
+      }
 
       const now = performance.now();
       dragHistoryRef.current.push({ x: ev.clientX, y: ev.clientY, t: now });
@@ -301,6 +366,7 @@ export const NovaFloatingAssistant: React.FC = () => {
 
       if (!isDraggingRef.current) return;
       isDraggingRef.current = false;
+      lastTimeRef.current = performance.now();
 
       // If user tapped without dragging, trigger greeting click
       if (!hasMovedRef.current) {
@@ -313,21 +379,23 @@ export const NovaFloatingAssistant: React.FC = () => {
         const first = dragHistoryRef.current[0];
         const last = dragHistoryRef.current[dragHistoryRef.current.length - 1];
         const dt = (last.t - first.t) / 1000;
-        if (dt > 0.02 && dt < 0.3) {
+        if (Number.isFinite(dt) && dt > 0.02 && dt < 0.35) {
           const flickVx = (last.x - first.x) / dt;
           const flickVy = (last.y - first.y) / dt;
-          const throwSpeed = Math.hypot(flickVx, flickVy);
-          if (throwSpeed > 60) {
-            velRef.current.vx = Math.min(160, Math.max(-160, flickVx * 0.5));
-            velRef.current.vy = Math.min(160, Math.max(-160, flickVy * 0.5));
-            setAvatarState('excited');
-            setTimeout(() => setAvatarState('idle'), 700);
+          if (Number.isFinite(flickVx) && Number.isFinite(flickVy)) {
+            const throwSpeed = Math.hypot(flickVx, flickVy);
+            if (throwSpeed > 60) {
+              velRef.current.vx = Math.min(150, Math.max(-150, flickVx * 0.45));
+              velRef.current.vy = Math.min(150, Math.max(-150, flickVy * 0.45));
+              setAvatarState('excited');
+              setTimeout(() => setAvatarState('idle'), 700);
+            }
           }
         }
       }
     };
 
-    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointermove', onPointerMove, { passive: false });
     window.addEventListener('pointerup', onPointerUp, { passive: true });
     window.addEventListener('pointercancel', onPointerUp, { passive: true });
   };
@@ -337,7 +405,7 @@ export const NovaFloatingAssistant: React.FC = () => {
     const greetings = [
       `Hi! I'm Nova! Happy learning!`,
       `Zero gravity flight active!`,
-      `Drag me directly to move or rotate 360°!`,
+      `Right-click hold to rotate me 360°!`,
       `I'm your 3D study companion!`,
     ];
     const picked = greetings[Math.floor(Math.random() * greetings.length)];
@@ -348,6 +416,29 @@ export const NovaFloatingAssistant: React.FC = () => {
       setAvatarState('idle');
     }, 3200);
   };
+
+  // Determine Cartoon Thinking Cloud visibility and content
+  const isListening = remoteVoiceState === 'listening';
+  const isThinking = remoteThinking || remoteVoiceState === 'thinking';
+  const hasCloudText = Boolean(
+    isListening ||
+    isThinking ||
+    speechBubbleText
+  );
+
+  let cloudMode: 'listening' | 'thinking' | 'speech' = 'speech';
+  let cloudText = '';
+
+  if (isListening) {
+    cloudMode = 'listening';
+    cloudText = remoteTranscript ? `"${remoteTranscript}"` : 'Listening to you... Speak now!';
+  } else if (isThinking) {
+    cloudMode = 'thinking';
+    cloudText = 'Thinking through your question...';
+  } else if (speechBubbleText) {
+    cloudMode = 'speech';
+    cloudText = speechBubbleText;
+  }
 
   // Visibility Coordination:
   // - On the AI Teacher page:
@@ -368,6 +459,10 @@ export const NovaFloatingAssistant: React.FC = () => {
       style={{
         transform: `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px)`,
       }}
+      onContextMenu={(e) => {
+        // Prevent context menu anywhere on Nova container so right-click 360° rotation is seamless
+        e.preventDefault();
+      }}
     >
       <div
         className="relative pointer-events-auto w-48 h-64 sm:w-52 sm:h-72 flex flex-col items-center justify-between"
@@ -377,30 +472,101 @@ export const NovaFloatingAssistant: React.FC = () => {
         onMouseLeave={() => {
           isHoveredRef.current = false;
         }}
+        onContextMenu={(e) => e.preventDefault()}
       >
-        {/* Floating Comic Speech Bubble */}
-        {speechBubbleText && (
-          <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] px-2.5 py-1 rounded-xl text-[10px] font-black text-[#0F172A] whitespace-nowrap z-50 animate-bounce flex items-center gap-1.5 pointer-events-none">
-            <Sparkles className="w-3 h-3 text-amber-500 fill-amber-500" />
-            <span>{speechBubbleText}</span>
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-6 border-t-[#0F172A]" />
+        {/* =========================================================================
+            CARTOON THINKING CLOUD (PUFFY COMIC CLOUD WITH 3 TRAILING THOUGHT BUBBLES)
+            Displays live speech transcript while listening, thinking dots, or messages
+           ========================================================================= */}
+        {hasCloudText && (
+          <div
+            className="absolute -top-24 sm:-top-28 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center animate-in fade-in zoom-in-95 duration-200"
+            style={{ width: 'max-content', maxWidth: 'min(300px, 86vw)' }}
+          >
+            {/* Main Puffy Comic Thought Cloud Body */}
+            <div className="relative bg-[#FEFCE8] border-2.5 border-[#0F172A] rounded-[24px] px-3.5 py-2 shadow-[3.5px_3.5px_0px_#0F172A] min-w-[170px] max-w-full">
+              {/* Overlapping Cloud Puffs (Scallops) creating authentic cartoon silhouette */}
+              <div className="absolute -top-2.5 left-3.5 w-6 h-6 bg-[#FEFCE8] border-t-2 border-l-2 border-[#0F172A] rounded-full pointer-events-none" />
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 bg-[#FEFCE8] border-t-2 border-x-2 border-[#0F172A] rounded-full pointer-events-none" />
+              <div className="absolute -top-3 right-3.5 w-7 h-7 bg-[#FEFCE8] border-t-2 border-r-2 border-[#0F172A] rounded-full pointer-events-none" />
+              <div className="absolute top-1/2 -translate-y-1/2 -left-2 w-5 h-5 bg-[#FEFCE8] border-l-2 border-y-2 border-[#0F172A] rounded-full pointer-events-none" />
+              <div className="absolute top-1/2 -translate-y-1/2 -right-2 w-5 h-5 bg-[#FEFCE8] border-r-2 border-y-2 border-[#0F172A] rounded-full pointer-events-none" />
+
+              {/* Interior Comic Content */}
+              <div className="relative z-10 flex flex-col items-center text-center">
+                {/* Status Indicator Badge */}
+                <div className="flex items-center gap-1.5 mb-1">
+                  {cloudMode === 'listening' ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+                      <Mic className="w-3 h-3 text-emerald-700 animate-bounce" />
+                      <span className="text-[9px] font-mono font-black uppercase tracking-wider text-emerald-800">
+                        LISTENING
+                      </span>
+                    </>
+                  ) : cloudMode === 'thinking' ? (
+                    <>
+                      <Brain className="w-3 h-3 text-amber-600 animate-pulse" />
+                      <span className="text-[9px] font-mono font-black uppercase tracking-wider text-amber-800">
+                        THINKING
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3 text-amber-500 fill-amber-500" />
+                      <span className="text-[9px] font-mono font-black uppercase tracking-wider text-[#0F172A]">
+                        NOVA
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Live Speech Recognition Transcript / Thought Text inside the cloud */}
+                <div className="text-xs font-black text-[#0F172A] leading-snug tracking-tight break-words max-h-24 overflow-y-auto px-1">
+                  {cloudText}
+                  {cloudMode === 'thinking' && (
+                    <span className="inline-flex ml-1 space-x-0.5">
+                      <span className="animate-bounce inline-block">.</span>
+                      <span className="animate-bounce [animation-delay:0.15s] inline-block">.</span>
+                      <span className="animate-bounce [animation-delay:0.3s] inline-block">.</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Trailing Descending Comic Thought Bubbles Leading Down directly to Nova's Head */}
+            <div className="flex flex-col items-center mt-1 -space-y-0.5 pointer-events-none">
+              {/* Bubble 1 (Upper, larger) */}
+              <div className="w-3.5 h-3.5 rounded-full bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A]" />
+              {/* Bubble 2 (Middle) */}
+              <div className="w-2.5 h-2.5 rounded-full bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[1px_1px_0px_#0F172A] translate-x-1" />
+              {/* Bubble 3 (Bottom, tiny, nearest to robot head) */}
+              <div className="w-1.5 h-1.5 rounded-full bg-[#FEFCE8] border border-[#0F172A] translate-x-2" />
+            </div>
           </div>
         )}
 
-        {/* FULL 3D ROBOT MODEL CANVAS (Direct Touch to Move across screen & Rotate 360°) */}
+        {/* =========================================================================
+            FULL 3D ROBOT MODEL CANVAS
+            - Left click / touch drag: moves Nova across the screen (DVD freestyle)
+            - Right click hold & drag: rotates character 360° in 3D orbit
+            - Double click: resets front angle
+           ========================================================================= */}
         <div
           onPointerDown={handleDragStart}
           onDoubleClick={() => setResetKey((prev) => prev + 1)}
+          onContextMenu={(e) => e.preventDefault()}
           className="w-full flex-1 relative cursor-grab active:cursor-grabbing select-none"
-          title="Drag anywhere on 3D Nova to move and rotate! (Double click to reset front angle)"
+          title="Nova 3D • Right-click hold to rotate 360° • Left-click drag to move • Double-click to reset angle"
         >
           <Nova3DAvatar
             key={`nova-3d-${resetKey}`}
             compact={true}
             transparent={true}
             fullBody={true}
-            state={avatarState}
-            isSpeaking={isSpeaking}
+            state={effectiveAvatarState}
+            isSpeaking={isSpeaking || remoteVoiceState === 'speaking'}
             interactive={true}
             showControls={false}
             height="100%"

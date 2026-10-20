@@ -451,6 +451,35 @@ export const AiTeacher: React.FC = () => {
       );
     };
   }, [isCompanionPanelHidden]);
+
+  // Synchronize live voice state, real-time speech transcript, and thinking status with Nova floating assistant
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('nova_voice_state', {
+        detail: {
+          voiceState,
+          interimTranscript,
+          isThinking: loading,
+        },
+      })
+    );
+  }, [voiceState, interimTranscript, loading]);
+
+  // Reset voice state on unmount
+  useEffect(() => {
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent('nova_voice_state', {
+          detail: {
+            voiceState: 'idle',
+            interimTranscript: '',
+            isThinking: false,
+          },
+        })
+      );
+    };
+  }, []);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 

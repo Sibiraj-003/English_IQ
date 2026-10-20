@@ -166,12 +166,26 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
       controls.enableZoom = true;
+      controls.enablePan = false; // NEVER PAN: Keeps 3D robot perfectly centered so it can never be moved out of view
       controls.minDistance = 1.5;
       controls.maxDistance = fullBody ? 7.5 : 5.0;
       controls.maxPolarAngle = fullBody ? Math.PI - 0.1 : Math.PI / 2 + 0.15;
       controls.minPolarAngle = Math.PI / 8;
       controls.target.set(0, defaultTargetY, 0);
+
+      // Mouse button mapping:
+      // In fullBody floating mode: RIGHT click rotates character 360°, LEFT click is for moving the character
+      if (fullBody) {
+        controls.mouseButtons = {
+          LEFT: null as any,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: THREE.MOUSE.ROTATE,
+        };
+      }
       controlsRef.current = controls;
+
+      // Prevent default right-click context menu on canvas so right-hold 360° rotation is uninterrupted
+      renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
       // 5. Lighting Studio
       const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
@@ -486,7 +500,11 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onClick={handleContainerClick}
-      title="NOVA 3D Companion • Drag to rotate • Click to interact"
+      onContextMenu={(e) => {
+        // Prevent default context menu so mouse right hold rotates character in 3D smoothly
+        e.preventDefault();
+      }}
+      title={fullBody ? 'NOVA 3D • Right-click drag to rotate 360° • Left-click drag to move' : 'NOVA 3D Companion • Drag to rotate • Click to interact'}
     >
       {/* Three.js Canvas Mount Point - Never replaces React child elements */}
       <div ref={canvasMountRef} className="absolute inset-0 w-full h-full overflow-hidden" />
