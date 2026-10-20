@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sparkles, Move, RotateCcw, Pin, Play, Pause, Compass, Eye } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { Nova3DAvatar } from './Nova3DAvatar';
 import { Nova3DState } from './novaAnimations';
 import { useAuth } from '../../contexts/AuthContext';
@@ -52,23 +52,9 @@ export const NovaFloatingAssistant: React.FC = () => {
     };
   }, []);
 
-  const handleDockToPanel = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      localStorage.setItem('nova_companion_panel_hidden', 'false');
-    } catch {}
-    setIsPanelHidden(false);
-    window.dispatchEvent(
-      new CustomEvent('nova_companion_panel_state', {
-        detail: { isHidden: false, onAiTeacherPage: true },
-      })
-    );
-  };
-
   const [bounceCount, setBounceCount] = useState<number>(0);
   const [activeColorIdx, setActiveColorIdx] = useState<number>(0);
   const [speechBubbleText, setSpeechBubbleText] = useState<string | null>(null);
-  const [isPinned, setIsPinned] = useState<boolean>(false);
   const [resetKey, setResetKey] = useState<number>(0);
 
   // 3D Avatar state
@@ -82,10 +68,10 @@ export const NovaFloatingAssistant: React.FC = () => {
     y: typeof window !== 'undefined' ? Math.max(40, Math.floor(window.innerHeight * 0.2)) : 150,
   });
 
-  // Freestyle Velocity (cruising speed in pixels/sec)
+  // Freestyle Velocity (50% of original cruising speed in pixels/sec)
   const velRef = useRef<{ vx: number; vy: number }>({
-    vx: (Math.random() > 0.5 ? 1 : -1) * (115 + Math.random() * 25),
-    vy: (Math.random() > 0.5 ? 1 : -1) * (95 + Math.random() * 25),
+    vx: (Math.random() > 0.5 ? 1 : -1) * (55 + Math.random() * 15),
+    vy: (Math.random() > 0.5 ? 1 : -1) * (45 + Math.random() * 15),
   });
 
   const lastTimeRef = useRef<number>(performance.now());
@@ -146,16 +132,9 @@ export const NovaFloatingAssistant: React.FC = () => {
       const container = containerRef.current;
       if (!container) return;
 
-      // If user is currently dragging Nova by the handle, pointer drag controls position
+      // If user is currently dragging Nova directly, pointer drag controls position
       if (isDraggingRef.current) {
-        container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px) scale(1.05)`;
-        return;
-      }
-
-      // If user pinned Nova in place, hover gently at target position
-      if (isPinned) {
-        const hoverBob = Math.sin(now * 0.003) * 6;
-        container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y + hoverBob}px, 0px)`;
+        container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px) scale(1.04)`;
         return;
       }
 
@@ -167,24 +146,24 @@ export const NovaFloatingAssistant: React.FC = () => {
       const minY = 6;
       const maxY = Math.max(minY + 60, (window.innerHeight || 800) - robotH - 6);
 
-      // Cruising speed
-      const baseSpeed = 125;
+      // Cruising speed (Reduced to exactly 50% of original speed: 125 -> 62.5 px/sec)
+      const baseSpeed = 62.5;
       const targetSpeed = isHoveredRef.current ? baseSpeed * 0.45 : baseSpeed;
       const currentSpeed = Math.hypot(velRef.current.vx, velRef.current.vy);
 
-      if (currentSpeed < 40) {
+      if (currentSpeed < 20) {
         velRef.current.vx = (Math.random() > 0.5 ? 1 : -1) * targetSpeed * 0.7;
         velRef.current.vy = (Math.random() > 0.5 ? 1 : -1) * targetSpeed * 0.7;
       } else {
         const speedFactor = targetSpeed / currentSpeed;
-        velRef.current.vx += (velRef.current.vx * speedFactor - velRef.current.vx) * 0.04;
-        velRef.current.vy += (velRef.current.vy * speedFactor - velRef.current.vy) * 0.04;
+        velRef.current.vx += (velRef.current.vx * speedFactor - velRef.current.vx) * 0.03;
+        velRef.current.vy += (velRef.current.vy * speedFactor - velRef.current.vy) * 0.03;
       }
 
       // Gentle organic freestyle sine drift
-      const drift = Math.sin(now * 0.0016) * 16 * dt;
-      velRef.current.vx += -velRef.current.vy * 0.08 * dt + drift;
-      velRef.current.vy += velRef.current.vx * 0.08 * dt;
+      const drift = Math.sin(now * 0.0012) * 8 * dt;
+      velRef.current.vx += -velRef.current.vy * 0.05 * dt + drift;
+      velRef.current.vy += velRef.current.vx * 0.05 * dt;
 
       // Update position
       let nx = posRef.current.x + velRef.current.vx * dt;
@@ -196,12 +175,12 @@ export const NovaFloatingAssistant: React.FC = () => {
       if (nx >= maxX) {
         nx = maxX;
         velRef.current.vx = -Math.abs(velRef.current.vx);
-        velRef.current.vy += (Math.random() - 0.5) * 35;
+        velRef.current.vy += (Math.random() - 0.5) * 16;
         hitWall = true;
       } else if (nx <= minX) {
         nx = minX;
         velRef.current.vx = Math.abs(velRef.current.vx);
-        velRef.current.vy += (Math.random() - 0.5) * 35;
+        velRef.current.vy += (Math.random() - 0.5) * 16;
         hitWall = true;
       }
 
@@ -209,12 +188,12 @@ export const NovaFloatingAssistant: React.FC = () => {
       if (ny >= maxY) {
         ny = maxY;
         velRef.current.vy = -Math.abs(velRef.current.vy);
-        velRef.current.vx += (Math.random() - 0.5) * 35;
+        velRef.current.vx += (Math.random() - 0.5) * 16;
         hitWall = true;
       } else if (ny <= minY) {
         ny = minY;
         velRef.current.vy = Math.abs(velRef.current.vy);
-        velRef.current.vx += (Math.random() - 0.5) * 35;
+        velRef.current.vx += (Math.random() - 0.5) * 16;
         hitWall = true;
       }
 
@@ -229,9 +208,9 @@ export const NovaFloatingAssistant: React.FC = () => {
         setTimeout(() => setAvatarState('idle'), 650);
       }
 
-      // Organic banking tilt in direction of movement + floating hover oscillation
-      const tiltDeg = (velRef.current.vx / targetSpeed) * 8 + Math.sin(now * 0.0035) * 3.5;
-      const hoverBob = Math.sin(now * 0.004) * 6;
+      // Organic banking tilt in direction of movement + gentle floating hover oscillation
+      const tiltDeg = (velRef.current.vx / targetSpeed) * 5 + Math.sin(now * 0.0025) * 2.5;
+      const hoverBob = Math.sin(now * 0.003) * 4.5;
 
       container.style.transform = `translate3d(${nx}px, ${ny + hoverBob}px, 0px) rotate(${tiltDeg}deg)`;
     };
@@ -242,7 +221,7 @@ export const NovaFloatingAssistant: React.FC = () => {
       disposed = true;
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [isPinned]);
+  }, []);
 
   // Periodic Floating Speech Bubble Tips
   useEffect(() => {
@@ -272,9 +251,11 @@ export const NovaFloatingAssistant: React.FC = () => {
     };
   }, [user?.full_name, speechBubbleText]);
 
-  // Dragging & Throw (Flick Physics) - Triggered specifically from the Move handle or Thruster base
+  // Dragging & Throw (Flick Physics) directly on the 3D model
   const handleDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.stopPropagation();
+    // Only handle primary button (left click or touch)
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+
     isDraggingRef.current = true;
     hasMovedRef.current = false;
     dragStartRef.current = {
@@ -284,60 +265,71 @@ export const NovaFloatingAssistant: React.FC = () => {
       posY: posRef.current.y,
     };
     dragHistoryRef.current = [{ x: e.clientX, y: e.clientY, t: performance.now() }];
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
 
-  const handleDragMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingRef.current) return;
-    const dx = e.clientX - dragStartRef.current.mouseX;
-    const dy = e.clientY - dragStartRef.current.mouseY;
+    const onPointerMove = (ev: PointerEvent) => {
+      if (!isDraggingRef.current) return;
+      const dx = ev.clientX - dragStartRef.current.mouseX;
+      const dy = ev.clientY - dragStartRef.current.mouseY;
 
-    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
-      hasMovedRef.current = true;
-    }
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
+        hasMovedRef.current = true;
+      }
 
-    const robotW = 190;
-    const robotH = 260;
+      const robotW = 190;
+      const robotH = 260;
 
-    posRef.current.x = Math.min(
-      Math.max(6, dragStartRef.current.posX + dx),
-      window.innerWidth - robotW - 6
-    );
-    posRef.current.y = Math.min(
-      Math.max(6, dragStartRef.current.posY + dy),
-      window.innerHeight - robotH - 6
-    );
+      posRef.current.x = Math.min(
+        Math.max(6, dragStartRef.current.posX + dx),
+        (window.innerWidth || 1200) - robotW - 6
+      );
+      posRef.current.y = Math.min(
+        Math.max(6, dragStartRef.current.posY + dy),
+        (window.innerHeight || 800) - robotH - 6
+      );
 
-    const now = performance.now();
-    dragHistoryRef.current.push({ x: e.clientX, y: e.clientY, t: now });
-    if (dragHistoryRef.current.length > 5) {
-      dragHistoryRef.current.shift();
-    }
-  };
+      const now = performance.now();
+      dragHistoryRef.current.push({ x: ev.clientX, y: ev.clientY, t: now });
+      if (dragHistoryRef.current.length > 5) {
+        dragHistoryRef.current.shift();
+      }
+    };
 
-  const handleDragEnd = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {}
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
 
-    // Calculate throw release velocity if user flicked Nova!
-    if (!isPinned && dragHistoryRef.current.length >= 2) {
-      const first = dragHistoryRef.current[0];
-      const last = dragHistoryRef.current[dragHistoryRef.current.length - 1];
-      const dt = (last.t - first.t) / 1000;
-      if (dt > 0.02 && dt < 0.3) {
-        const flickVx = (last.x - first.x) / dt;
-        const flickVy = (last.y - first.y) / dt;
-        const throwSpeed = Math.hypot(flickVx, flickVy);
-        if (throwSpeed > 80) {
-          velRef.current.vx = Math.min(380, Math.max(-380, flickVx));
-          velRef.current.vy = Math.min(380, Math.max(-380, flickVy));
-          setAvatarState('excited');
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+
+      // If user tapped without dragging, trigger greeting click
+      if (!hasMovedRef.current) {
+        handleRobotClick();
+        return;
+      }
+
+      // Calculate throw release velocity if user flicked Nova (50% speed capped)
+      if (dragHistoryRef.current.length >= 2) {
+        const first = dragHistoryRef.current[0];
+        const last = dragHistoryRef.current[dragHistoryRef.current.length - 1];
+        const dt = (last.t - first.t) / 1000;
+        if (dt > 0.02 && dt < 0.3) {
+          const flickVx = (last.x - first.x) / dt;
+          const flickVy = (last.y - first.y) / dt;
+          const throwSpeed = Math.hypot(flickVx, flickVy);
+          if (throwSpeed > 60) {
+            velRef.current.vx = Math.min(160, Math.max(-160, flickVx * 0.5));
+            velRef.current.vy = Math.min(160, Math.max(-160, flickVy * 0.5));
+            setAvatarState('excited');
+            setTimeout(() => setAvatarState('idle'), 700);
+          }
         }
       }
-    }
+    };
+
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointerup', onPointerUp, { passive: true });
+    window.addEventListener('pointercancel', onPointerUp, { passive: true });
   };
 
   const handleRobotClick = () => {
@@ -345,8 +337,8 @@ export const NovaFloatingAssistant: React.FC = () => {
     const greetings = [
       `Hi! I'm Nova! Happy learning!`,
       `Zero gravity flight active!`,
-      `Drag my 3D body to rotate me 360°!`,
-      `Grab my handle to move me anywhere!`,
+      `Drag me directly to move or rotate 360°!`,
+      `I'm your 3D study companion!`,
     ];
     const picked = greetings[Math.floor(Math.random() * greetings.length)];
     setSpeechBubbleText(picked);
@@ -378,7 +370,7 @@ export const NovaFloatingAssistant: React.FC = () => {
       }}
     >
       <div
-        className="relative pointer-events-auto w-48 h-64 sm:w-52 sm:h-72 flex flex-col items-center justify-between group"
+        className="relative pointer-events-auto w-48 h-64 sm:w-52 sm:h-72 flex flex-col items-center justify-between"
         onMouseEnter={() => {
           isHoveredRef.current = true;
         }}
@@ -395,64 +387,12 @@ export const NovaFloatingAssistant: React.FC = () => {
           </div>
         )}
 
-        {/* Top Control Bar: Move & Drag Handle + Flight Controls */}
-        <div className="z-30 flex items-center gap-1 transition-opacity duration-200 opacity-80 group-hover:opacity-100">
-          {/* Dedicated Drag & Move Handle */}
-          <div
-            onPointerDown={handleDragStart}
-            onPointerMove={handleDragMove}
-            onPointerUp={handleDragEnd}
-            className="cursor-grab active:cursor-grabbing px-2 py-0.5 bg-white/95 hover:bg-[#FDE68A] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] rounded-full text-[8.5px] font-black uppercase text-[#0F172A] flex items-center gap-1 transition-all active:translate-x-[1px] active:translate-y-[1px]"
-            title="Click & Drag to move Nova anywhere on your screen"
-          >
-            <Move className="w-3 h-3 text-[#0F172A]" />
-            <span>DRAG MOVE</span>
-          </div>
-
-          {/* Toggle DVD Float vs Pinned in place */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsPinned((prev) => !prev);
-            }}
-            className={`px-1.5 py-0.5 border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] rounded-full text-[8px] font-black uppercase flex items-center gap-1 cursor-pointer transition-all active:translate-x-[1px] active:translate-y-[1px] ${
-              isPinned ? 'bg-[#A7F3D0] text-[#0F172A]' : 'bg-white/95 hover:bg-slate-100 text-slate-800'
-            }`}
-            title={isPinned ? 'Nova is Pinned in place (Click to resume DVD float)' : 'Nova is Floating (Click to pin here)'}
-          >
-            {isPinned ? <Pin className="w-2.5 h-2.5" /> : <Compass className="w-2.5 h-2.5 animate-spin" />}
-            <span>{isPinned ? 'PINNED' : 'FLOAT'}</span>
-          </button>
-
-          {/* Dock back into panel button (if on AI Teacher page and panel was hidden) */}
-          {isAiTeacherRoute && isPanelHidden && (
-            <button
-              onClick={handleDockToPanel}
-              className="px-2 py-0.5 bg-[#FDE68A] hover:bg-[#FCD34D] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] rounded-full text-[8px] font-black uppercase flex items-center gap-1 cursor-pointer transition-all active:translate-x-[1px] active:translate-y-[1px] text-[#0F172A]"
-              title="Dock Nova back into the side panel"
-            >
-              <Eye className="w-2.5 h-2.5 text-[#0F172A]" />
-              <span>DOCK</span>
-            </button>
-          )}
-
-          {/* Reset 3D Angle */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setResetKey((prev) => prev + 1);
-            }}
-            className="p-1 bg-white/95 hover:bg-[#FDE68A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] rounded-full text-[#0F172A] cursor-pointer active:translate-x-[1px] active:translate-y-[1px]"
-            title="Reset 3D camera angle to front"
-          >
-            <RotateCcw className="w-2.5 h-2.5" />
-          </button>
-        </div>
-
-        {/* FULL 3D ROBOT MODEL CANVAS (Interactive 360° Orbit Rotation) */}
+        {/* FULL 3D ROBOT MODEL CANVAS (Direct Touch to Move across screen & Rotate 360°) */}
         <div
-          className="w-full flex-1 relative cursor-grab active:cursor-grabbing"
-          title="Drag directly on the 3D robot to rotate 360°! Click to react!"
+          onPointerDown={handleDragStart}
+          onDoubleClick={() => setResetKey((prev) => prev + 1)}
+          className="w-full flex-1 relative cursor-grab active:cursor-grabbing select-none"
+          title="Drag anywhere on 3D Nova to move and rotate! (Double click to reset front angle)"
         >
           <Nova3DAvatar
             key={`nova-3d-${resetKey}`}
@@ -463,26 +403,16 @@ export const NovaFloatingAssistant: React.FC = () => {
             isSpeaking={isSpeaking}
             interactive={true}
             showControls={false}
-            onAvatarClick={handleRobotClick}
             height="100%"
           />
         </div>
 
-        {/* Dynamic Anti-Gravity Thruster Halo & Bottom Move Base */}
-        <div
-          onPointerDown={handleDragStart}
-          onPointerMove={handleDragMove}
-          onPointerUp={handleDragEnd}
-          className="z-20 cursor-grab active:cursor-grabbing flex flex-col items-center pb-1"
-          title="Drag by thruster base to move Nova anywhere"
-        >
+        {/* Dynamic Anti-Gravity Thruster Halo */}
+        <div className="z-20 flex flex-col items-center pb-1 pointer-events-none">
           <div
             className="w-24 h-4 rounded-full blur-[6px] transition-colors duration-300 nova-thruster-halo"
             style={{ backgroundColor: currentColor }}
           />
-          <span className="text-[7px] font-black uppercase text-slate-600 bg-white/80 border border-[#0F172A]/40 px-1.5 py-0.2 rounded-full mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            ROTATE 360° // MOVE
-          </span>
         </div>
       </div>
     </aside>
