@@ -25,6 +25,7 @@ export interface Nova3DAvatarProps {
   showControls?: boolean;
   compact?: boolean;
   transparent?: boolean;
+  fullBody?: boolean;
 }
 
 export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
@@ -39,6 +40,7 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
   showControls = true,
   compact = false,
   transparent = false,
+  fullBody = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasMountRef = useRef<HTMLDivElement>(null);
@@ -81,12 +83,16 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
     if (onAvatarClick) onAvatarClick();
   };
 
+  const defaultCamY = fullBody ? 0.0 : 0.42;
+  const defaultCamZ = fullBody ? 4.3 : 3.1;
+  const defaultTargetY = fullBody ? 0.0 : 0.28;
+
   const handleResetCamera = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (controlsRef.current && cameraRef.current) {
       controlsRef.current.reset();
-      cameraRef.current.position.set(0, 0.42, 3.1);
-      controlsRef.current.target.set(0, 0.28, 0);
+      cameraRef.current.position.set(0, defaultCamY, defaultCamZ);
+      controlsRef.current.target.set(0, defaultTargetY, 0);
       controlsRef.current.update();
     }
   };
@@ -132,9 +138,9 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
       const scene = new THREE.Scene();
       sceneRef.current = scene;
 
-      // 2. Camera (Portrait framing: head + upper body clearly visible)
+      // 2. Camera (Full Body or Portrait framing)
       const camera = new THREE.PerspectiveCamera(38, width / heightPx, 0.1, 100);
-      camera.position.set(0, 0.42, 3.1);
+      camera.position.set(0, defaultCamY, defaultCamZ);
       cameraRef.current = camera;
 
       // 3. Renderer with antialiasing and tone mapping
@@ -160,11 +166,11 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
       controls.enableZoom = true;
-      controls.minDistance = 2.0;
-      controls.maxDistance = 5.0;
-      controls.maxPolarAngle = Math.PI / 2 + 0.15;
-      controls.minPolarAngle = Math.PI / 6;
-      controls.target.set(0, 0.28, 0);
+      controls.minDistance = 1.5;
+      controls.maxDistance = fullBody ? 7.5 : 5.0;
+      controls.maxPolarAngle = fullBody ? Math.PI - 0.1 : Math.PI / 2 + 0.15;
+      controls.minPolarAngle = Math.PI / 8;
+      controls.target.set(0, defaultTargetY, 0);
       controlsRef.current = controls;
 
       // 5. Lighting Studio
