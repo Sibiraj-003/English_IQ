@@ -48,6 +48,8 @@ import {
   Check,
   History,
   GraduationCap,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 type InteractionChannel = 'text' | 'voice' | 'live';
@@ -399,6 +401,56 @@ export const AiTeacher: React.FC = () => {
   const [cameraNotice, setCameraNotice] = useState<string | null>(null);
   const [isCompanionExpanded, setIsCompanionExpanded] = useState(true);
   const [showMobileCompanion, setShowMobileCompanion] = useState(false);
+
+  // Companion Panel Hidden State (coordinated with global floating 3D Nova assistant)
+  const [isCompanionPanelHidden, setIsCompanionPanelHidden] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('nova_companion_panel_hidden') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleCompanionPanelHidden = (forced?: boolean) => {
+    setIsCompanionPanelHidden((prev) => {
+      const next = typeof forced === 'boolean' ? forced : !prev;
+      try {
+        localStorage.setItem('nova_companion_panel_hidden', next.toString());
+      } catch {}
+      window.dispatchEvent(
+        new CustomEvent('nova_companion_panel_state', {
+          detail: { isHidden: next, onAiTeacherPage: true },
+        })
+      );
+      return next;
+    });
+  };
+
+  // Synchronize with global floating 3D Nova assistant
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('nova_companion_panel_state', {
+        detail: { isHidden: isCompanionPanelHidden, onAiTeacherPage: true },
+      })
+    );
+
+    const handleRemoteState = (e: any) => {
+      if (e?.detail && typeof e.detail.isHidden === 'boolean') {
+        setIsCompanionPanelHidden(e.detail.isHidden);
+      }
+    };
+    window.addEventListener('nova_companion_panel_state', handleRemoteState);
+
+    return () => {
+      window.removeEventListener('nova_companion_panel_state', handleRemoteState);
+      // When unmounting (navigating away), release floating Nova to appear on other pages
+      window.dispatchEvent(
+        new CustomEvent('nova_companion_panel_state', {
+          detail: { isHidden: true, onAiTeacherPage: false },
+        })
+      );
+    };
+  }, [isCompanionPanelHidden]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
@@ -1762,6 +1814,18 @@ export const AiTeacher: React.FC = () => {
                 </div>
               </div>
 
+              {/* Desktop Show Nova Panel Toggle if Hidden */}
+              {isCompanionPanelHidden && (
+                <button
+                  onClick={() => toggleCompanionPanelHidden(false)}
+                  className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 text-xs font-black bg-[#FDE68A] hover:bg-[#FCD34D] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] transition-all text-[#0F172A] cursor-pointer"
+                  title="Show Nova Companion Panel (Docks 3D Nova back into side panel)"
+                >
+                  <Eye className="w-3.5 h-3.5 text-[#0F172A]" />
+                  <span>SHOW NOVA</span>
+                </button>
+              )}
+
               {/* Responsive Companion HUD Toggle */}
               <button
                 onClick={() => setShowMobileCompanion(true)}
@@ -2214,24 +2278,39 @@ export const AiTeacher: React.FC = () => {
             </div>
 
             {/* RIGHT MAIN COMPANION DOCK (RESPONSIVE: visible on xl screens to protect layout when window is not fullscreen) */}
-            <div className="hidden xl:flex w-80 border-l-2 border-[#0F172A] bg-[#FEFCE8] flex-col shrink-0 h-full overflow-y-auto p-3">
-              <NovaRobotCompanion
-                expression={currentExpression}
-                voiceState={voiceState}
-                isSpeaking={isSpeaking}
-                isThinking={loading}
-                cameraActive={cameraActive}
-                onToggleCamera={toggleCamera}
-                cameraAnalysis={cameraAnalysis}
-                videoRef={videoRef}
-                onReactionHelpClick={(prompt) => handleSendMessage(prompt)}
-                isCompact={!isCompanionExpanded}
-                onToggleCompact={() => setIsCompanionExpanded((prev) => !prev)}
-              />
-            </div>
+            {!isCompanionPanelHidden && (
+              <div className="hidden xl:flex w-80 border-l-2 border-[#0F172A] bg-[#FEFCE8] flex-col shrink-0 h-full overflow-y-auto p-3">
+                <NovaRobotCompanion
+                  expression={currentExpression}
+                  voiceState={voiceState}
+                  isSpeaking={isSpeaking}
+                  isThinking={loading}
+                  cameraActive={cameraActive}
+                  onToggleCamera={toggleCamera}
+                  cameraAnalysis={cameraAnalysis}
+                  videoRef={videoRef}
+                  onReactionHelpClick={(prompt) => handleSendMessage(prompt)}
+                  isCompact={!isCompanionExpanded}
+                  onToggleCompact={() => setIsCompanionExpanded((prev) => !prev)}
+                  onHidePanel={() => toggleCompanionPanelHidden(true)}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* RESTORE NOVA COMPANION PANEL TAB (Visible when panel is hidden on desktop) */}
+      {isCompanionPanelHidden && (
+        <button
+          onClick={() => toggleCompanionPanelHidden(false)}
+          className="hidden xl:flex fixed right-0 top-1/2 -translate-y-1/2 z-40 px-2 py-3.5 bg-[#FDE68A] hover:bg-[#FCD34D] text-[#0F172A] border-y-2 border-l-2 border-[#0F172A] shadow-[-3px_3px_0px_#0F172A] font-black text-xs [writing-mode:vertical-lr] items-center gap-2 cursor-pointer transition-all active:translate-x-0.5 select-none"
+          title="Restore Nova AI Panel (Docks 3D Nova into side panel)"
+        >
+          <Eye className="w-3.5 h-3.5 rotate-90 text-[#0F172A]" />
+          <span className="tracking-wider">SHOW NOVA PANEL</span>
+        </button>
+      )}
 
       {/* COMPACT / MOBILE COMPANION MODAL / POPUP (< 1280px or non-fullscreen) */}
       {showMobileCompanion && (
@@ -2256,6 +2335,10 @@ export const AiTeacher: React.FC = () => {
               onReactionHelpClick={(prompt) => {
                 handleSendMessage(prompt);
                 setShowMobileCompanion(false);
+              }}
+              onHidePanel={() => {
+                setShowMobileCompanion(false);
+                toggleCompanionPanelHidden(true);
               }}
             />
           </div>

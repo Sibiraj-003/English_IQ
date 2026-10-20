@@ -11,6 +11,7 @@ import {
   Smile,
   AlertCircle,
   Eye,
+  EyeOff,
   Maximize2,
   Minimize2,
   RefreshCw,
@@ -65,6 +66,7 @@ interface NovaRobotCompanionProps {
   onReactionHelpClick?: (prompt: string) => void;
   isCompact?: boolean;
   onToggleCompact?: () => void;
+  onHidePanel?: () => void;
 }
 
 export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
@@ -79,6 +81,7 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
   onReactionHelpClick,
   isCompact = false,
   onToggleCompact,
+  onHidePanel,
 }) => {
   const [showWebcamPreview, setShowWebcamPreview] = useState(true);
   const [viewMode, setViewMode] = useState<'3d' | '2d'>(() => {
@@ -263,6 +266,18 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
               title={isCompact ? 'Expand avatar' : 'Compact view'}
             >
               {isCompact ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+            </button>
+          )}
+
+          {/* Hide Panel Button */}
+          {onHidePanel && (
+            <button
+              onClick={onHidePanel}
+              className="px-2 py-1 bg-[#FECDD3] hover:bg-[#FDA4AF] text-[#0F172A] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer text-[10px] font-black flex items-center gap-1 shrink-0 leading-none transition-all"
+              title="Hide Nova panel (Floating 3D Nova will appear over the website)"
+            >
+              <EyeOff className="w-3.5 h-3.5 shrink-0" />
+              <span>HIDE</span>
             </button>
           )}
         </div>

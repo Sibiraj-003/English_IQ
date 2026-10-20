@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, Move, RotateCcw, Pin, Play, Pause, Compass } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Sparkles, Move, RotateCcw, Pin, Play, Pause, Compass, Eye } from 'lucide-react';
 import { Nova3DAvatar } from './Nova3DAvatar';
 import { Nova3DState } from './novaAnimations';
 import { useAuth } from '../../contexts/AuthContext';
@@ -18,6 +19,51 @@ const DVD_GLOW_COLORS = [
 
 export const NovaFloatingAssistant: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const isAiTeacherRoute = location.pathname.includes('/ai-teacher');
+
+  const [isPanelHidden, setIsPanelHidden] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('nova_companion_panel_hidden') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  // Listen for panel hide/show events from AiTeacher
+  useEffect(() => {
+    const handlePanelState = (e: any) => {
+      if (e?.detail && typeof e.detail.isHidden === 'boolean') {
+        setIsPanelHidden(e.detail.isHidden);
+      }
+    };
+    window.addEventListener('nova_companion_panel_state', handlePanelState);
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'nova_companion_panel_hidden') {
+        setIsPanelHidden(e.newValue === 'true');
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      window.removeEventListener('nova_companion_panel_state', handlePanelState);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  const handleDockToPanel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      localStorage.setItem('nova_companion_panel_hidden', 'false');
+    } catch {}
+    setIsPanelHidden(false);
+    window.dispatchEvent(
+      new CustomEvent('nova_companion_panel_state', {
+        detail: { isHidden: false, onAiTeacherPage: true },
+      })
+    );
+  };
 
   const [bounceCount, setBounceCount] = useState<number>(0);
   const [activeColorIdx, setActiveColorIdx] = useState<number>(0);
@@ -311,6 +357,17 @@ export const NovaFloatingAssistant: React.FC = () => {
     }, 3200);
   };
 
+  // Visibility Coordination:
+  // - On the AI Teacher page:
+  //   - If panel is not hidden -> floating 3D model disappears.
+  //   - If panel is hidden -> floating 3D model appears.
+  // - On all other pages -> floating 3D model appears normally.
+  const isVisible = !isAiTeacherRoute || isPanelHidden;
+
+  if (!isVisible) {
+    return null;
+  }
+
   return (
     <aside
       ref={containerRef}
@@ -366,6 +423,18 @@ export const NovaFloatingAssistant: React.FC = () => {
             {isPinned ? <Pin className="w-2.5 h-2.5" /> : <Compass className="w-2.5 h-2.5 animate-spin" />}
             <span>{isPinned ? 'PINNED' : 'FLOAT'}</span>
           </button>
+
+          {/* Dock back into panel button (if on AI Teacher page and panel was hidden) */}
+          {isAiTeacherRoute && isPanelHidden && (
+            <button
+              onClick={handleDockToPanel}
+              className="px-2 py-0.5 bg-[#FDE68A] hover:bg-[#FCD34D] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] rounded-full text-[8px] font-black uppercase flex items-center gap-1 cursor-pointer transition-all active:translate-x-[1px] active:translate-y-[1px] text-[#0F172A]"
+              title="Dock Nova back into the side panel"
+            >
+              <Eye className="w-2.5 h-2.5 text-[#0F172A]" />
+              <span>DOCK</span>
+            </button>
+          )}
 
           {/* Reset 3D Angle */}
           <button
