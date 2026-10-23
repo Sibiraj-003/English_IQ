@@ -75,6 +75,7 @@ export const NovaFloatingAssistant: React.FC = () => {
   const [bounceCount, setBounceCount] = useState<number>(0);
   const [activeColorIdx, setActiveColorIdx] = useState<number>(0);
   const [speechBubbleText, setSpeechBubbleText] = useState<string | null>(null);
+  const [isIntro, setIsIntro] = useState<boolean>(false);
   const [resetKey, setResetKey] = useState<number>(0);
   const [isHovered, setIsHovered] = useState<boolean>(false);
 
@@ -145,6 +146,44 @@ export const NovaFloatingAssistant: React.FC = () => {
       window.speechSynthesis.speak(utterance);
     } catch {}
   }, []);
+
+  // Quick intro on first login: introduce 360° rotation and drag once
+  useEffect(() => {
+    const introKey = user?.id ? `nova_intro_seen_${user.id}` : 'nova_intro_seen_guest';
+    let hasSeenIntro = false;
+    try {
+      hasSeenIntro = localStorage.getItem(introKey) === 'true';
+    } catch {
+      hasSeenIntro = false;
+    }
+
+    if (!hasSeenIntro) {
+      try {
+        localStorage.setItem(introKey, 'true');
+      } catch {}
+
+      const introTimer = setTimeout(() => {
+        const firstName = user?.full_name ? user.full_name.trim().split(' ')[0] : '';
+        const nameGreeting = firstName ? `Hi ${firstName}!` : `Hi!`;
+        const introText = `${nameGreeting} I'm Nova! Drag me anywhere and hold right-click to rotate me 360°!`;
+
+        setIsIntro(true);
+        setSpeechBubbleText(introText);
+        setAvatarState('happy');
+        speakGreeting(introText);
+
+        const dismissTimer = setTimeout(() => {
+          setSpeechBubbleText((curr) => (curr === introText ? null : curr));
+          setIsIntro(false);
+          setAvatarState('idle');
+        }, 5500);
+
+        return () => clearTimeout(dismissTimer);
+      }, 1500);
+
+      return () => clearTimeout(introTimer);
+    }
+  }, [user?.id, user?.full_name, speakGreeting]);
 
   // =========================================================================
   // CONTINUOUS 60FPS DVD BOUNCE ENGINE (ENTIRE 3D MODEL FLOATING OVER SITE)
@@ -377,38 +416,42 @@ export const NovaFloatingAssistant: React.FC = () => {
 
   const handleRobotClick = () => {
     setAvatarState('happy');
+    const firstName = user?.full_name ? user.full_name.trim().split(' ')[0] : '';
+    const namePrefix = firstName ? ` ${firstName}` : '';
+
     const greetings = [
-      `Hi! I'm Nova! Happy learning!`,
-      `Zero gravity flight active!`,
-      `Right-click hold to rotate me 360°!`,
-      `I'm your 3D study companion!`,
+      `Hi${namePrefix}! Ready to learn today?`,
+      `Hello${namePrefix}! Ask me any question anytime!`,
+      `Hi${namePrefix}! I'm Nova, your AI study buddy!`,
+      `Great to see you${namePrefix}! How can I help you today?`,
+      `Keep up the awesome work! I'm right here if you need me!`,
+      `Happy learning${namePrefix}! Let's make today great!`,
     ];
     const picked = greetings[Math.floor(Math.random() * greetings.length)];
+    setIsIntro(false);
     setSpeechBubbleText(picked);
     speakGreeting(picked);
     setTimeout(() => {
-      setSpeechBubbleText(null);
+      setSpeechBubbleText((curr) => (curr === picked ? null : curr));
       setAvatarState('idle');
-    }, 3200);
+    }, 3500);
   };
 
   // Determine Cartoon Thinking Cloud visibility and content
   // 1. While listening: displays live speech transcript
   // 2. While thinking: displays thinking indicator
-  // 3. ONLY while mouse hovers over the 3D model: displays interaction controls guide
-  // 4. On direct click: displays greeting
+  // 3. On direct click: displays friendly student greeting
+  // 4. On first login: displays quick intro (drag & 360° rotation)
   const isListening = remoteVoiceState === 'listening';
   const isThinking = remoteThinking || remoteVoiceState === 'thinking';
-  const showHoverGuide = isHovered && !isDraggingRef.current && !isListening && !isThinking;
 
   const hasCloudText = Boolean(
     isListening ||
     isThinking ||
-    showHoverGuide ||
     speechBubbleText
   );
 
-  let cloudMode: 'listening' | 'thinking' | 'guide' | 'speech' = 'guide';
+  let cloudMode: 'listening' | 'thinking' | 'intro' | 'speech' = 'speech';
   let cloudText = '';
 
   if (isListening) {
@@ -418,11 +461,8 @@ export const NovaFloatingAssistant: React.FC = () => {
     cloudMode = 'thinking';
     cloudText = 'Thinking through your question...';
   } else if (speechBubbleText) {
-    cloudMode = 'speech';
+    cloudMode = isIntro ? 'intro' : 'speech';
     cloudText = speechBubbleText;
-  } else if (showHoverGuide) {
-    cloudMode = 'guide';
-    cloudText = 'Right-click hold to rotate 360° • Left-click drag to move!';
   }
 
   // Visibility Coordination:
@@ -465,7 +505,8 @@ export const NovaFloatingAssistant: React.FC = () => {
             CARTOON THINKING CLOUD (PUFFY COMIC CLOUD WITH 3 TRAILING THOUGHT BUBBLES)
             - Shown while listening (displays live speech transcript)
             - Shown while thinking (displays thinking dots)
-            - Shown ONLY while mouse hovers over the 3D model (interaction guide)
+            - Shown on first login (quick intro: drag & 360° rotation)
+            - Shown on direct click (student greeting)
            ========================================================================= */}
         {hasCloudText && (
           <div
@@ -500,11 +541,11 @@ export const NovaFloatingAssistant: React.FC = () => {
                         THINKING
                       </span>
                     </>
-                  ) : cloudMode === 'guide' ? (
+                  ) : cloudMode === 'intro' ? (
                     <>
                       <Sparkles className="w-3 h-3 text-amber-500 fill-amber-500" />
                       <span className="text-[9px] font-mono font-black uppercase tracking-wider text-[#0F172A]">
-                        3D NOVA CONTROLS
+                        QUICK INTRO
                       </span>
                     </>
                   ) : (
@@ -517,7 +558,7 @@ export const NovaFloatingAssistant: React.FC = () => {
                   )}
                 </div>
 
-                {/* Live Speech Recognition Transcript / Thought Text / Hover Guide inside the cloud */}
+                {/* Live Speech Recognition Transcript / Thought Text / Quick Intro / Greeting */}
                 <div className="text-xs font-black text-[#0F172A] leading-snug tracking-tight break-words max-h-24 overflow-y-auto px-1">
                   {cloudText}
                   {cloudMode === 'thinking' && (
