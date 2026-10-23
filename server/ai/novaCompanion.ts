@@ -36,15 +36,18 @@ export class NovaCompanionService {
     const className = targetClass?.name || 'Class 1';
     const grade = targetClass?.grade || 1;
 
-    // Resolve subject
-    const subject = req.subject_id
+    // Resolve subject (supports 'general' / all subjects)
+    const isGeneral = !req.subject_id || req.subject_id === 'general' || req.subject_id === 'all';
+    const subject = !isGeneral
       ? db.subjects.find((s) => s.id === req.subject_id)
-      : db.subjects[0];
-    const subjectName = subject?.name || 'General Academic';
+      : null;
+    const subjectName = isGeneral
+      ? 'General Curriculum (All Subjects)'
+      : (subject?.name || 'General Academic');
 
-    // Strict Curriculum Isolation: Find authorized books for this class and subject
+    // Curriculum Isolation: Find authorized books for this class (all subjects if general)
     const classBooks = db.books.filter(
-      (b) => b.class_id === classId && (!req.subject_id || b.subject_id === req.subject_id)
+      (b) => b.class_id === classId && (isGeneral || b.subject_id === req.subject_id)
     );
     const activeBook = req.book_id
       ? db.books.find((b) => b.id === req.book_id)
@@ -56,7 +59,9 @@ export class NovaCompanionService {
     if (isGreeting) {
       const studentName = student?.full_name ? ` ${student.full_name}` : '';
       return {
-        answer: `Hello${studentName}! I am NOVA, your learning friend for ${subjectName}. What would you like to explore or learn today?`,
+        answer: isGeneral
+          ? `Hello${studentName}! I am NOVA, your learning companion across all subjects. What would you like to explore or learn today?`
+          : `Hello${studentName}! I am NOVA, your learning friend for ${subjectName}. What would you like to explore or learn today?`,
         expression: 'greeting',
         sourceBadge: undefined,
         suggestedFollowUps: [],
@@ -99,7 +104,33 @@ export class NovaCompanionService {
     let textbookContext = '';
     let topSourceBadge: NovaChatResponse['sourceBadge'] | undefined = undefined;
 
-    if (activeBook) {
+    if (isGeneral) {
+      // Search across ALL textbooks for the student's class
+      const searchResults = vectorStore.search({
+        query: req.message,
+        class_id: classId,
+        limit: 4,
+        threshold: 0.12,
+      });
+
+      if (searchResults.length > 0) {
+        const top = searchResults[0];
+        const matchedBook = db.books.find((b) => b.id === top.chunk.book_id);
+        topSourceBadge = {
+          bookTitle: matchedBook?.title || 'General Curriculum',
+          pageNumber: top.chunk.page_number,
+          lessonTitle: top.chunk.metadata.lessonTitle,
+        };
+
+        textbookContext = searchResults
+          .map((r, idx) => {
+            const b = db.books.find((book) => book.id === r.chunk.book_id);
+            const bTitle = b?.title || 'Textbook';
+            return `--- TEXTBOOK EXCERPT ${idx + 1} (${bTitle}, Page ${r.chunk.page_number}, Lesson: ${r.chunk.metadata.lessonTitle || 'Standard'}) ---\n${r.chunk.content}`;
+          })
+          .join('\n\n');
+      }
+    } else if (activeBook) {
       const searchResults = vectorStore.search({
         query: req.message,
         class_id: classId,

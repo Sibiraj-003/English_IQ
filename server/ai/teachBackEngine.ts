@@ -29,8 +29,9 @@ export class TeachBackEngine {
   async evaluateExplanation(req: TeachBackRequest): Promise<TeachBackResult> {
     const student = db.profiles.find((p) => p.id === req.student_id);
     const resolvedStudentId = student?.id || req.student_id;
-    const subject = db.subjects.find((s) => s.id === req.subject_id);
-    const subjectName = subject?.name || 'Academic Subject';
+    const isGeneral = !req.subject_id || req.subject_id === 'general' || req.subject_id === 'all';
+    const subject = !isGeneral ? db.subjects.find((s) => s.id === req.subject_id) : null;
+    const subjectName = isGeneral ? 'General Curriculum (All Subjects)' : (subject?.name || 'Academic Subject');
     const targetClass = student?.class_id ? db.classes.find((c) => c.id === student.class_id) : undefined;
     const className = targetClass?.name || 'Class 1';
 

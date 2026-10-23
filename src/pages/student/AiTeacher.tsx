@@ -64,6 +64,15 @@ export const stripEmojis = (str: string): string => {
     .trim();
 };
 
+export const GENERAL_SUBJECT: Subject = {
+  id: 'general',
+  school_id: 'SCH001',
+  code: 'GEN',
+  name: 'General (All Subjects)',
+  department: 'All Departments',
+  is_active: true,
+};
+
 export const FALLBACK_SUBJECTS: Subject[] = [
   { id: 'sub-sci', school_id: 'SCH001', code: 'SCI101', name: 'Science', department: 'Science', is_active: true },
   { id: 'sub-mat', school_id: 'SCH001', code: 'MAT101', name: 'Mathematics', department: 'Mathematics', is_active: true },
@@ -81,7 +90,7 @@ export const AiTeacher: React.FC = () => {
   // 1. CURRICULUM, SUBJECT & TOPIC STATE
   // ==========================================
   const [subjects, setSubjects] = useState<Subject[]>(FALLBACK_SUBJECTS);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('sub-sci');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('general');
   const [selectedTopic, setSelectedTopic] = useState<string>('General Learning');
 
   // Pedagogical Mode: chat, teach_back, practice, quiz, revision
@@ -682,8 +691,8 @@ export const AiTeacher: React.FC = () => {
       const initialSession: NovaChatSession = {
         id: `sess-${Date.now()}`,
         title: 'New Chat',
-        subject_id: selectedSubjectId || 'sub-sci',
-        subject_name: 'Science',
+        subject_id: selectedSubjectId || 'general',
+        subject_name: selectedSubjectId === 'general' ? GENERAL_SUBJECT.name : (subjects.find((s) => s.id === selectedSubjectId)?.name || 'General (All Subjects)'),
         topic: 'General Learning',
         mode: 'chat',
         messages: [welcomeMsg],
@@ -732,12 +741,16 @@ export const AiTeacher: React.FC = () => {
             selectedTopicRef.current = smartTitle;
           }
 
+          const currentSub = selectedSubjectIdRef.current === 'general'
+            ? GENERAL_SUBJECT
+            : subjects.find((s) => s.id === selectedSubjectIdRef.current);
+
           return {
             ...sess,
             title,
             topic,
             subject_id: selectedSubjectIdRef.current,
-            subject_name: subjects.find((s) => s.id === selectedSubjectIdRef.current)?.name || sess.subject_name || 'Science',
+            subject_name: currentSub?.name || sess.subject_name || 'General (All Subjects)',
             mode: modeRef.current,
             messages: [...sess.messages, newMsg],
             updated_at: new Date().toISOString(),
@@ -754,8 +767,10 @@ export const AiTeacher: React.FC = () => {
   const handleCreateNewChat = (customTopic?: string) => {
     const isCustom = Boolean(customTopic && customTopic !== 'General Learning');
     const topicToUse = customTopic || 'General Learning';
-    const sub = subjects.find((s) => s.id === selectedSubjectIdRef.current);
-    const subName = sub?.name || 'Science';
+    const sub = selectedSubjectIdRef.current === 'general'
+      ? GENERAL_SUBJECT
+      : subjects.find((s) => s.id === selectedSubjectIdRef.current);
+    const subName = sub?.name || 'General (All Subjects)';
     const newId = `sess-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
     const newWelcome: NovaChatMessage = {
@@ -970,8 +985,9 @@ export const AiTeacher: React.FC = () => {
         if (Array.isArray(subList) && subList.length > 0) {
           setSubjects(subList);
           setSelectedSubjectId((prev) => {
+            if (prev === 'general') return 'general';
             const exists = subList.some((s) => s.id === prev);
-            return exists ? prev : subList[0].id;
+            return exists ? prev : 'general';
           });
         }
       })
@@ -982,7 +998,7 @@ export const AiTeacher: React.FC = () => {
 
   // Dedicated Subject Switcher: Updates state, active session, topic, and saves
   const handleSubjectChange = (newSubjectId: string) => {
-    const sub = subjects.find((s) => s.id === newSubjectId);
+    const sub = newSubjectId === 'general' ? GENERAL_SUBJECT : subjects.find((s) => s.id === newSubjectId);
     if (!sub) return;
 
     setSelectedSubjectId(newSubjectId);
@@ -1007,7 +1023,7 @@ export const AiTeacher: React.FC = () => {
 
     // Auto-update topic if generic or matches previous subject concepts
     if (!selectedTopic || selectedTopic === 'General Learning' || selectedTopic.includes('Concepts')) {
-      const newTopic = `${sub.name} Concepts`;
+      const newTopic = newSubjectId === 'general' ? 'General Learning' : `${sub.name} Concepts`;
       setSelectedTopic(newTopic);
       selectedTopicRef.current = newTopic;
     }
@@ -1365,7 +1381,7 @@ export const AiTeacher: React.FC = () => {
     }
   };
 
-  const currentSubject = subjects.find((s) => s.id === selectedSubjectId);
+  const currentSubject = selectedSubjectId === 'general' ? GENERAL_SUBJECT : subjects.find((s) => s.id === selectedSubjectId);
 
   // ==========================================
   // 8. CHAT HISTORY PANEL (RENAME, DELETE, SHARE)
@@ -1538,25 +1554,39 @@ export const AiTeacher: React.FC = () => {
           <span className="text-[9px] font-bold text-slate-500">{subjects.length} subjects</span>
         </div>
 
-        {/* 2-Column High-Density Subject Grid */}
+        {/* 2-Column High-Density Subject Grid with General (All Subjects) option */}
         <div className="grid grid-cols-2 gap-1">
-          {subjects.map((sub) => (
-            <button
-              key={sub.id}
-              onClick={() => {
-                handleSubjectChange(sub.id);
-              }}
-              className={`px-1.5 py-1 text-[11px] font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between truncate text-left ${
-                selectedSubjectId === sub.id
-                  ? 'bg-[#0F172A] text-white shadow-[1.5px_1.5px_0px_#FDE68A]'
-                  : 'bg-white text-[#0F172A] hover:bg-slate-50'
-              }`}
-              title={sub.name}
-            >
-              <span className="truncate">{sub.name}</span>
-              <span className="text-[9px] opacity-75 shrink-0 ml-1">{sub.code || 'SUB'}</span>
-            </button>
-          ))}
+          <button
+            onClick={() => handleSubjectChange('general')}
+            className={`col-span-2 px-1.5 py-1 text-[11px] font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between truncate text-left ${
+              selectedSubjectId === 'general'
+                ? 'bg-[#0F172A] text-white shadow-[1.5px_1.5px_0px_#FDE68A]'
+                : 'bg-[#FDE68A] text-[#0F172A] hover:bg-[#FCD34D]'
+            }`}
+            title="General (All Subjects)"
+          >
+            <span className="truncate font-extrabold">General (All Subjects)</span>
+            <span className="text-[9px] opacity-90 shrink-0 ml-1 font-mono font-black">ALL</span>
+          </button>
+          {subjects
+            .filter((sub) => sub.id !== 'general')
+            .map((sub) => (
+              <button
+                key={sub.id}
+                onClick={() => {
+                  handleSubjectChange(sub.id);
+                }}
+                className={`px-1.5 py-1 text-[11px] font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between truncate text-left ${
+                  selectedSubjectId === sub.id
+                    ? 'bg-[#0F172A] text-white shadow-[1.5px_1.5px_0px_#FDE68A]'
+                    : 'bg-white text-[#0F172A] hover:bg-slate-50'
+                }`}
+                title={sub.name}
+              >
+                <span className="truncate">{sub.name}</span>
+                <span className="text-[9px] opacity-75 shrink-0 ml-1">{sub.code || 'SUB'}</span>
+              </button>
+            ))}
         </div>
 
         {/* Topic Input Row */}
@@ -1662,7 +1692,7 @@ export const AiTeacher: React.FC = () => {
               REAL-TIME VOICE
             </span>
             <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-[#FDE68A] text-[#0F172A] border border-[#0F172A] hidden sm:inline" title="Current Subject">
-              {currentSubject?.name || 'Science'}
+              {currentSubject?.name || 'General (All Subjects)'}
             </span>
           </div>
         </div>
@@ -1761,11 +1791,16 @@ export const AiTeacher: React.FC = () => {
                   onChange={(e) => handleSubjectChange(e.target.value)}
                   className="text-xs font-black bg-transparent text-[#0F172A] focus:outline-none cursor-pointer font-mono pr-1"
                 >
-                  {subjects.map((sub) => (
-                    <option key={sub.id} value={sub.id} className="font-bold text-[#0F172A] bg-white py-1">
-                      {sub.name}
-                    </option>
-                  ))}
+                  <option value="general" className="font-bold text-[#0F172A] bg-white py-1">
+                    General (All Subjects)
+                  </option>
+                  {subjects
+                    .filter((sub) => sub.id !== 'general')
+                    .map((sub) => (
+                      <option key={sub.id} value={sub.id} className="font-bold text-[#0F172A] bg-white py-1">
+                        {sub.name}
+                      </option>
+                    ))}
                 </select>
               </div>
 

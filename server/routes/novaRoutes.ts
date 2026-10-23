@@ -58,7 +58,7 @@ router.post('/teach-back', async (req: AuthenticatedRequest, res) => {
     }
 
     const effectiveStudentId = student_id || user?.id || 'stu-primary-001';
-    const effectiveSubjectId = subject_id || 'sub-sci';
+    const effectiveSubjectId = subject_id || 'general';
 
     const result = await teachBackEngine.evaluateExplanation({
       student_id: effectiveStudentId,
@@ -95,7 +95,7 @@ router.post('/study-session/start', (req: AuthenticatedRequest, res) => {
     school_id: student?.school_id || 'SCH001',
     class_id: student?.class_id,
     section_id: student?.section_id,
-    subject_id: subject_id || 'sub-sci',
+    subject_id: subject_id || 'general',
     topic: topic || 'General Study',
     activity_type: activity_type || 'ai_interaction',
     started_at: new Date().toISOString(),

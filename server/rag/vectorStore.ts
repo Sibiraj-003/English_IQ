@@ -55,22 +55,22 @@ export class VectorStore {
   }
 
   /**
-   * Search textbook chunks with STRICT class and book filtering.
-   * NEVER returns chunks from another class or another book.
+   * Search textbook chunks with class and optional book filtering.
+   * When book_id is omitted, searches across all books belonging to the student's class.
    */
   search(params: {
     query: string;
     class_id: string;
-    book_id: string;
+    book_id?: string;
     limit?: number;
     threshold?: number;
   }): RetrievalResult[] {
     const { query, class_id, book_id, limit = 4, threshold = 0.15 } = params;
     const queryEmbedding = EmbeddingGenerator.generateEmbedding(query);
 
-    // Strict Curriculum Isolation: only evaluate chunks belonging to the EXACT class_id and book_id
+    // Curriculum Isolation: evaluate chunks belonging to the class_id and optionally book_id
     const isolatedChunks = this.chunks.filter(
-      (chunk) => chunk.class_id === class_id && chunk.book_id === book_id
+      (chunk) => chunk.class_id === class_id && (!book_id || chunk.book_id === book_id)
     );
 
     const scored = isolatedChunks.map((chunk) => {
