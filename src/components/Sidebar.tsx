@@ -25,7 +25,9 @@ import {
   Clock,
   Briefcase,
   UserCheck,
+  User,
   ChevronLeft,
+  ChevronRight,
   History,
   Plus,
   Trash2,
@@ -138,7 +140,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { to: '/student/tests', label: 'Test Center', icon: ClipboardCheck },
     { to: '/student/progress', label: 'Mastery & Growth', icon: TrendingUp, badge: 'AI' },
     { to: '/student/achievements', label: 'Badges & Honors', icon: Award },
-    { to: '/student/profile', label: 'Student Profile', icon: UserCheck, badge: 'ID' },
   ];
 
   const links =
@@ -366,21 +367,72 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Sidebar Footer info */}
-        <div className="p-3 border-t-2 border-[#0F172A] bg-[#F8FAFC]">
-          <div className="text-[10px] text-slate-500 font-bold flex justify-between items-center mb-1">
-            <span>ROLE_MODE:</span>
-            <div className="flex items-center gap-1">
-              {user?.id_number && (
-                <span className="text-[9px] px-1 py-0.2 bg-[#FDE68A] text-[#0F172A] font-extrabold border border-[#0F172A]">
-                  {user.id_number}
-                </span>
-              )}
-              <span className="text-[#0F172A] font-extrabold uppercase">{role}</span>
+        {/* Sidebar Footer: Student Profile Card (Moved here in place of ROLE_MODE) */}
+        <div className="p-2.5 border-t-2 border-[#0F172A] bg-[#F8FAFC] space-y-1.5 shrink-0">
+          {role === 'student' ? (
+            <NavLink
+              to="/student/profile"
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center justify-between p-2 border-2 transition-all group ${
+                  isActive
+                    ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-[2.5px_2.5px_0px_#C4B5FD]'
+                    : 'bg-white text-[#0F172A] border-[#0F172A] shadow-[2px_2px_0px_#0F172A] hover:bg-[#FEF9C3] hover:shadow-[3px_3px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px]'
+                }`
+              }
+              title="View & Edit Student Profile"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                {user?.avatar_url ? (
+                  <img
+                    src={user.avatar_url}
+                    alt={user.full_name || 'Profile'}
+                    className="w-8 h-8 rounded-full border-2 border-[#0F172A] object-cover shrink-0 bg-[#FDE68A]"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full border-2 border-[#0F172A] bg-[#C4B5FD] flex items-center justify-center font-black text-xs shrink-0 text-[#0F172A]">
+                    {(user?.full_name || 'S').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 text-left">
+                  <p className="text-xs font-black truncate uppercase tracking-tight">
+                    {user?.full_name || 'Student'}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    {user?.id_number && (
+                      <span className="text-[9px] px-1 py-0.2 bg-[#FDE68A] text-[#0F172A] font-extrabold border border-[#0F172A] leading-none">
+                        {user.id_number}
+                      </span>
+                    )}
+                    <span className="text-[9px] font-bold text-slate-500 uppercase">
+                      Profile
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+            </NavLink>
+          ) : (
+            <div className="flex items-center justify-between p-2 bg-white border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-full border-2 border-[#0F172A] bg-[#C4B5FD] flex items-center justify-center font-black text-xs shrink-0 text-[#0F172A]">
+                  {(user?.full_name || role || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 text-left">
+                  <p className="text-xs font-black truncate uppercase tracking-tight text-[#0F172A]">
+                    {user?.full_name || 'User'}
+                  </p>
+                  <span className="text-[9px] font-extrabold px-1 py-0.2 bg-[#A7F3D0] text-[#0F172A] border border-[#0F172A] uppercase">
+                    {role}
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="text-[9px] text-slate-400 font-mono">
-            ENG-IQ ACADEMIC v1.0
+          )}
+
+          <div className="flex items-center justify-between px-1 text-[9px] text-slate-400 font-mono">
+            <span>ENG-IQ ACADEMIC v1.0</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" title="System Online" />
           </div>
         </div>
       </aside>
