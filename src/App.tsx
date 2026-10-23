@@ -56,6 +56,7 @@ import { StudentTestRunner } from './pages/student/StudentTestRunner';
 import { StudentTestResult } from './pages/student/StudentTestResult';
 import { StudentProgress } from './pages/student/StudentProgress';
 import { StudentAchievements } from './pages/student/StudentAchievements';
+import { StudentProfile } from './pages/student/StudentProfile';
 
 export const App: React.FC = () => {
   const { user, role } = useAuth();
@@ -192,6 +193,7 @@ export const App: React.FC = () => {
         <Route path="results/:id" element={<StudentTestResult />} />
         <Route path="progress" element={<StudentProgress />} />
         <Route path="achievements" element={<StudentAchievements />} />
+        <Route path="profile" element={<StudentProfile />} />
       </Route>
 
       {/* Root redirect */}

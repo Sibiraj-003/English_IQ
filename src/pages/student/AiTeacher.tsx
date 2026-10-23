@@ -7,6 +7,7 @@ import { NovaAvatar, NovaVoiceState } from '../../components/NovaAvatar';
 import { NovaRobotCompanion } from '../../components/NovaRobotCompanion';
 import { api } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { getPreferredFemaleVoice, cleanSpeechText } from '../../utils/novaVoice';
 import {
   NovaChatMessage,
   NovaAvatarExpression,
@@ -250,26 +251,12 @@ export const AiTeacher: React.FC = () => {
   // Preferred synthesized voice cache
   const cachedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
 
-  // Load available speech synthesis voices
+  // Load available speech synthesis voices (uses unified natural female voice engine)
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
 
     const updateVoices = () => {
-      const voices = window.speechSynthesis.getVoices();
-      if (!voices.length) return;
-      const best =
-        voices.find(
-          (v) =>
-            v.lang.startsWith('en') &&
-            (v.name.includes('Natural') ||
-              v.name.includes('Google') ||
-              v.name.includes('Samantha') ||
-              v.name.includes('Jenny') ||
-              v.name.includes('Aria'))
-        ) ||
-        voices.find((v) => v.lang.startsWith('en')) ||
-        voices[0];
-      cachedVoiceRef.current = best;
+      cachedVoiceRef.current = getPreferredFemaleVoice();
     };
 
     updateVoices();
@@ -299,20 +286,16 @@ export const AiTeacher: React.FC = () => {
       }
 
       // Clean out emojis and markdown symbols so speech engine pronounces clean sentences without reading emojis
-      const cleanText = stripEmojis(text)
-        .replace(/[*#_`~]/g, '')
-        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
-        .replace(/\n\n+/g, '. ')
-        .replace(/\n/g, ' ')
-        .trim();
+      const cleanText = cleanSpeechText(text);
 
       if (!cleanText) return;
 
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.rate = 1.0;
       utterance.pitch = 1.05;
-      if (cachedVoiceRef.current) {
-        utterance.voice = cachedVoiceRef.current;
+      const femaleVoice = cachedVoiceRef.current || getPreferredFemaleVoice();
+      if (femaleVoice) {
+        utterance.voice = femaleVoice;
       }
 
       utterance.onstart = () => {

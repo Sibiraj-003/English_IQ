@@ -136,8 +136,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { to: '/student/lessons', label: 'Curriculum Units', icon: BookOpen },
     { to: '/student/practice', label: 'Targeted Practice', icon: Sparkles },
     { to: '/student/tests', label: 'Test Center', icon: ClipboardCheck },
-    { to: '/student/progress', label: 'Mastery & Profile', icon: TrendingUp, badge: 'AI' },
+    { to: '/student/progress', label: 'Mastery & Growth', icon: TrendingUp, badge: 'AI' },
     { to: '/student/achievements', label: 'Badges & Honors', icon: Award },
+    { to: '/student/profile', label: 'Student Profile', icon: UserCheck, badge: 'ID' },
   ];
 
   const links =

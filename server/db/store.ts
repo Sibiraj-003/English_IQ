@@ -23,6 +23,9 @@ export interface Profile {
   parent_name?: string;
   parent_phone?: string;
   avatar_url?: string;
+  bio?: string;
+  address?: string;
+  emergency_contact?: string;
   created_at: string;
   updated_at: string;
 }

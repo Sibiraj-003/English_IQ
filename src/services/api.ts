@@ -88,6 +88,32 @@ export const api = {
     return res.json();
   },
 
+  async updateProfile(data: Partial<UserProfile>): Promise<UserProfile> {
+    const res = await fetch(`${BASE_URL}/auth/profile`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update profile');
+    }
+    const result = await res.json();
+    return result.user;
+  },
+
+  async getProfile(): Promise<UserProfile> {
+    const res = await fetch(`${BASE_URL}/auth/me`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fetch profile');
+    }
+    const result = await res.json();
+    return result.user;
+  },
+
   // Health
   async getHealth(): Promise<{ status: string; groq_ai: string }> {
     const res = await fetch(`${BASE_URL}/health`);

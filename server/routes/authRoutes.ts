@@ -349,4 +349,67 @@ router.get('/me', (req, res) => {
   return res.json({ user: profile });
 });
 
+// PUT /api/auth/profile
+router.put('/profile', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const authHeader = req.headers.authorization;
+  const token = authHeader ? authHeader.replace('Bearer ', '') : '';
+  const tokenUserId = token.startsWith('token-') ? token.replace('token-', '') : '';
+  const targetId = userId || tokenUserId || req.body.id;
+
+  if (!targetId) {
+    return res.status(401).json({ error: 'Unauthorized: User ID required' });
+  }
+
+  const profileIdx = db.profiles.findIndex(
+    (p) =>
+      p.id === targetId ||
+      p.user_id === targetId ||
+      (req.body.id_number && p.id_number === req.body.id_number) ||
+      (req.body.email && p.email.toLowerCase() === req.body.email.toLowerCase())
+  );
+
+  if (profileIdx === -1) {
+    return res.status(404).json({ error: 'Profile not found' });
+  }
+
+  const existing = db.profiles[profileIdx];
+  const { full_name, phone, gender, dob, parent_name, parent_phone, avatar_url, bio, address } = req.body;
+
+  const updatedProfile: Profile = {
+    ...existing,
+    full_name: full_name !== undefined ? full_name.trim() : existing.full_name,
+    phone: phone !== undefined ? phone.trim() : existing.phone,
+    gender: gender !== undefined ? gender : existing.gender,
+    dob: dob !== undefined ? dob : existing.dob,
+    parent_name: parent_name !== undefined ? parent_name.trim() : existing.parent_name,
+    parent_phone: parent_phone !== undefined ? parent_phone.trim() : existing.parent_phone,
+    avatar_url: avatar_url !== undefined ? avatar_url : existing.avatar_url,
+    bio: bio !== undefined ? bio.trim() : existing.bio,
+    address: address !== undefined ? address.trim() : existing.address,
+    updated_at: new Date().toISOString(),
+  };
+
+  db.profiles[profileIdx] = updatedProfile;
+
+  // Sync with Supabase public.profiles if configured
+  if (config.supabaseUrl && config.supabaseAnonKey) {
+    try {
+      const supabase = createClient(config.supabaseUrl, config.supabaseAnonKey);
+      await supabase
+        .from('profiles')
+        .update({
+          full_name: updatedProfile.full_name,
+          phone: updatedProfile.phone,
+          avatar_url: updatedProfile.avatar_url,
+        })
+        .eq('id', updatedProfile.id);
+    } catch (e) {
+      console.warn('Supabase profile update sync notice:', e);
+    }
+  }
+
+  return res.json({ success: true, user: updatedProfile });
+});
+
 export default router;

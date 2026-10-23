@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Volume2, VolumeX, LogOut, Cpu, Menu } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -11,6 +11,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { user, role, isGroqOnline, logout } = useAuth();
   const [sfxOn, setSfxOn] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Generate breadcrumb from path
   const getBreadcrumb = () => {
@@ -58,9 +59,19 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         </button>
 
         {/* User Profile Pill */}
-        <div className="flex items-center gap-2 px-3 py-1 bg-[#F8FAFC] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
+        <div
+          onClick={() => {
+            if (role === 'student') {
+              navigate('/student/profile');
+            }
+          }}
+          className={`flex items-center gap-2 px-3 py-1 bg-[#F8FAFC] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] ${
+            role === 'student' ? 'cursor-pointer hover:bg-[#FDE68A] transition-colors' : ''
+          }`}
+          title={role === 'student' ? 'Click to view Student Profile & Settings' : undefined}
+        >
           <div className="w-5 h-5 rounded-sm bg-[#C4B5FD] border border-[#0F172A] flex items-center justify-center font-bold text-[10px]">
-            {user?.full_name?.charAt(0) || 'U'}
+            {user?.avatar_url || user?.full_name?.charAt(0) || 'U'}
           </div>
           <span className="text-xs font-bold text-[#0F172A] hidden sm:inline max-w-[120px] truncate">
             {user?.full_name}

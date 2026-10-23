@@ -5,6 +5,7 @@ import { Nova3DAvatar } from './Nova3DAvatar';
 import { Nova3DState } from './novaAnimations';
 import { NovaVoiceState } from '../NovaAvatar';
 import { useAuth } from '../../contexts/AuthContext';
+import { speakWithNovaVoice } from '../../utils/novaVoice';
 import './Nova3DAvatar.css';
 
 // Classic DVD Screensaver palette cycling on wall collisions
@@ -123,28 +124,22 @@ export const NovaFloatingAssistant: React.FC = () => {
 
   const currentColor = DVD_GLOW_COLORS[activeColorIdx % DVD_GLOW_COLORS.length];
 
-  // Optional Voice Greeting on Click
+  // Voice Speech: Uses the EXACT same live female voice as NOVA AI Teacher
   const speakGreeting = useCallback((text: string) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.1;
-      utterance.pitch = 1.15;
-      utterance.onstart = () => {
+    speakWithNovaVoice(text, {
+      onStart: () => {
         setIsSpeaking(true);
         setAvatarState('speaking');
-      };
-      utterance.onend = () => {
+      },
+      onEnd: () => {
         setIsSpeaking(false);
         setAvatarState('idle');
-      };
-      utterance.onerror = () => {
+      },
+      onError: () => {
         setIsSpeaking(false);
         setAvatarState('idle');
-      };
-      window.speechSynthesis.speak(utterance);
-    } catch {}
+      },
+    });
   }, []);
 
   // Quick intro on first login: introduce 360° rotation and drag once

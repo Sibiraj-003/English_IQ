@@ -85,13 +85,22 @@ export const StudentDashboard: React.FC = () => {
           </p>
         </div>
 
-        <BrutalButton
-          variant="lavender"
-          onClick={() => navigate('/student/ai-teacher')}
-          icon={<Bot className="w-4 h-4" />}
-        >
-          [ DISCUSS WITH NOVA ]
-        </BrutalButton>
+        <div className="flex flex-wrap items-center gap-2">
+          <BrutalButton
+            variant="lavender"
+            onClick={() => navigate('/student/ai-teacher')}
+            icon={<Bot className="w-4 h-4" />}
+          >
+            [ DISCUSS WITH NOVA ]
+          </BrutalButton>
+          <BrutalButton
+            variant="white"
+            onClick={() => navigate('/student/profile')}
+            icon={<UserCheck className="w-4 h-4" />}
+          >
+            [ MY PROFILE ]
+          </BrutalButton>
+        </div>
       </div>
 
       {/* 4 Core Student KPI Cards */}

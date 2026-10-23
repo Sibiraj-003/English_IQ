@@ -22,6 +22,8 @@ interface AuthContextType {
   switchRole?: (newRole: 'teacher' | 'student') => void;
   selectClass: (classId: string) => void;
   selectChild: (childId: string) => void;
+  updateUser?: (updated: UserProfile | Partial<UserProfile>) => void;
+  updateProfile?: (data: Partial<UserProfile>) => Promise<UserProfile>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -421,6 +423,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateProfile = async (data: Partial<UserProfile>): Promise<UserProfile> => {
+    try {
+      const updated = await api.updateProfile(data);
+      setUser(updated);
+      localStorage.setItem('englishiq_user', JSON.stringify(updated));
+      return updated;
+    } catch (err) {
+      if (user) {
+        const locallyUpdated = { ...user, ...data };
+        setUser(locallyUpdated);
+        localStorage.setItem('englishiq_user', JSON.stringify(locallyUpdated));
+        return locallyUpdated;
+      }
+      throw err;
+    }
+  };
+
+  const updateUser = (updated: UserProfile | Partial<UserProfile>) => {
+    if (user) {
+      const merged = { ...user, ...updated };
+      setUser(merged);
+      localStorage.setItem('englishiq_user', JSON.stringify(merged));
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -434,6 +461,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         selectClass,
         selectChild,
+        updateUser,
+        updateProfile,
       }}
     >
       {children}

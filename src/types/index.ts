@@ -23,6 +23,9 @@ export interface UserProfile {
   gender?: string;
   parent_name?: string;
   parent_phone?: string;
+  bio?: string;
+  address?: string;
+  emergency_contact?: string;
   children?: StudentChild[];
   achievement_badges?: AchievementBadgeSummary[];
 }
@@ -193,6 +196,7 @@ export interface StudentProgressData {
   total_lessons_count?: number;
   remaining_lessons_count?: number;
   average_score: number;
+  study_time_minutes?: number;
   current_streak_days: number;
   recent_attempts: StudentAttempt[];
   topic_mastery: { topic: string; accuracy: number; totalQuestions: number }[];
