@@ -16,43 +16,10 @@ import {
   Minimize2,
   RefreshCw,
   Lightbulb,
-  Boxes,
 } from 'lucide-react';
 import { NovaAvatarExpression, CameraAnalysisResult } from '../types';
 import { NovaAvatar, NovaVoiceState, NovaState } from './NovaAvatar';
-import { Nova3DAvatar } from './nova/Nova3DAvatar';
-import { Nova3DState } from './nova/novaAnimations';
 
-interface ErrorBoundaryProps {
-  fallback: React.ReactNode;
-  children: React.ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-}
-
-class NovaAvatarErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(): ErrorBoundaryState {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: any, errorInfo: any) {
-    console.error('Nova 3D Avatar runtime error caught by boundary:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback;
-    }
-    return this.props.children;
-  }
-}
 
 interface NovaRobotCompanionProps {
   expression?: NovaAvatarExpression;
@@ -84,23 +51,6 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
   onHidePanel,
 }) => {
   const [showWebcamPreview, setShowWebcamPreview] = useState(true);
-  const [viewMode, setViewMode] = useState<'3d' | '2d'>(() => {
-    try {
-      return localStorage.getItem('nova_avatar_view_mode') === '2d' ? '2d' : '3d';
-    } catch {
-      return '3d';
-    }
-  });
-
-  const toggleViewMode = () => {
-    setViewMode((prev) => {
-      const next = prev === '3d' ? '2d' : '3d';
-      try {
-        localStorage.setItem('nova_avatar_view_mode', next);
-      } catch {}
-      return next;
-    });
-  };
 
   // Effective voice state
   const effectiveState: NovaVoiceState =
@@ -129,22 +79,6 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
     avatarState = 'happy';
   } else if (expression === 'concerned') {
     avatarState = 'confused';
-  }
-
-  // Resolve Nova3DState
-  let nova3dState: Nova3DState = 'idle';
-  if (isSpeaking || effectiveState === 'speaking') {
-    nova3dState = 'speaking';
-  } else if (effectiveState === 'listening') {
-    nova3dState = 'listening';
-  } else if (isThinking || effectiveState === 'thinking') {
-    nova3dState = 'thinking';
-  } else if (reaction === 'confused' || expression === 'concerned') {
-    nova3dState = 'confused';
-  } else if (reaction === 'happy' || expression === 'celebrating') {
-    nova3dState = 'happy';
-  } else if (expression === 'encouraging') {
-    nova3dState = 'success';
   }
 
   const confidence = cameraAnalysis?.reaction_confidence
@@ -226,19 +160,6 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* 3D / 2D Avatar Toggle Button */}
-          <button
-            onClick={toggleViewMode}
-            className={`px-2 py-1 border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer text-[10px] font-black flex items-center gap-1 shrink-0 leading-none transition-all ${
-              viewMode === '3d'
-                ? 'bg-[#FDE68A] hover:bg-[#FCD34D] text-[#0F172A]'
-                : 'bg-white hover:bg-slate-100 text-slate-700'
-            }`}
-            title="Switch between 3D Mini Robot and 2D Vector Avatar"
-          >
-            <Boxes className="w-3.5 h-3.5" />
-            <span>{viewMode === '3d' ? '3D' : '2D'}</span>
-          </button>
 
           {/* Camera Toggle Button */}
           <button
@@ -285,55 +206,26 @@ export const NovaRobotCompanion: React.FC<NovaRobotCompanionProps> = ({
 
       {!isCompact ? (
         <>
-          {/* 2. MAIN ROBOT AVATAR DISPLAY (3D OR 2D) */}
-          <div className="relative bg-[#FEFCE8] border-b-2 border-[#0F172A] flex flex-col items-center justify-center shrink-0 overflow-hidden">
+          {/* 2. MAIN 2D VECTOR AI COMPANION DISPLAY */}
+          <div className="relative bg-[#FEFCE8] border-b-2 border-[#0F172A] flex flex-col items-center justify-center p-3.5 shrink-0 overflow-hidden min-h-[145px]">
             {/* Neo-brutalist corner brackets */}
             <div className="absolute top-2 left-2 w-2 h-2 bg-[#0F172A] z-20 pointer-events-none" />
             <div className="absolute top-2 right-2 w-2 h-2 bg-[#0F172A] z-20 pointer-events-none" />
             <div className="absolute bottom-2 left-2 w-2 h-2 bg-[#0F172A] z-20 pointer-events-none" />
             <div className="absolute bottom-2 right-2 w-2 h-2 bg-[#0F172A] z-20 pointer-events-none" />
 
-            {viewMode === '3d' ? (
-              <div className="w-full relative h-[270px]">
-                <NovaAvatarErrorBoundary
-                  fallback={
-                    <div className="relative z-10 p-3.5 flex flex-col items-center justify-center shrink-0">
-                      <NovaAvatar
-                        state={avatarState}
-                        size="md"
-                        speaking={effectiveState === 'speaking'}
-                        listening={effectiveState === 'listening'}
-                        showStatus={false}
-                        interactive={true}
-                        className="nova--companion"
-                      />
-                    </div>
-                  }
-                >
-                  <Nova3DAvatar
-                    state={nova3dState}
-                    isSpeaking={isSpeaking || effectiveState === 'speaking'}
-                    isThinking={isThinking || effectiveState === 'thinking'}
-                    cameraActive={cameraActive}
-                    height="270px"
-                    interactive={true}
-                  />
-                </NovaAvatarErrorBoundary>
-              </div>
-            ) : (
-              /* Robot Vector SVG Companion Display */
-              <div className="relative z-10 p-3.5 flex flex-col items-center justify-center shrink-0">
-                <NovaAvatar
-                  state={avatarState}
-                  size="md"
-                  speaking={effectiveState === 'speaking'}
-                  listening={effectiveState === 'listening'}
-                  showStatus={false}
-                  interactive={true}
-                  className="nova--companion"
-                />
-              </div>
-            )}
+            {/* Robot Vector SVG Companion Display */}
+            <div className="relative z-10 flex flex-col items-center justify-center shrink-0">
+              <NovaAvatar
+                state={avatarState}
+                size="md"
+                speaking={effectiveState === 'speaking'}
+                listening={effectiveState === 'listening'}
+                showStatus={false}
+                interactive={true}
+                className="nova--companion"
+              />
+            </div>
 
             {/* Pedagogy Emotion Thought Bubble (If student is confused or thinking) */}
             {reaction === 'confused' && (
