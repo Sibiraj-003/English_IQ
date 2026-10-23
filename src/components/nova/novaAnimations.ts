@@ -138,44 +138,44 @@ export class SpeechMouthController {
           this.currentShape = 'CLOSED';
       }
     } else {
-      // REAL-TIME SPEAKING: Procedural syllable generation with natural phoneme pacing
+      // REAL-TIME SPEAKING: Smooth, gentle syllable cadence avoiding rapid twitching
       this.syllableTimer -= delta;
       if (this.syllableTimer <= 0) {
         const pattern = Math.random();
-        if (pattern < 0.22) {
+        if (pattern < 0.28) {
           // Vowel A/O - Wide Open
-          this.targetOpenness = 0.75 + Math.random() * 0.25;
-          this.targetWidth = 1.1 + Math.random() * 0.2;
+          this.targetOpenness = 0.65;
+          this.targetWidth = 1.1;
           this.targetCurve = 0.3;
           this.currentShape = 'WIDE_OPEN';
-          this.syllableTimer = 0.12 + Math.random() * 0.08;
-        } else if (pattern < 0.55) {
+          this.syllableTimer = 0.22 + Math.random() * 0.08;
+        } else if (pattern < 0.65) {
           // Vowel E/I - Medium Open / Spread
-          this.targetOpenness = 0.45 + Math.random() * 0.25;
-          this.targetWidth = 1.25 + Math.random() * 0.15;
-          this.targetCurve = 0.4;
+          this.targetOpenness = 0.40;
+          this.targetWidth = 1.18;
+          this.targetCurve = 0.35;
           this.currentShape = 'MEDIUM_OPEN';
-          this.syllableTimer = 0.10 + Math.random() * 0.06;
-        } else if (pattern < 0.82) {
+          this.syllableTimer = 0.18 + Math.random() * 0.08;
+        } else if (pattern < 0.85) {
           // Consonant / Low Vowel - Small Open
-          this.targetOpenness = 0.20 + Math.random() * 0.20;
-          this.targetWidth = 0.95 + Math.random() * 0.15;
-          this.targetCurve = 0.2;
+          this.targetOpenness = 0.18;
+          this.targetWidth = 1.0;
+          this.targetCurve = 0.25;
           this.currentShape = 'SMALL_OPEN';
-          this.syllableTimer = 0.08 + Math.random() * 0.05;
+          this.syllableTimer = 0.16 + Math.random() * 0.06;
         } else {
-          // Bilabial Pause (M, B, P or micro-pause between words)
-          this.targetOpenness = 0.02;
-          this.targetWidth = 0.9;
+          // Pause between words
+          this.targetOpenness = 0.04;
+          this.targetWidth = 0.95;
           this.targetCurve = 0.25;
           this.currentShape = 'CLOSED';
-          this.syllableTimer = 0.06 + Math.random() * 0.05;
+          this.syllableTimer = 0.14 + Math.random() * 0.06;
         }
       }
     }
 
     // Smooth cubic interpolation (avoids jerky snapping)
-    const lerpSpeed = isSpeaking ? 16.0 : 8.0;
+    const lerpSpeed = 8.0;
     this.currentOpenness += (this.targetOpenness - this.currentOpenness) * Math.min(1.0, delta * lerpSpeed);
     this.currentWidth += (this.targetWidth - this.currentWidth) * Math.min(1.0, delta * lerpSpeed);
     this.currentCurve += (this.targetCurve - this.currentCurve) * Math.min(1.0, delta * lerpSpeed);

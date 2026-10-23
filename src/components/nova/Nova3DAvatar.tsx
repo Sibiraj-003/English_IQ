@@ -369,9 +369,9 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
             const robot = robotGroupRef.current;
 
             if (!reducedMotion) {
-              // Enhanced Anti-Gravity Levitation: multi-harmonic floating oscillation
-              const floatFreq = currentlySpeaking ? 3.6 : currentlyThinking ? 1.6 : 2.2;
-              const floatAmp = currentlySpeaking ? 0.085 : 0.07;
+              // Smooth Anti-Gravity Levitation: calm, continuous harmonic floating oscillation
+              const floatFreq = currentlyThinking ? 1.6 : 2.0;
+              const floatAmp = 0.065;
               let posY =
                 Math.sin(elapsedTime * floatFreq) * floatAmp +
                 Math.sin(elapsedTime * (floatFreq * 1.6)) * (floatAmp * 0.22);
@@ -381,11 +381,7 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
               let rotX = -mousePosRef.current.y + Math.cos(elapsedTime * (floatFreq * 0.8)) * 0.025;
               let rotZ = Math.sin(elapsedTime * (floatFreq * 0.6)) * 0.035;
 
-              if (currentlySpeaking) {
-                const nod = Math.sin(elapsedTime * 11);
-                rotX += nod * 0.07;
-                posY += Math.abs(nod) * 0.04;
-              }
+              // Speaking nod/jitter removed: robot maintains smooth floating without erratic movement while answering
 
               if (currentlyThinking) {
                 rotZ += 0.12 * Math.sin(elapsedTime * 1.8);
@@ -430,7 +426,7 @@ export const Nova3DAvatar: React.FC<Nova3DAvatarProps> = ({
             const glow = glowLightRef.current;
             if (currentlySpeaking) {
               glow.color.setHex(0xa855f7);
-              glow.intensity = 3.0 + Math.sin(elapsedTime * 8) * 1.5;
+              glow.intensity = 2.6 + Math.sin(elapsedTime * 2.5) * 0.4;
             } else if (currentlyThinking) {
               glow.color.setHex(0xf59e0b);
               glow.intensity = 2.2 + Math.sin(elapsedTime * 4) * 0.8;
