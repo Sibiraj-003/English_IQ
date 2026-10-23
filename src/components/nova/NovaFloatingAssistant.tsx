@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sparkles, Mic, Brain, Volume2 } from 'lucide-react';
+import { Sparkles, Mic, Brain, Volume2, Pin } from 'lucide-react';
 import { Nova3DAvatar } from './Nova3DAvatar';
 import { Nova3DState } from './novaAnimations';
 import { NovaVoiceState } from '../NovaAvatar';
@@ -37,6 +37,17 @@ export const NovaFloatingAssistant: React.FC = () => {
     const handlePanelState = (e: any) => {
       if (e?.detail && typeof e.detail.isHidden === 'boolean') {
         setIsPanelHidden(e.detail.isHidden);
+      }
+      if (e?.detail && e.detail.resetPosition) {
+        posRef.current = {
+          x: Math.max(40, Math.floor((window.innerWidth || 1200) * 0.4)),
+          y: Math.max(40, Math.floor((window.innerHeight || 800) * 0.2)),
+        };
+        setIsPinned(false);
+        isPinnedRef.current = false;
+        try {
+          localStorage.removeItem('nova_companion_pinned');
+        } catch {}
       }
     };
     window.addEventListener('nova_companion_panel_state', handlePanelState);
@@ -124,6 +135,21 @@ export const NovaFloatingAssistant: React.FC = () => {
 
   const currentColor = DVD_GLOW_COLORS[activeColorIdx % DVD_GLOW_COLORS.length];
 
+  // Pinning state: Triple-click locks Nova at the current screen position
+  const [isPinned, setIsPinned] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('nova_companion_pinned') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const isPinnedRef = useRef<boolean>(isPinned);
+  isPinnedRef.current = isPinned;
+
+  const clickHistoryRef = useRef<number[]>([]);
+  const singleClickTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const wasTripleClickRef = useRef<boolean>(false);
+
   // Voice Speech: Uses the EXACT same live female voice as NOVA AI Teacher
   const speakGreeting = useCallback((text: string) => {
     speakWithNovaVoice(text, {
@@ -141,6 +167,43 @@ export const NovaFloatingAssistant: React.FC = () => {
       },
     });
   }, []);
+
+  // Toggle Pinned Status: Locks Nova right at the clicked location
+  const togglePin = useCallback(() => {
+    setIsPinned((prev) => {
+      const next = !prev;
+      isPinnedRef.current = next;
+      try {
+        localStorage.setItem('nova_companion_pinned', String(next));
+      } catch {}
+
+      if (next) {
+        velRef.current = { vx: 0, vy: 0 };
+        const pinMsg = '📌 Pinned right here! Triple-click me anytime to unpin.';
+        setSpeechBubbleText(pinMsg);
+        setAvatarState('excited');
+        speakGreeting('Pinned right here!');
+        setTimeout(() => {
+          setSpeechBubbleText((curr) => (curr === pinMsg ? null : curr));
+          setAvatarState('idle');
+        }, 3500);
+      } else {
+        velRef.current = {
+          vx: (Math.random() > 0.5 ? 1 : -1) * 55,
+          vy: (Math.random() > 0.5 ? 1 : -1) * 45,
+        };
+        const unpinMsg = '🚀 Unpinned! Floating around your screen.';
+        setSpeechBubbleText(unpinMsg);
+        setAvatarState('happy');
+        speakGreeting('Unpinned! Floating around.');
+        setTimeout(() => {
+          setSpeechBubbleText((curr) => (curr === unpinMsg ? null : curr));
+          setAvatarState('idle');
+        }, 3500);
+      }
+      return next;
+    });
+  }, [speakGreeting]);
 
   // Quick intro on first login: introduce 360° rotation and drag once
   useEffect(() => {
@@ -218,6 +281,16 @@ export const NovaFloatingAssistant: React.FC = () => {
       // If user is currently dragging Nova directly with primary mouse or touch, pointer drag controls position
       if (isDraggingRef.current) {
         container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px) scale(1.03)`;
+        return;
+      }
+
+      // If user has pinned Nova in place via triple-click:
+      if (isPinnedRef.current) {
+        velRef.current.vx = 0;
+        velRef.current.vy = 0;
+        // Maintain smooth calm anti-gravity hovering while pinned in place
+        const hoverBob = Math.sin(now * 0.003) * 4.0;
+        container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y + hoverBob}px, 0px)`;
         return;
       }
 
@@ -302,11 +375,35 @@ export const NovaFloatingAssistant: React.FC = () => {
 
   // Dragging & Throw (Flick Physics) directly on the 3D model
   // LEFT-CLICK DRAGS NOVA ACROSS SCREEN
+  // TRIPLE-CLICK PINS NOVA RIGHT AT CLICK LOCATION
   // RIGHT-CLICK IS PRESERVED FOR 3D 360° ORBIT ROTATION
   const handleDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
     // Only handle primary button (left click = 0 or touch)
-    // If user clicked right mouse button (button 2), DO NOT DRAG - let OrbitControls rotate in 3D!
     if (e.button !== 0 && e.pointerType === 'mouse') return;
+
+    // Detect Triple-Click to Pin/Unpin right at this location
+    const now = performance.now();
+    clickHistoryRef.current = clickHistoryRef.current.filter((t) => now - t < 500);
+    clickHistoryRef.current.push(now);
+
+    if (e.detail === 3 || clickHistoryRef.current.length >= 3) {
+      wasTripleClickRef.current = true;
+      clickHistoryRef.current = [];
+      if (singleClickTimerRef.current) {
+        clearTimeout(singleClickTimerRef.current);
+        singleClickTimerRef.current = null;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      togglePin();
+      return;
+    }
+
+    // Cancel any pending single-click timer if another click arrived
+    if (singleClickTimerRef.current) {
+      clearTimeout(singleClickTimerRef.current);
+      singleClickTimerRef.current = null;
+    }
 
     // Prevent default browser drag selection & gestures
     e.preventDefault();
@@ -361,8 +458,8 @@ export const NovaFloatingAssistant: React.FC = () => {
         containerRef.current.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y}px, 0px) scale(1.03)`;
       }
 
-      const now = performance.now();
-      dragHistoryRef.current.push({ x: ev.clientX, y: ev.clientY, t: now });
+      const nowTime = performance.now();
+      dragHistoryRef.current.push({ x: ev.clientX, y: ev.clientY, t: nowTime });
       if (dragHistoryRef.current.length > 5) {
         dragHistoryRef.current.shift();
       }
@@ -377,9 +474,24 @@ export const NovaFloatingAssistant: React.FC = () => {
       isDraggingRef.current = false;
       lastTimeRef.current = performance.now();
 
-      // If user tapped without dragging, trigger greeting click
+      // If user tapped without dragging, trigger greeting click (debounced to avoid collision with double/triple click)
       if (!hasMovedRef.current) {
-        handleRobotClick();
+        if (wasTripleClickRef.current) {
+          wasTripleClickRef.current = false;
+          return;
+        }
+        if (singleClickTimerRef.current) clearTimeout(singleClickTimerRef.current);
+        singleClickTimerRef.current = setTimeout(() => {
+          if (clickHistoryRef.current.length <= 1) {
+            handleRobotClick();
+          }
+        }, 320);
+        return;
+      }
+
+      // If pinned, stay locked at the new dropped position without flick physics
+      if (isPinnedRef.current) {
+        velRef.current = { vx: 0, vy: 0 };
         return;
       }
 
@@ -579,18 +691,40 @@ export const NovaFloatingAssistant: React.FC = () => {
           </div>
         )}
 
+        {/* Pinned Pill Badge Indicator */}
+        {isPinned && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              togglePin();
+            }}
+            className="absolute -top-1.5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 px-2.5 py-0.5 bg-[#FDE68A] hover:bg-[#FCD34D] text-[#0F172A] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] text-[9px] font-black uppercase tracking-wider rounded-sm cursor-pointer select-none"
+            title="Nova is pinned here. Click or triple-click model to unpin."
+          >
+            <Pin className="w-2.5 h-2.5 fill-[#0F172A]" />
+            <span>PINNED</span>
+          </div>
+        )}
+
         {/* =========================================================================
             FULL 3D ROBOT MODEL CANVAS
             - Left click / touch drag: moves Nova across the screen (DVD freestyle)
+            - Triple click: PINS / UNPINS Nova right at the clicked spot
             - Right click hold & drag: rotates character 360° in 3D orbit
             - Double click: resets front angle
            ========================================================================= */}
         <div
           onPointerDown={handleDragStart}
           onDoubleClick={() => setResetKey((prev) => prev + 1)}
+          onClick={(e) => {
+            if (e.detail === 3) {
+              e.stopPropagation();
+              togglePin();
+            }
+          }}
           onContextMenu={(e) => e.preventDefault()}
           className="w-full flex-1 relative cursor-grab active:cursor-grabbing select-none"
-          title="Nova 3D • Right-click hold to rotate 360° • Left-click drag to move • Double-click to reset angle"
+          title="Nova 3D • Triple-click to PIN/UNPIN • Left-click drag to move • Right-click hold to rotate 360° • Double-click to reset angle"
         >
           <Nova3DAvatar
             key={`nova-3d-${resetKey}`}
