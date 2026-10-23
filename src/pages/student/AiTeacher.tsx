@@ -1947,8 +1947,8 @@ export const AiTeacher: React.FC = () => {
             {/* LEFT / CENTER: CONVERSATION STREAM WITH PROPORTIONAL, CRISP TYPOGRAPHY */}
             <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden bg-[#F8FAFC]">
               {/* SCROLLABLE CONVERSATION STREAM */}
-              <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-6 md:px-8 py-4 space-y-4">
-                <div className="max-w-4xl w-full mx-auto space-y-4">
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 space-y-4">
+                <div className="w-full space-y-4">
                   {messages.map((m) => {
                     const isCurrentlyPlaying = speakingMessageId === m.id;
                     return (
@@ -1961,10 +1961,10 @@ export const AiTeacher: React.FC = () => {
                         <div
                           className={`p-4 border-2 border-[#0F172A] transition-all rounded-xs ${
                             isCurrentlyPlaying
-                              ? 'border-indigo-600 bg-[#F5F3FF] shadow-[4px_4px_0px_#4338CA] max-w-2xl sm:max-w-3xl w-auto'
+                              ? 'border-indigo-600 bg-[#F5F3FF] shadow-[4px_4px_0px_#4338CA] w-full'
                               : m.sender === 'student'
-                              ? 'bg-[#0F172A] text-white shadow-[3px_3px_0px_#0F172A] max-w-xl w-auto ml-auto'
-                              : 'bg-white text-[#0F172A] shadow-[3px_3px_0px_#0F172A] max-w-2xl sm:max-w-3xl w-auto mr-auto'
+                              ? 'bg-[#0F172A] text-white shadow-[3px_3px_0px_#0F172A] max-w-xl sm:max-w-2xl w-auto ml-auto'
+                              : 'bg-white text-[#0F172A] shadow-[3px_3px_0px_#0F172A] w-full'
                           }`}
                         >
                           <div
@@ -2160,8 +2160,8 @@ export const AiTeacher: React.FC = () => {
               </div>
 
               {/* VOICE INTERACTION STATE BANNER (SLIM) */}
-              <div className="px-4 py-1.5 border-t-2 border-[#0F172A] bg-[#F1F5F9] shrink-0">
-                <div className="max-w-4xl w-full mx-auto flex items-center justify-between text-xs">
+              <div className="px-4 sm:px-5 py-1.5 border-t-2 border-[#0F172A] bg-[#F1F5F9] shrink-0">
+                <div className="w-full flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     {voiceState === 'listening' ? (
                       <>
@@ -2228,8 +2228,8 @@ export const AiTeacher: React.FC = () => {
               </div>
 
               {/* BOTTOM MESSAGE COMPOSER (ALWAYS PINNED & PROPORTIONATELY ALIGNED) */}
-              <div className="p-3 bg-white border-t-2 border-[#0F172A] shrink-0">
-                <div className="max-w-4xl w-full mx-auto flex items-center gap-2">
+              <div className="px-4 sm:px-5 py-3 bg-white border-t-2 border-[#0F172A] shrink-0">
+                <div className="w-full flex items-center gap-2">
                   <input
                     type="text"
                     value={input}
