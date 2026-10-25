@@ -136,23 +136,27 @@ export const AdminDashboard: React.FC = () => {
     setFormError('');
     setFormSuccess('');
 
-    const cleanId = teacherForm.idNumber.trim().toUpperCase();
-    if (!cleanId.startsWith('TCH')) {
-      setFormError('Teacher ID must start with "TCH" (e.g. TCH1001, TCH1002)');
-      return;
+    let cleanId = teacherForm.idNumber.trim().toUpperCase();
+    if (!cleanId) {
+      cleanId = `TCH${Math.floor(1000 + Math.random() * 9000)}`;
+    } else if (!cleanId.startsWith('TCH')) {
+      cleanId = `TCH${cleanId.replace(/\D/g, '') || Math.floor(1000 + Math.random() * 9000)}`;
     }
+
+    const email = teacherForm.email.trim().toLowerCase() || `${teacherForm.fullName.toLowerCase().replace(/\s+/g, '.')}@school.org`;
+    const password = teacherForm.password || 'Teacher@123';
 
     setSubmitting(true);
     try {
       const res = await api.createAdminUser({
         full_name: teacherForm.fullName,
-        email: teacherForm.email,
-        password: teacherForm.password,
+        email,
+        password,
         role: 'teacher',
         id_number: cleanId,
       });
 
-      setFormSuccess(`Teacher account created! ID: ${cleanId} // Password: ${teacherForm.password}`);
+      setFormSuccess(`Teacher account created! ID: ${cleanId} // Password: ${password}`);
       setTeacherForm({ fullName: '', email: '', password: '', idNumber: '' });
       setShowAddTeacherModal(false);
       await loadData();
@@ -169,29 +173,29 @@ export const AdminDashboard: React.FC = () => {
     setFormError('');
     setFormSuccess('');
 
-    const cleanId = studentForm.idNumber.trim().toUpperCase();
-    if (!cleanId.startsWith('STU')) {
-      setFormError('Student ID must start with "STU" (e.g. STU10001, STU10002)');
-      return;
+    let cleanId = studentForm.idNumber.trim().toUpperCase();
+    if (!cleanId) {
+      cleanId = `STU${Math.floor(20000 + Math.random() * 80000)}`;
+    } else if (!cleanId.startsWith('STU')) {
+      cleanId = `STU${cleanId.replace(/\D/g, '') || Math.floor(20000 + Math.random() * 80000)}`;
     }
 
-    if (!studentForm.classId) {
-      setFormError('Please select an enrolled class for the student');
-      return;
-    }
+    const classId = studentForm.classId || classes[0]?.id || 'CLS001';
+    const email = studentForm.email.trim().toLowerCase() || `${studentForm.fullName.toLowerCase().replace(/\s+/g, '.')}@student.org`;
+    const password = studentForm.password || 'Student@123';
 
     setSubmitting(true);
     try {
       const res = await api.createAdminUser({
         full_name: studentForm.fullName,
-        email: studentForm.email,
-        password: studentForm.password,
+        email,
+        password,
         role: 'student',
         id_number: cleanId,
-        class_id: studentForm.classId,
+        class_id: classId,
       });
 
-      setFormSuccess(`Student account enrolled! ID: ${cleanId} // Password: ${studentForm.password}`);
+      setFormSuccess(`Student account enrolled! ID: ${cleanId} // Password: ${password}`);
       setStudentForm((prev) => ({ ...prev, fullName: '', email: '', password: '', idNumber: '' }));
       setShowAddStudentModal(false);
       await loadData();

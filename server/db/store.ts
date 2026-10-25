@@ -217,7 +217,9 @@ export interface StudentFeeRecord {
   student_id: string;
   fee_structure_id: string;
   total_amount: number;
+  total_fee?: number;
   paid_amount: number;
+  pending_amount?: number;
   status: 'pending' | 'partial' | 'paid' | 'overdue';
   due_date: string;
   last_payment_date?: string;
@@ -232,6 +234,26 @@ export interface FeePayment {
   transaction_ref?: string;
   receipt_number: string;
   paid_at: string;
+}
+
+export interface PendingOnboardingAccount {
+  id: string;
+  name: string;
+  role: 'student' | 'teacher';
+  id_number: string;
+  email: string;
+  password: string;
+  class_id?: string;
+  class_name?: string;
+  section_id?: string;
+  section_name?: string;
+  parent_name?: string;
+  parent_phone?: string;
+  phone?: string;
+  subject?: string;
+  status: 'pending_login' | 'activated';
+  created_at: string;
+  activated_at?: string;
 }
 
 export interface SchoolNotification {
@@ -453,6 +475,8 @@ export interface Question {
 export interface Test {
   id: string;
   class_id: string;
+  section_id?: string;
+  subject_id?: string;
   book_id?: string;
   lesson_id?: string;
   title: string;
@@ -461,6 +485,8 @@ export interface Test {
   total_marks?: number;
   passing_marks?: number;
   duration_minutes: number;
+  scheduled_date?: string;
+  exam_timing?: string;
   published: boolean;
   question_ids?: string[];
   questions?: Question[];
@@ -552,20 +578,79 @@ export class DatabaseStore {
     { id: 'CLS012', name: 'Class 12', grade: 12, description: 'Higher Secondary Grade 12 - Senior Board Examinations', student_count: 0, avg_score: 0, created_at: new Date().toISOString() },
   ];
 
-  // 3. Dynamic Sections
+  // 3. Dynamic Sections (Four sections A, B, C, D for each class from 1st to 12th grade)
   sections: Section[] = [
-    // Class 1 Sections
+    // Class 1 (CLS001)
     { id: 'SEC-1A', school_id: 'SCH001', class_id: 'CLS001', name: 'A', full_name: '1-A', room_number: 'Room 101', capacity: 35, is_active: true, mentor_id: 'tch-primary-001', mentor_name: 'Priya Sharma (Teacher)', created_at: new Date().toISOString() },
     { id: 'SEC-1B', school_id: 'SCH001', class_id: 'CLS001', name: 'B', full_name: '1-B', room_number: 'Room 102', capacity: 35, is_active: true, mentor_id: 'tch-primary-004', mentor_name: 'Anitha George (Teacher)', created_at: new Date().toISOString() },
     { id: 'SEC-1C', school_id: 'SCH001', class_id: 'CLS001', name: 'C', full_name: '1-C', room_number: 'Room 103', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-1D', school_id: 'SCH001', class_id: 'CLS001', name: 'D', full_name: '1-D', room_number: 'Room 104', capacity: 35, is_active: true, created_at: new Date().toISOString() },
 
-    // Class 2 Sections
+    // Class 2 (CLS002)
     { id: 'SEC-2A', school_id: 'SCH001', class_id: 'CLS002', name: 'A', full_name: '2-A', room_number: 'Room 201', capacity: 35, is_active: true, mentor_id: 'tch-primary-002', mentor_name: 'Ravi Varma (Teacher)', created_at: new Date().toISOString() },
     { id: 'SEC-2B', school_id: 'SCH001', class_id: 'CLS002', name: 'B', full_name: '2-B', room_number: 'Room 202', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-2C', school_id: 'SCH001', class_id: 'CLS002', name: 'C', full_name: '2-C', room_number: 'Room 203', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-2D', school_id: 'SCH001', class_id: 'CLS002', name: 'D', full_name: '2-D', room_number: 'Room 204', capacity: 35, is_active: true, created_at: new Date().toISOString() },
 
-    // Class 3 Sections
+    // Class 3 (CLS003)
     { id: 'SEC-3A', school_id: 'SCH001', class_id: 'CLS003', name: 'A', full_name: '3-A', room_number: 'Room 301', capacity: 35, is_active: true, created_at: new Date().toISOString() },
     { id: 'SEC-3B', school_id: 'SCH001', class_id: 'CLS003', name: 'B', full_name: '3-B', room_number: 'Room 302', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-3C', school_id: 'SCH001', class_id: 'CLS003', name: 'C', full_name: '3-C', room_number: 'Room 303', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-3D', school_id: 'SCH001', class_id: 'CLS003', name: 'D', full_name: '3-D', room_number: 'Room 304', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+
+    // Class 4 (CLS004)
+    { id: 'SEC-4A', school_id: 'SCH001', class_id: 'CLS004', name: 'A', full_name: '4-A', room_number: 'Room 401', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-4B', school_id: 'SCH001', class_id: 'CLS004', name: 'B', full_name: '4-B', room_number: 'Room 402', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-4C', school_id: 'SCH001', class_id: 'CLS004', name: 'C', full_name: '4-C', room_number: 'Room 403', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-4D', school_id: 'SCH001', class_id: 'CLS004', name: 'D', full_name: '4-D', room_number: 'Room 404', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+
+    // Class 5 (CLS005)
+    { id: 'SEC-5A', school_id: 'SCH001', class_id: 'CLS005', name: 'A', full_name: '5-A', room_number: 'Room 501', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-5B', school_id: 'SCH001', class_id: 'CLS005', name: 'B', full_name: '5-B', room_number: 'Room 502', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-5C', school_id: 'SCH001', class_id: 'CLS005', name: 'C', full_name: '5-C', room_number: 'Room 503', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-5D', school_id: 'SCH001', class_id: 'CLS005', name: 'D', full_name: '5-D', room_number: 'Room 504', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+
+    // Class 6 (CLS006)
+    { id: 'SEC-6A', school_id: 'SCH001', class_id: 'CLS006', name: 'A', full_name: '6-A', room_number: 'Room 601', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-6B', school_id: 'SCH001', class_id: 'CLS006', name: 'B', full_name: '6-B', room_number: 'Room 602', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-6C', school_id: 'SCH001', class_id: 'CLS006', name: 'C', full_name: '6-C', room_number: 'Room 603', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-6D', school_id: 'SCH001', class_id: 'CLS006', name: 'D', full_name: '6-D', room_number: 'Room 604', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+
+    // Class 7 (CLS007)
+    { id: 'SEC-7A', school_id: 'SCH001', class_id: 'CLS007', name: 'A', full_name: '7-A', room_number: 'Room 701', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-7B', school_id: 'SCH001', class_id: 'CLS007', name: 'B', full_name: '7-B', room_number: 'Room 702', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-7C', school_id: 'SCH001', class_id: 'CLS007', name: 'C', full_name: '7-C', room_number: 'Room 703', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-7D', school_id: 'SCH001', class_id: 'CLS007', name: 'D', full_name: '7-D', room_number: 'Room 704', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+
+    // Class 8 (CLS008)
+    { id: 'SEC-8A', school_id: 'SCH001', class_id: 'CLS008', name: 'A', full_name: '8-A', room_number: 'Room 801', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-8B', school_id: 'SCH001', class_id: 'CLS008', name: 'B', full_name: '8-B', room_number: 'Room 802', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-8C', school_id: 'SCH001', class_id: 'CLS008', name: 'C', full_name: '8-C', room_number: 'Room 803', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-8D', school_id: 'SCH001', class_id: 'CLS008', name: 'D', full_name: '8-D', room_number: 'Room 804', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+
+    // Class 9 (CLS009)
+    { id: 'SEC-9A', school_id: 'SCH001', class_id: 'CLS009', name: 'A', full_name: '9-A', room_number: 'Room 901', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-9B', school_id: 'SCH001', class_id: 'CLS009', name: 'B', full_name: '9-B', room_number: 'Room 902', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-9C', school_id: 'SCH001', class_id: 'CLS009', name: 'C', full_name: '9-C', room_number: 'Room 903', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-9D', school_id: 'SCH001', class_id: 'CLS009', name: 'D', full_name: '9-D', room_number: 'Room 904', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+
+    // Class 10 (CLS010)
+    { id: 'SEC-10A', school_id: 'SCH001', class_id: 'CLS010', name: 'A', full_name: '10-A', room_number: 'Room 1001', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-10B', school_id: 'SCH001', class_id: 'CLS010', name: 'B', full_name: '10-B', room_number: 'Room 1002', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-10C', school_id: 'SCH001', class_id: 'CLS010', name: 'C', full_name: '10-C', room_number: 'Room 1003', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-10D', school_id: 'SCH001', class_id: 'CLS010', name: 'D', full_name: '10-D', room_number: 'Room 1004', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+
+    // Class 11 (CLS011)
+    { id: 'SEC-11A', school_id: 'SCH001', class_id: 'CLS011', name: 'A', full_name: '11-A', room_number: 'Room 1101', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-11B', school_id: 'SCH001', class_id: 'CLS011', name: 'B', full_name: '11-B', room_number: 'Room 1102', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-11C', school_id: 'SCH001', class_id: 'CLS011', name: 'C', full_name: '11-C', room_number: 'Room 1103', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-11D', school_id: 'SCH001', class_id: 'CLS011', name: 'D', full_name: '11-D', room_number: 'Room 1104', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+
+    // Class 12 (CLS012)
+    { id: 'SEC-12A', school_id: 'SCH001', class_id: 'CLS012', name: 'A', full_name: '12-A', room_number: 'Room 1201', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-12B', school_id: 'SCH001', class_id: 'CLS012', name: 'B', full_name: '12-B', room_number: 'Room 1202', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-12C', school_id: 'SCH001', class_id: 'CLS012', name: 'C', full_name: '12-C', room_number: 'Room 1203', capacity: 35, is_active: true, created_at: new Date().toISOString() },
+    { id: 'SEC-12D', school_id: 'SCH001', class_id: 'CLS012', name: 'D', full_name: '12-D', room_number: 'Room 1204', capacity: 35, is_active: true, created_at: new Date().toISOString() },
   ];
 
   // 4. Subjects Catalogue (Multi-Subject)
@@ -670,6 +755,60 @@ export class DatabaseStore {
       updated_at: new Date().toISOString(),
     },
 
+    // Teacher 5: K. Murugan (Tamil Faculty)
+    {
+      id: 'tch-primary-005',
+      user_id: 'TCH1005',
+      full_name: 'K. Murugan (Tamil Faculty)',
+      email: 'murugan.tamil@englishiq.app',
+      role: 'teacher',
+      id_number: 'TCH1005',
+      school_id: 'SCH001',
+      class_id: 'CLS001',
+      class_name: 'Class 1',
+      section_id: 'SEC-1A',
+      section_name: '1-A',
+      phone: '+91 94444 10005',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+
+    // Teacher 6: Meenakshi Sundaram (Social Science)
+    {
+      id: 'tch-primary-006',
+      user_id: 'TCH1006',
+      full_name: 'Meenakshi Sundaram (Social Studies)',
+      email: 'meenakshi.soc@englishiq.app',
+      role: 'teacher',
+      id_number: 'TCH1006',
+      school_id: 'SCH001',
+      class_id: 'CLS001',
+      class_name: 'Class 1',
+      section_id: 'SEC-1A',
+      section_name: '1-A',
+      phone: '+91 94444 10006',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+
+    // Teacher 7: Arun Prakash (Computer Science)
+    {
+      id: 'tch-primary-007',
+      user_id: 'TCH1007',
+      full_name: 'Arun Prakash (Computer Science)',
+      email: 'arun.cs@englishiq.app',
+      role: 'teacher',
+      id_number: 'TCH1007',
+      school_id: 'SCH001',
+      class_id: 'CLS001',
+      class_name: 'Class 1',
+      section_id: 'SEC-1A',
+      section_name: '1-A',
+      phone: '+91 94444 10007',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+
     // Student 1: Aarav Kumar (1-A)
     {
       id: 'stu-primary-001',
@@ -710,6 +849,50 @@ export class DatabaseStore {
       dob: '2018-08-22',
       parent_name: 'Lakshmi Narayanan',
       parent_phone: '+91 98888 22222',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+
+    // Student 5: Kavya Suresh (1-A)
+    {
+      id: 'stu-primary-005',
+      user_id: 'STU10005',
+      full_name: 'Kavya Suresh',
+      email: 'kavya.suresh@englishiq.app',
+      role: 'student',
+      id_number: 'STU10005',
+      school_id: 'SCH001',
+      class_id: 'CLS001',
+      class_name: 'Class 1',
+      section_id: 'SEC-1A',
+      section_name: '1-A',
+      batch: 'Batch 2025-2026',
+      gender: 'Female',
+      dob: '2018-09-12',
+      parent_name: 'Suresh Kumar',
+      parent_phone: '+91 98888 44444',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+
+    // Student 6: Vikram Aditya (1-A)
+    {
+      id: 'stu-primary-006',
+      user_id: 'STU10006',
+      full_name: 'Vikram Aditya',
+      email: 'vikram.aditya@englishiq.app',
+      role: 'student',
+      id_number: 'STU10006',
+      school_id: 'SCH001',
+      class_id: 'CLS001',
+      class_name: 'Class 1',
+      section_id: 'SEC-1A',
+      section_name: '1-A',
+      batch: 'Batch 2025-2026',
+      gender: 'Male',
+      dob: '2018-04-18',
+      parent_name: 'Aditya Narayan',
+      parent_phone: '+91 98888 55555',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -782,14 +965,20 @@ export class DatabaseStore {
 
   // 7. Teacher Assignments (Strict Scope: School + Class + Section + Subject)
   teacher_assignments: TeacherAssignment[] = [
-    // Priya Sharma: 1-A English
+    // Priya Sharma: 1-A English (Class Teacher)
     { id: 'ta-001', school_id: 'SCH001', teacher_id: 'tch-primary-001', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-eng', is_active: true, created_at: new Date().toISOString() },
+    // K. Murugan: 1-A Tamil
+    { id: 'ta-007', school_id: 'SCH001', teacher_id: 'tch-primary-005', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-tam', is_active: true, created_at: new Date().toISOString() },
     // Ravi Varma: 1-A Mathematics, 2-A Mathematics
     { id: 'ta-002', school_id: 'SCH001', teacher_id: 'tch-primary-002', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-mat', is_active: true, created_at: new Date().toISOString() },
     { id: 'ta-003', school_id: 'SCH001', teacher_id: 'tch-primary-002', class_id: 'CLS002', section_id: 'SEC-2A', subject_id: 'sub-mat', is_active: true, created_at: new Date().toISOString() },
     // Suresh Raina: 1-A Science, 1-B Science
     { id: 'ta-004', school_id: 'SCH001', teacher_id: 'tch-primary-003', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-sci', is_active: true, created_at: new Date().toISOString() },
     { id: 'ta-005', school_id: 'SCH001', teacher_id: 'tch-primary-003', class_id: 'CLS001', section_id: 'SEC-1B', subject_id: 'sub-sci', is_active: true, created_at: new Date().toISOString() },
+    // Meenakshi Sundaram: 1-A Social Science
+    { id: 'ta-008', school_id: 'SCH001', teacher_id: 'tch-primary-006', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-soc', is_active: true, created_at: new Date().toISOString() },
+    // Arun Prakash: 1-A Computer Science
+    { id: 'ta-009', school_id: 'SCH001', teacher_id: 'tch-primary-007', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-cs', is_active: true, created_at: new Date().toISOString() },
     // Anitha George: 1-B English
     { id: 'ta-006', school_id: 'SCH001', teacher_id: 'tch-primary-004', class_id: 'CLS001', section_id: 'SEC-1B', subject_id: 'sub-eng', is_active: true, created_at: new Date().toISOString() },
   ];
@@ -903,56 +1092,120 @@ export class DatabaseStore {
     { id: 'es-001', exam_id: 'exam-001', subject_id: 'sub-eng', exam_date: '2026-10-20', start_time: '09:30', duration_minutes: 60, max_marks: 50, passing_marks: 20 },
     { id: 'es-002', exam_id: 'exam-001', subject_id: 'sub-mat', exam_date: '2026-10-22', start_time: '09:30', duration_minutes: 60, max_marks: 50, passing_marks: 20 },
     { id: 'es-003', exam_id: 'exam-001', subject_id: 'sub-sci', exam_date: '2026-10-24', start_time: '09:30', duration_minutes: 60, max_marks: 50, passing_marks: 20 },
+    { id: 'es-004', exam_id: 'exam-001', subject_id: 'sub-tam', exam_date: '2026-10-18', start_time: '09:30', duration_minutes: 60, max_marks: 50, passing_marks: 20 },
+    { id: 'es-005', exam_id: 'exam-001', subject_id: 'sub-soc', exam_date: '2026-10-26', start_time: '09:30', duration_minutes: 60, max_marks: 50, passing_marks: 20 },
+    { id: 'es-006', exam_id: 'exam-001', subject_id: 'sub-cs', exam_date: '2026-10-28', start_time: '09:30', duration_minutes: 60, max_marks: 50, passing_marks: 20 },
   ];
 
-  // 14. Marks Entry
+  // 14. Marks Entry (Complete multi-subject evaluation for Class 1-A)
   marks: MarkEntry[] = [
-    // Aarav Kumar (1-A)
-    { id: 'mrk-001', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-eng', student_id: 'stu-primary-001', marks_obtained: 44, max_marks: 50, percentage: 88, grade: 'A', remarks: 'Very good vocabulary and grammar', entered_by: 'tch-primary-001', entered_at: new Date().toISOString() },
-    { id: 'mrk-002', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-mat', student_id: 'stu-primary-001', marks_obtained: 47, max_marks: 50, percentage: 94, grade: 'A+', remarks: 'Outstanding mathematical reasoning', entered_by: 'tch-primary-002', entered_at: new Date().toISOString() },
-    { id: 'mrk-003', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-sci', student_id: 'stu-primary-001', marks_obtained: 42, max_marks: 50, percentage: 84, grade: 'A', remarks: 'Good scientific concepts', entered_by: 'tch-primary-003', entered_at: new Date().toISOString() },
+    // 1. Aarav Kumar (1-A) - Roll #10001 (Total: 271/300 - 90.3% - Grade A+)
+    { id: 'mrk-001', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-tam', student_id: 'stu-primary-001', marks_obtained: 45, max_marks: 50, percentage: 90, grade: 'A+', remarks: 'Fluent Tamil reading and poetic expression', entered_by: 'tch-primary-005', entered_at: new Date().toISOString() },
+    { id: 'mrk-002', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-eng', student_id: 'stu-primary-001', marks_obtained: 44, max_marks: 50, percentage: 88, grade: 'A', remarks: 'Strong vocabulary and reading comprehension', entered_by: 'tch-primary-001', entered_at: new Date().toISOString() },
+    { id: 'mrk-003', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-mat', student_id: 'stu-primary-001', marks_obtained: 47, max_marks: 50, percentage: 94, grade: 'A+', remarks: 'Outstanding mental math and arithmetic accuracy', entered_by: 'tch-primary-002', entered_at: new Date().toISOString() },
+    { id: 'mrk-004', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-sci', student_id: 'stu-primary-001', marks_obtained: 42, max_marks: 50, percentage: 84, grade: 'A', remarks: 'Good scientific observational skills', entered_by: 'tch-primary-003', entered_at: new Date().toISOString() },
+    { id: 'mrk-005', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-soc', student_id: 'stu-primary-001', marks_obtained: 45, max_marks: 50, percentage: 90, grade: 'A+', remarks: 'Clear understanding of community helpers and history', entered_by: 'tch-primary-006', entered_at: new Date().toISOString() },
+    { id: 'mrk-006', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-cs', student_id: 'stu-primary-001', marks_obtained: 48, max_marks: 50, percentage: 96, grade: 'A+', remarks: 'Quick typing and logical puzzle solving', entered_by: 'tch-primary-007', entered_at: new Date().toISOString() },
 
-    // Diya Lakshmi (1-A)
-    { id: 'mrk-004', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-eng', student_id: 'stu-primary-002', marks_obtained: 48, max_marks: 50, percentage: 96, grade: 'A+', remarks: 'Top marks in English comprehension', entered_by: 'tch-primary-001', entered_at: new Date().toISOString() },
-    { id: 'mrk-005', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-mat', student_id: 'stu-primary-002', marks_obtained: 45, max_marks: 50, percentage: 90, grade: 'A+', remarks: 'Accurate calculations', entered_by: 'tch-primary-002', entered_at: new Date().toISOString() },
-    { id: 'mrk-006', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-sci', student_id: 'stu-primary-002', marks_obtained: 46, max_marks: 50, percentage: 92, grade: 'A+', remarks: 'Impressive diagrams and answers', entered_by: 'tch-primary-003', entered_at: new Date().toISOString() },
+    // 2. Diya Lakshmi (1-A) - Roll #10002 (Class Topper, Total: 283/300 - 94.3% - Grade A+)
+    { id: 'mrk-007', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-tam', student_id: 'stu-primary-002', marks_obtained: 48, max_marks: 50, percentage: 96, grade: 'A+', remarks: 'Exemplary Tamil handwriting and grammar', entered_by: 'tch-primary-005', entered_at: new Date().toISOString() },
+    { id: 'mrk-008', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-eng', student_id: 'stu-primary-002', marks_obtained: 48, max_marks: 50, percentage: 96, grade: 'A+', remarks: 'Top marks in English comprehension and recitation', entered_by: 'tch-primary-001', entered_at: new Date().toISOString() },
+    { id: 'mrk-009', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-mat', student_id: 'stu-primary-002', marks_obtained: 46, max_marks: 50, percentage: 92, grade: 'A+', remarks: 'Methodical step-by-step problem solver', entered_by: 'tch-primary-002', entered_at: new Date().toISOString() },
+    { id: 'mrk-010', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-sci', student_id: 'stu-primary-002', marks_obtained: 46, max_marks: 50, percentage: 92, grade: 'A+', remarks: 'Neat botanical diagrams and scientific concepts', entered_by: 'tch-primary-003', entered_at: new Date().toISOString() },
+    { id: 'mrk-011', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-soc', student_id: 'stu-primary-002', marks_obtained: 47, max_marks: 50, percentage: 94, grade: 'A+', remarks: 'Thorough knowledge of maps and social environment', entered_by: 'tch-primary-006', entered_at: new Date().toISOString() },
+    { id: 'mrk-012', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-cs', student_id: 'stu-primary-002', marks_obtained: 48, max_marks: 50, percentage: 96, grade: 'A+', remarks: 'Exceptional computer lab participation', entered_by: 'tch-primary-007', entered_at: new Date().toISOString() },
+
+    // 3. Kavya Suresh (1-A) - Roll #10005 (Total: 258/300 - 86.0% - Grade A)
+    { id: 'mrk-013', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-tam', student_id: 'stu-primary-005', marks_obtained: 46, max_marks: 50, percentage: 92, grade: 'A+', remarks: 'Expressive recitation and neat script', entered_by: 'tch-primary-005', entered_at: new Date().toISOString() },
+    { id: 'mrk-014', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-eng', student_id: 'stu-primary-005', marks_obtained: 42, max_marks: 50, percentage: 84, grade: 'A', remarks: 'Good grasp of phonics and story reading', entered_by: 'tch-primary-001', entered_at: new Date().toISOString() },
+    { id: 'mrk-015', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-mat', student_id: 'stu-primary-005', marks_obtained: 41, max_marks: 50, percentage: 82, grade: 'A', remarks: 'Good geometry and number sense', entered_by: 'tch-primary-002', entered_at: new Date().toISOString() },
+    { id: 'mrk-016', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-sci', student_id: 'stu-primary-005', marks_obtained: 44, max_marks: 50, percentage: 88, grade: 'A', remarks: 'Active experiment observations', entered_by: 'tch-primary-003', entered_at: new Date().toISOString() },
+    { id: 'mrk-017', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-soc', student_id: 'stu-primary-005', marks_obtained: 41, max_marks: 50, percentage: 82, grade: 'A', remarks: 'Good retention of cultural heritage topics', entered_by: 'tch-primary-006', entered_at: new Date().toISOString() },
+    { id: 'mrk-018', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-cs', student_id: 'stu-primary-005', marks_obtained: 44, max_marks: 50, percentage: 88, grade: 'A', remarks: 'Understands computer hardware and input devices', entered_by: 'tch-primary-007', entered_at: new Date().toISOString() },
+
+    // 4. Vikram Aditya (1-A) - Roll #10006 (Total: 247/300 - 82.3% - Grade A)
+    { id: 'mrk-019', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-tam', student_id: 'stu-primary-006', marks_obtained: 41, max_marks: 50, percentage: 82, grade: 'A', remarks: 'Good vocabulary building', entered_by: 'tch-primary-005', entered_at: new Date().toISOString() },
+    { id: 'mrk-020', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-eng', student_id: 'stu-primary-006', marks_obtained: 39, max_marks: 50, percentage: 78, grade: 'B', remarks: 'Improving spellings and grammar', entered_by: 'tch-primary-001', entered_at: new Date().toISOString() },
+    { id: 'mrk-021', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-mat', student_id: 'stu-primary-006', marks_obtained: 44, max_marks: 50, percentage: 88, grade: 'A', remarks: 'Strong mental addition and subtraction', entered_by: 'tch-primary-002', entered_at: new Date().toISOString() },
+    { id: 'mrk-022', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-sci', student_id: 'stu-primary-006', marks_obtained: 39, max_marks: 50, percentage: 78, grade: 'B', remarks: 'Inquisitive about living things', entered_by: 'tch-primary-003', entered_at: new Date().toISOString() },
+    { id: 'mrk-023', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-soc', student_id: 'stu-primary-006', marks_obtained: 40, max_marks: 50, percentage: 80, grade: 'A', remarks: 'Participates well in classroom discussions', entered_by: 'tch-primary-006', entered_at: new Date().toISOString() },
+    { id: 'mrk-024', school_id: 'SCH001', exam_id: 'exam-001', subject_id: 'sub-cs', student_id: 'stu-primary-006', marks_obtained: 44, max_marks: 50, percentage: 88, grade: 'A', remarks: 'Proficient mouse handling and keyboard keys', entered_by: 'tch-primary-007', entered_at: new Date().toISOString() },
   ];
 
-  // 15. Timetables (Conflict-free timetable for Section 1-A)
-  timetables: TimetableSlot[] = [
-    // Monday
-    { id: 'tt-001', school_id: 'SCH001', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-eng', teacher_id: 'tch-primary-001', day_of_week: 1, period_number: 1, start_time: '09:00', end_time: '09:45', room: '101' },
-    { id: 'tt-002', school_id: 'SCH001', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-mat', teacher_id: 'tch-primary-002', day_of_week: 1, period_number: 2, start_time: '09:45', end_time: '10:30', room: '101' },
-    { id: 'tt-003', school_id: 'SCH001', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-sci', teacher_id: 'tch-primary-003', day_of_week: 1, period_number: 3, start_time: '10:45', end_time: '11:30', room: '101' },
-    { id: 'tt-004', school_id: 'SCH001', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-soc', teacher_id: 'tch-primary-001', day_of_week: 1, period_number: 4, start_time: '11:30', end_time: '12:15', room: '101' },
-    { id: 'tt-005', school_id: 'SCH001', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-cs', teacher_id: 'tch-primary-003', day_of_week: 1, period_number: 5, start_time: '13:00', end_time: '13:45', room: 'Computer Lab' },
-    { id: 'tt-006', school_id: 'SCH001', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-tam', teacher_id: 'tch-primary-004', day_of_week: 1, period_number: 6, start_time: '13:45', end_time: '14:30', room: '101' },
-
-    // Tuesday
-    { id: 'tt-007', school_id: 'SCH001', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-mat', teacher_id: 'tch-primary-002', day_of_week: 2, period_number: 1, start_time: '09:00', end_time: '09:45', room: '101' },
-    { id: 'tt-008', school_id: 'SCH001', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-eng', teacher_id: 'tch-primary-001', day_of_week: 2, period_number: 2, start_time: '09:45', end_time: '10:30', room: '101' },
-    { id: 'tt-009', school_id: 'SCH001', class_id: 'CLS001', section_id: 'SEC-1A', subject_id: 'sub-sci', teacher_id: 'tch-primary-003', day_of_week: 2, period_number: 3, start_time: '10:45', end_time: '11:30', room: '101' },
-  ];
+  // 15. Timetables (Cleared so admin can freely allot classes for staff and students without collision alerts)
+  timetables: TimetableSlot[] = [];
 
   // 16. Fee Structures & Student Fees
   fee_structures: FeeStructure[] = [
     { id: 'fee-str-001', school_id: 'SCH001', class_id: 'CLS001', title: 'Term 1 Tuition & Academic Fee', amount: 15000, due_date: '2026-10-31', academic_year: '2025-2026' },
     { id: 'fee-str-002', school_id: 'SCH001', class_id: 'CLS001', title: 'Computer Lab & Activity Fee', amount: 3500, due_date: '2026-11-15', academic_year: '2025-2026' },
     { id: 'fee-str-003', school_id: 'SCH001', class_id: 'CLS002', title: 'Term 1 Tuition Fee (Grade 2)', amount: 16000, due_date: '2026-10-31', academic_year: '2025-2026' },
+    { id: 'fee-str-004', school_id: 'SCH001', class_id: 'CLS003', title: 'Term 1 Tuition Fee (Grade 3)', amount: 16500, due_date: '2026-10-31', academic_year: '2025-2026' },
+    { id: 'fee-str-005', school_id: 'SCH001', class_id: 'CLS004', title: 'Term 1 Tuition Fee (Grade 4)', amount: 17000, due_date: '2026-10-31', academic_year: '2025-2026' },
+    { id: 'fee-str-006', school_id: 'SCH001', class_id: 'CLS005', title: 'Term 1 Tuition Fee (Grade 5)', amount: 17500, due_date: '2026-10-31', academic_year: '2025-2026' },
+    { id: 'fee-str-007', school_id: 'SCH001', class_id: 'CLS006', title: 'Term 1 Tuition Fee (Grade 6)', amount: 18000, due_date: '2026-10-31', academic_year: '2025-2026' },
+    { id: 'fee-str-008', school_id: 'SCH001', class_id: 'CLS007', title: 'Term 1 Tuition Fee (Grade 7)', amount: 18500, due_date: '2026-10-31', academic_year: '2025-2026' },
+    { id: 'fee-str-009', school_id: 'SCH001', class_id: 'CLS008', title: 'Term 1 Tuition Fee (Grade 8)', amount: 19000, due_date: '2026-10-31', academic_year: '2025-2026' },
+    { id: 'fee-str-010', school_id: 'SCH001', class_id: 'CLS009', title: 'Term 1 Tuition Fee (Grade 9)', amount: 20000, due_date: '2026-10-31', academic_year: '2025-2026' },
+    { id: 'fee-str-011', school_id: 'SCH001', class_id: 'CLS010', title: 'Term 1 Tuition Fee (Grade 10)', amount: 21000, due_date: '2026-10-31', academic_year: '2025-2026' },
+    { id: 'fee-str-012', school_id: 'SCH001', class_id: 'CLS011', title: 'Term 1 Tuition Fee (Grade 11)', amount: 22000, due_date: '2026-10-31', academic_year: '2025-2026' },
+    { id: 'fee-str-013', school_id: 'SCH001', class_id: 'CLS012', title: 'Term 1 Tuition Fee (Grade 12)', amount: 24000, due_date: '2026-10-31', academic_year: '2025-2026' },
   ];
 
   student_fees: StudentFeeRecord[] = [
     // Aarav Kumar (1-A)
-    { id: 'sf-001', school_id: 'SCH001', student_id: 'stu-primary-001', fee_structure_id: 'fee-str-001', total_amount: 15000, paid_amount: 15000, status: 'paid', due_date: '2026-10-31', last_payment_date: '2026-09-28T10:00:00Z' },
-    { id: 'sf-002', school_id: 'SCH001', student_id: 'stu-primary-001', fee_structure_id: 'fee-str-002', total_amount: 3500, paid_amount: 0, status: 'pending', due_date: '2026-11-15' },
+    { id: 'sf-001', school_id: 'SCH001', student_id: 'stu-primary-001', fee_structure_id: 'fee-str-001', total_amount: 15000, total_fee: 15000, paid_amount: 15000, pending_amount: 0, status: 'paid', due_date: '2026-10-31', last_payment_date: '2026-09-28T10:00:00Z' },
+    { id: 'sf-002', school_id: 'SCH001', student_id: 'stu-primary-001', fee_structure_id: 'fee-str-002', total_amount: 3500, total_fee: 3500, paid_amount: 0, pending_amount: 3500, status: 'pending', due_date: '2026-11-15' },
+
+    // Diya Sharma (1-A)
+    { id: 'sf-004', school_id: 'SCH001', student_id: 'stu-primary-002', fee_structure_id: 'fee-str-001', total_amount: 15000, total_fee: 15000, paid_amount: 7500, pending_amount: 7500, status: 'partial', due_date: '2026-10-31', last_payment_date: '2026-10-05T09:00:00Z' },
 
     // Ananya Sharma (2-A)
-    { id: 'sf-003', school_id: 'SCH001', student_id: 'stu-primary-004', fee_structure_id: 'fee-str-003', total_amount: 16000, paid_amount: 8000, status: 'partial', due_date: '2026-10-31', last_payment_date: '2026-10-02T11:30:00Z' },
+    { id: 'sf-003', school_id: 'SCH001', student_id: 'stu-primary-004', fee_structure_id: 'fee-str-003', total_amount: 16000, total_fee: 16000, paid_amount: 8000, pending_amount: 8000, status: 'partial', due_date: '2026-10-31', last_payment_date: '2026-10-02T11:30:00Z' },
+
+    // Karthik Raja (1-A)
+    { id: 'sf-005', school_id: 'SCH001', student_id: 'stu-primary-005', fee_structure_id: 'fee-str-001', total_amount: 15000, total_fee: 15000, paid_amount: 0, pending_amount: 15000, status: 'pending', due_date: '2026-10-31' },
   ];
 
   fee_payments: FeePayment[] = [
     { id: 'pay-001', student_fee_id: 'sf-001', student_id: 'stu-primary-001', amount: 15000, payment_method: 'Online UPI', transaction_ref: 'UPI-9382103819', receipt_number: 'REC-2025-001', paid_at: '2026-09-28T10:00:00Z' },
     { id: 'pay-002', student_fee_id: 'sf-003', student_id: 'stu-primary-004', amount: 8000, payment_method: 'NetBanking', transaction_ref: 'NB-481920381', receipt_number: 'REC-2025-002', paid_at: '2026-10-02T11:30:00Z' },
+  ];
+
+  // 16b. Staged / Pending Onboarding Accounts (Waiting for user first login before DB entry)
+  pending_onboarding_accounts: PendingOnboardingAccount[] = [
+    {
+      id: 'pending-stu-20001',
+      name: 'Kavya Sundaram',
+      role: 'student',
+      id_number: 'STU20001',
+      email: 'kavya.s@student.org',
+      password: 'student20001',
+      class_id: 'CLS001',
+      class_name: 'Class 1',
+      section_id: 'SEC-1A',
+      section_name: '1-A',
+      parent_name: 'Sundaram V',
+      parent_phone: '+91-9123456780',
+      phone: '+91-9123456780',
+      status: 'pending_login',
+      created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+    },
+    {
+      id: 'pending-tch-2001',
+      name: 'Dr. Ananya Roy',
+      role: 'teacher',
+      id_number: 'TCH2001',
+      email: 'ananya.roy@school.org',
+      password: 'teacher2001',
+      phone: '+91-9876543210',
+      subject: 'English',
+      section_id: 'SEC-1A',
+      section_name: '1-A',
+      class_id: 'CLS001',
+      status: 'pending_login',
+      created_at: new Date(Date.now() - 3600000 * 3).toISOString(),
+    },
   ];
 
   // 17. Notifications
@@ -1684,12 +1937,13 @@ export class DatabaseStore {
         });
       }
 
-      // 3. Sync sections
+      // 3. Sync sections (merge Supabase sections while keeping all 48 default class sections A, B, C, D)
       const { data: dbSections } = await supabase.from('sections').select('*');
       if (dbSections && dbSections.length > 0) {
-        this.sections = dbSections.map((s) => {
+        dbSections.forEach((s) => {
           const cls = this.classes.find((c) => c.id === s.class_id);
-          return {
+          const idx = this.sections.findIndex((sec) => sec.id.toLowerCase() === s.id.toLowerCase());
+          const item = {
             id: s.id,
             school_id: s.school_id || 'SCH001',
             class_id: s.class_id,
@@ -1700,11 +1954,150 @@ export class DatabaseStore {
             is_active: s.is_active ?? true,
             created_at: s.created_at || new Date().toISOString(),
           };
+          if (idx >= 0) {
+            this.sections[idx] = item;
+          } else {
+            this.sections.push(item);
+          }
         });
       }
     } catch (err) {
       console.warn('DatabaseStore Supabase sync notice:', err);
     }
+  }
+
+  activatePendingAccount(idOrEmailOrUserId: string): Profile | null {
+    const query = idOrEmailOrUserId.trim().toLowerCase();
+    const pending = this.pending_onboarding_accounts.find(
+      (p) =>
+        p.id === idOrEmailOrUserId ||
+        p.email.toLowerCase() === query ||
+        p.id_number.toLowerCase() === query
+    );
+    if (!pending) return null;
+
+    // Check if already in db.profiles
+    let profile = this.profiles.find(
+      (p) =>
+        (p.id_number && p.id_number.toLowerCase() === pending.id_number.toLowerCase()) ||
+        (p.email && p.email.toLowerCase() === pending.email.toLowerCase())
+    );
+
+    if (!profile) {
+      const cls = pending.class_id ? this.classes.find((c) => c.id === pending.class_id) : undefined;
+      const sec = pending.section_id ? this.sections.find((s) => s.id === pending.section_id) : undefined;
+
+      profile = {
+        id: `${pending.role === 'student' ? 'stu' : 'tch'}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+        user_id: pending.id_number,
+        id_number: pending.id_number,
+        full_name: pending.name,
+        email: pending.email,
+        role: pending.role,
+        school_id: 'SCH001',
+        class_id: cls?.id || pending.class_id,
+        class_name: cls?.name || pending.class_name,
+        section_id: sec?.id || pending.section_id,
+        section_name: sec?.full_name || pending.section_name,
+        parent_name: pending.parent_name,
+        parent_phone: pending.parent_phone,
+        phone: pending.phone || pending.parent_phone,
+        batch: 'Batch 2025-2026',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      this.profiles.push(profile);
+
+      if (profile.role === 'student' && profile.class_id) {
+        if (cls) cls.student_count = (cls.student_count || 0) + 1;
+
+        // Auto-seed initial fee record in database
+        const feeStr = this.fee_structures.find((f) => f.class_id === profile!.class_id) || this.fee_structures[0];
+        if (feeStr && !this.student_fees.some((sf) => sf.student_id === profile!.id && sf.fee_structure_id === feeStr.id)) {
+          this.student_fees.push({
+            id: `sf-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+            school_id: 'SCH001',
+            student_id: profile!.id,
+            fee_structure_id: feeStr.id,
+            total_amount: feeStr.amount,
+            total_fee: feeStr.amount,
+            paid_amount: 0,
+            pending_amount: feeStr.amount,
+            status: 'pending',
+            due_date: feeStr.due_date,
+          });
+        }
+
+        // Link parent if parent details exist
+        if (pending.parent_name) {
+          const parentEmail = `${pending.parent_name.toLowerCase().replace(/\s+/g, '.')}@parents.org`;
+          let parent = this.profiles.find((p) => p.role === 'parent' && (p.email.toLowerCase() === parentEmail || (pending.parent_phone && p.phone === pending.parent_phone)));
+          if (!parent) {
+            const parId = `PAR${Math.floor(2000 + Math.random() * 8000)}`;
+            parent = {
+              id: `par-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+              user_id: parId,
+              id_number: parId,
+              full_name: pending.parent_name,
+              email: parentEmail,
+              role: 'parent',
+              school_id: 'SCH001',
+              phone: pending.parent_phone,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            this.profiles.push(parent);
+          }
+
+          if (!this.parent_students.some((ps) => ps.parent_id === parent!.id && ps.student_id === profile!.id)) {
+            this.parent_students.push({
+              id: `ps-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+              school_id: 'SCH001',
+              parent_id: parent.id,
+              student_id: profile.id,
+              relationship: 'Parent',
+              is_primary: true,
+            });
+          }
+        }
+      } else if (profile.role === 'teacher' && pending.subject && pending.section_id) {
+        const sub = this.subjects.find(
+          (s) =>
+            s.name.toLowerCase() === pending.subject!.toLowerCase() ||
+            s.id.toLowerCase() === pending.subject!.toLowerCase() ||
+            s.code?.toLowerCase() === pending.subject!.toLowerCase()
+        );
+        const sec = this.sections.find((s) => s.id === pending.section_id);
+        if (sub && sec) {
+          const already = this.teacher_assignments.some(
+            (ta) => ta.teacher_id === profile!.id && ta.section_id === sec.id && ta.subject_id === sub.id
+          );
+          if (!already) {
+            this.teacher_assignments.push({
+              id: `ta-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+              school_id: 'SCH001',
+              teacher_id: profile.id,
+              class_id: sec.class_id,
+              section_id: sec.id,
+              subject_id: sub.id,
+              is_active: true,
+              created_at: new Date().toISOString(),
+            });
+          }
+        }
+      }
+    }
+
+    pending.status = 'activated';
+    pending.activated_at = new Date().toISOString();
+
+    this.logActivity(
+      'AI_CHAT',
+      `First login: ${profile.full_name} (${profile.role.toUpperCase()} - ${profile.id_number}) activated and added to database.`
+    );
+
+    return profile;
   }
 }
 

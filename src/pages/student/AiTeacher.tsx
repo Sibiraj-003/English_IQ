@@ -15,7 +15,14 @@ import {
   TeachBackEvaluationResult,
   CameraAnalysisResult,
   NovaChatSession,
+  ExampleImage,
 } from '../../types';
+import {
+  getRealtimeExampleImage,
+  isGreetingOrTrivial,
+  isImageExplicitlyRequested,
+  cleanAIVisualResponse,
+} from '../../services/imageService';
 import {
   Send,
   Sparkles,
@@ -51,6 +58,9 @@ import {
   GraduationCap,
   Eye,
   EyeOff,
+  Image as ImageIcon,
+  ZoomIn,
+  ExternalLink,
 } from 'lucide-react';
 
 type InteractionChannel = 'text' | 'voice' | 'live';
@@ -94,11 +104,15 @@ export const AiTeacher: React.FC = () => {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('general');
   const [selectedTopic, setSelectedTopic] = useState<string>('General Learning');
 
-  // Pedagogical Mode: chat, teach_back, practice, quiz, revision
-  const [mode, setMode] = useState<'chat' | 'teach_back' | 'practice' | 'quiz' | 'revision'>('chat');
+  // Pedagogical Mode: chat, teach_back, practice, quiz, revision, visual
+  const [mode, setMode] = useState<'chat' | 'teach_back' | 'practice' | 'quiz' | 'revision' | 'visual'>('chat');
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentExpression, setCurrentExpression] = useState<NovaAvatarExpression>('greeting');
+
+  // Real-time External Example Images & Zoom Modal
+  const [selectedImageModal, setSelectedImageModal] = useState<ExampleImage | null>(null);
+  const [loadingImageMsgId, setLoadingImageMsgId] = useState<string | null>(null);
 
   // Teach-Back evaluation state
   const [teachBackResult, setTeachBackResult] = useState<TeachBackEvaluationResult | null>(null);
@@ -1014,6 +1028,47 @@ export const AiTeacher: React.FC = () => {
     showToast(`Switched subject to ${sub.name}`);
   };
 
+  // Fetch real-time visual example image from external web (Wikipedia / Educational Diagrams) for any message
+  const handleFetchImageForMessage = async (msgId: string, text: string) => {
+    if (loadingImageMsgId) return;
+    setLoadingImageMsgId(msgId);
+    try {
+      const currentSub = selectedSubjectId === 'general' ? undefined : subjects.find((s) => s.id === selectedSubjectId)?.name;
+      const exampleImage = await getRealtimeExampleImage(text, currentSub || selectedTopic);
+
+      if (!exampleImage) {
+        showToast('No relevant educational image found for this topic.');
+        return;
+      }
+
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msgId ? { ...m, exampleImage } : m))
+      );
+
+      setSessions((prev) => {
+        const updated = prev.map((s) => {
+          if (s.id === currentSessionIdRef.current) {
+            return {
+              ...s,
+              messages: s.messages.map((m) => (m.id === msgId ? { ...m, exampleImage } : m)),
+              updated_at: new Date().toISOString(),
+            };
+          }
+          return s;
+        });
+        saveSessionsToStorage(updated);
+        return updated;
+      });
+
+      showToast('Real-time external example image attached!');
+    } catch (err) {
+      console.warn('Failed to fetch image:', err);
+      showToast('Could not fetch real-time image.');
+    } finally {
+      setLoadingImageMsgId(null);
+    }
+  };
+
   // ==========================================
   // 7. SEND MESSAGE / SUBMIT TEACH-BACK
   // ==========================================
@@ -1046,6 +1101,11 @@ export const AiTeacher: React.FC = () => {
     setVoiceState('thinking');
     setCurrentExpression('thinking');
 
+    // Only fetch image if in Visual Mode OR student explicitly requested an image (and not a simple greeting)
+    const shouldFetchImage =
+      !isGreetingOrTrivial(textToSend) &&
+      (mode === 'visual' || isImageExplicitlyRequested(textToSend));
+
     // Teach-Back mode evaluation
     if (mode === 'teach_back') {
       try {
@@ -1062,8 +1122,20 @@ export const AiTeacher: React.FC = () => {
           result.understanding_score >= 80 ? 'celebrating' : 'encouraging';
         setCurrentExpression(expression);
 
-        const cleanFeedback = stripEmojis(result.feedback);
-        const cleanFollowUps = (result.follow_up_questions || []).map(stripEmojis);
+        const cleanFeedback = cleanAIVisualResponse(stripEmojis(result.feedback));
+        const cleanFollowUps = (result.follow_up_questions || []).map((q) => cleanAIVisualResponse(stripEmojis(q)));
+
+        let exampleImage: ExampleImage | undefined;
+        if (shouldFetchImage) {
+          try {
+            const currentSub = selectedSubjectId === 'general' ? undefined : subjects.find((s) => s.id === selectedSubjectId)?.name;
+            const historyCtx = messages.slice(-4).map((m) => m.text).join(' ');
+            const fetched = await getRealtimeExampleImage(textToSend, currentSub || selectedTopic, historyCtx);
+            if (fetched && fetched.url) {
+              exampleImage = fetched;
+            }
+          } catch {}
+        }
 
         const novaMsgId = `msg-nova-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
         const novaResponseMsg: NovaChatMessage = {
@@ -1072,6 +1144,7 @@ export const AiTeacher: React.FC = () => {
           text: cleanFeedback,
           expression,
           suggestedFollowUps: cleanFollowUps,
+          exampleImage,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
 
@@ -1105,7 +1178,7 @@ export const AiTeacher: React.FC = () => {
       return;
     }
 
-    // Standard Socratic Inquiry / Practice / Quiz Mode
+    // Standard Socratic Inquiry / Practice / Quiz / Visual Mode
     try {
       const historyPayload = messages.slice(-8).map((m) => ({
         sender: m.sender,
@@ -1126,8 +1199,23 @@ export const AiTeacher: React.FC = () => {
 
       setCurrentExpression(response.expression);
 
-      const cleanAnswer = stripEmojis(response.answer);
-      const cleanFollowUps = (response.suggestedFollowUps || []).map(stripEmojis);
+      const cleanAnswer = cleanAIVisualResponse(stripEmojis(response.answer));
+      const cleanFollowUps = (response.suggestedFollowUps || []).map((q) => cleanAIVisualResponse(stripEmojis(q)));
+
+      // Fetch or attach real-time example image when in visual mode or requested by student
+      let exampleImage: ExampleImage | undefined = response.exampleImage;
+      if (!exampleImage && shouldFetchImage) {
+        try {
+          const currentSub = selectedSubjectId === 'general' ? undefined : subjects.find((s) => s.id === selectedSubjectId)?.name;
+          const historyCtx = messages.slice(-4).map((m) => m.text).join(' ');
+          const fetched = await getRealtimeExampleImage(textToSend, currentSub || selectedTopic, historyCtx);
+          if (fetched && fetched.url) {
+            exampleImage = fetched;
+          }
+        } catch (imgErr) {
+          console.warn('Real-time image fetch note:', imgErr);
+        }
+      }
 
       const novaMsgId = `msg-nova-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const aiMsg: NovaChatMessage = {
@@ -1137,6 +1225,7 @@ export const AiTeacher: React.FC = () => {
         expression: response.expression,
         sourceBadge: response.sourceBadge,
         suggestedFollowUps: cleanFollowUps,
+        exampleImage,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -1652,6 +1741,21 @@ export const AiTeacher: React.FC = () => {
           >
             <span>3-Bullet Revision</span>
           </button>
+
+          <button
+            onClick={() => setMode('visual')}
+            className={`text-left px-2 py-1 text-[11px] font-bold border-2 border-[#0F172A] transition-all flex items-center justify-between ${
+              mode === 'visual'
+                ? 'bg-[#F472B6] text-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A]'
+                : 'bg-white text-[#0F172A] hover:bg-slate-50'
+            }`}
+          >
+            <div className="flex items-center gap-1.5">
+              <ImageIcon className="w-3.5 h-3.5 text-[#BE123C]" />
+              <span>Visual & Image Exploration</span>
+            </div>
+            <span className="text-[8px] font-extrabold px-1 bg-[#FBCFE8] border border-[#0F172A]">VISUAL</span>
+          </button>
         </div>
       </BrutalCard>
     </div>
@@ -1907,6 +2011,7 @@ export const AiTeacher: React.FC = () => {
                 </button>
               )}
 
+
               <button
                 onClick={() => {
                   const next = !audioEnabled;
@@ -1928,7 +2033,20 @@ export const AiTeacher: React.FC = () => {
             </div>
           </div>
 
-          {/* Sub-banner: Teach-Back or LIVE Voice Status */}
+          {/* Sub-banner: Visual Exploration / Teach-Back / LIVE Voice Status */}
+          {mode === 'visual' && (
+            <div className="bg-[#FFF1F2] border-b-2 border-[#0F172A] px-3 py-1 flex items-center justify-between text-[11px] shrink-0">
+              <div className="flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+                <span className="font-extrabold text-[#0F172A]">VISUAL & DIAGRAM EXPLORATION:</span>
+                <span className="text-slate-700 font-bold hidden sm:inline">
+                  Every explanation attaches real-time encyclopedia photos, diagrams & visual examples.
+                </span>
+              </div>
+              <Badge variant="pink">VISUAL</Badge>
+            </div>
+          )}
+
           {mode === 'teach_back' && (
             <div className="bg-[#FEFCE8] border-b-2 border-[#0F172A] px-3 py-1 flex items-center justify-between text-[11px] shrink-0">
               <div className="flex items-center gap-1.5">
@@ -2045,6 +2163,89 @@ export const AiTeacher: React.FC = () => {
                                 pageNumber={m.sourceBadge.pageNumber}
                                 lessonTitle={m.sourceBadge.lessonTitle}
                               />
+                            </div>
+                          )}
+
+                          {/* Real-time Example Image from External Website / Wikipedia / Diagrams */}
+                          {m.exampleImage && (
+                            <div className="mt-3 p-2.5 bg-[#FFF1F2] border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] space-y-2">
+                              <div className="flex items-center justify-between gap-2 border-b border-[#0F172A]/20 pb-1.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="px-1.5 py-0.5 bg-[#E11D48] text-white text-[9px] font-mono font-black uppercase tracking-wider shrink-0">
+                                    REALTIME WEB EXAMPLE
+                                  </span>
+                                  <span className="text-xs font-black text-[#0F172A] truncate">
+                                    {m.exampleImage.title}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => setSelectedImageModal(m.exampleImage!)}
+                                  className="p-1 bg-white hover:bg-[#FFE4E6] border border-[#0F172A] text-[#0F172A] transition-all shrink-0 cursor-pointer shadow-[1px_1px_0px_#0F172A]"
+                                  title="Click to zoom and view details"
+                                >
+                                  <ZoomIn className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              {/* Fitted Image Container - Full image fits with no cropping */}
+                              <div
+                                className="relative group cursor-pointer overflow-hidden border-2 border-[#0F172A] bg-slate-900/5 flex items-center justify-center p-1.5 min-h-[160px] max-h-[420px]"
+                                onClick={() => setSelectedImageModal(m.exampleImage!)}
+                              >
+                                <img
+                                  src={m.exampleImage.url}
+                                  alt={m.exampleImage.title}
+                                  loading="lazy"
+                                  className="max-h-[390px] max-w-full w-auto h-auto object-contain object-center group-hover:scale-[1.01] transition-transform duration-200 mx-auto"
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white font-mono text-xs font-black backdrop-blur-[1px]">
+                                  <ZoomIn className="w-4 h-4" />
+                                  <span>CLICK TO INSPECT FULLSCREEN</span>
+                                </div>
+                              </div>
+
+                              {m.exampleImage.caption && (
+                                <p className="font-sans text-xs text-slate-700 leading-snug">
+                                  {m.exampleImage.caption}
+                                </p>
+                              )}
+
+                              <div className="flex items-center justify-between text-[10px] font-mono text-slate-600 pt-1 border-t border-[#0F172A]/15">
+                                <span className="font-bold">
+                                  Source: <span className="text-[#0F172A] font-extrabold">{m.exampleImage.source}</span>
+                                </span>
+                                <a
+                                  href={m.exampleImage.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[#BE123C] hover:underline font-extrabold"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <span>EXTERNAL LINK</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Suggested Explorations / Follow-Up Questions */}
+                          {m.suggestedFollowUps && m.suggestedFollowUps.length > 0 && m.sender === 'nova' && (
+                            <div className="mt-3 pt-2 border-t border-slate-200">
+                              <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">
+                                SUGGESTED EXPLORATIONS:
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {m.suggestedFollowUps.map((q, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => handleSendMessage(q)}
+                                    disabled={loading}
+                                    className="text-left text-[11px] font-bold px-2 py-0.5 bg-[#FEFCE8] hover:bg-[#FDE68A] text-[#0F172A] border border-[#0F172A] shadow-[1px_1px_0px_#0F172A] transition-all cursor-pointer active:translate-x-[1px] active:translate-y-[1px]"
+                                  >
+                                    {q}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -2529,6 +2730,74 @@ export const AiTeacher: React.FC = () => {
               >
                 CLOSE
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Real-time Example Image Full-Screen Zoom Modal */}
+      {selectedImageModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+          onClick={() => setSelectedImageModal(null)}
+        >
+          <div
+            className="relative w-full max-w-3xl bg-white border-4 border-[#0F172A] shadow-[8px_8px_0px_#0F172A] p-4 space-y-3 font-mono max-h-[92vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b-2 border-[#0F172A] pb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <ImageIcon className="w-5 h-5 text-[#E11D48] shrink-0" />
+                <h3 className="font-extrabold text-sm text-[#0F172A] uppercase tracking-wider truncate">
+                  {selectedImageModal.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedImageModal(null)}
+                className="p-1 bg-white hover:bg-rose-200 border-2 border-[#0F172A] text-[#0F172A] font-black cursor-pointer shadow-[1px_1px_0px_#0F172A]"
+                title="Close image viewer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="border-3 border-[#0F172A] bg-slate-900 flex items-center justify-center overflow-hidden max-h-[65vh] p-2">
+              <img
+                src={selectedImageModal.url}
+                alt={selectedImageModal.title}
+                className="max-h-[62vh] max-w-full w-auto h-auto object-contain mx-auto"
+              />
+            </div>
+
+            {selectedImageModal.caption && (
+              <div className="p-2.5 bg-[#FFF1F2] border-2 border-[#0F172A]">
+                <p className="font-sans text-xs sm:text-sm text-[#0F172A] leading-relaxed font-semibold">
+                  {selectedImageModal.caption}
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1 border-t-2 border-[#0F172A]">
+              <span className="font-extrabold text-slate-700">
+                Source: <span className="text-[#0F172A] underline">{selectedImageModal.source}</span>
+              </span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={selectedImageModal.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-[#FDE68A] hover:bg-[#FCD34D] border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] font-extrabold text-xs text-[#0F172A]"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>OPEN ORIGINAL IMAGE</span>
+                </a>
+                <button
+                  onClick={() => setSelectedImageModal(null)}
+                  className="px-3 py-1 bg-white hover:bg-slate-100 border-2 border-[#0F172A] shadow-[1.5px_1.5px_0px_#0F172A] font-extrabold text-xs text-[#0F172A] cursor-pointer"
+                >
+                  CLOSE
+                </button>
+              </div>
             </div>
           </div>
         </div>

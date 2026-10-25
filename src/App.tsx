@@ -34,6 +34,7 @@ import { TeacherAttendance } from './pages/teacher/TeacherAttendance';
 import { TeacherHomework } from './pages/teacher/TeacherHomework';
 import { TeacherMarks } from './pages/teacher/TeacherMarks';
 import { TeacherMessages } from './pages/teacher/TeacherMessages';
+import { TeacherAiAssistant } from './pages/teacher/TeacherAiAssistant';
 
 // Parent Pages
 import { ParentDashboard } from './pages/parent/ParentDashboard';
@@ -119,8 +120,11 @@ export const App: React.FC = () => {
       >
         <Route index element={<Navigate to="/teacher/dashboard" replace />} />
         <Route path="dashboard" element={<TeacherDashboard />} />
+        <Route path="ai-assistant" element={<TeacherAiAssistant />} />
         <Route path="classroom" element={<TeacherClassroom />} />
         <Route path="classroom/:classId" element={<TeacherClassroom />} />
+        <Route path="navigation" element={<TeacherClassroom />} />
+        <Route path="navigation/:classId" element={<TeacherClassroom />} />
         <Route path="attendance" element={<TeacherAttendance />} />
         <Route path="homework" element={<TeacherHomework />} />
         <Route path="marks" element={<TeacherMarks />} />

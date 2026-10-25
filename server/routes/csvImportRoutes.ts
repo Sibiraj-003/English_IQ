@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db, Profile, TeacherAssignment, ParentStudent } from '../db/store.js';
+import { db, Profile, TeacherAssignment, ParentStudent, StudentFeeRecord, PendingOnboardingAccount } from '../db/store.js';
 import { requireAdmin, AuthenticatedRequest } from '../middleware/authScope.js';
 
 const router = Router();
@@ -11,37 +11,87 @@ interface CsvRowValidation {
   errors: string[];
 }
 
-function parseCsv(csvText: string): { headers: string[]; rows: Record<string, string>[] } {
-  const lines = csvText.trim().split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length < 2) return { headers: [], rows: [] };
+function normalizeHeader(h: string): string {
+  return h
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
 
-  const headers = lines[0].split(',').map((h) => h.trim().replace(/^["']|["']$/g, '').toLowerCase().replace(/\s+/g, '_'));
+function parseCsv(csvText: string): { originalHeaders: string[]; normalizedHeaders: string[]; rows: Record<string, string>[] } {
+  if (!csvText) return { originalHeaders: [], normalizedHeaders: [], rows: [] };
+
+  const lines = csvText.replace(/^\uFEFF/, '').trim().split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length < 2) return { originalHeaders: [], normalizedHeaders: [], rows: [] };
+
+  const originalHeaders = lines[0].split(',').map((h) => h.trim().replace(/^["']|["']$/g, ''));
+  const normalizedHeaders = originalHeaders.map(normalizeHeader);
   const rows: Record<string, string>[] = [];
 
   for (let i = 1; i < lines.length; i++) {
-    // Basic CSV splitting handling commas
     const parts = lines[i].split(',').map((p) => p.trim().replace(/^["']|["']$/g, ''));
     const rowObj: Record<string, string> = {};
-    headers.forEach((h, idx) => {
-      rowObj[h] = parts[idx] !== undefined ? parts[idx] : '';
+
+    normalizedHeaders.forEach((nh, idx) => {
+      rowObj[nh] = parts[idx] !== undefined ? parts[idx] : '';
+      // Also map original header verbatim for preview table column display
+      if (originalHeaders[idx]) {
+        rowObj[originalHeaders[idx]] = rowObj[nh];
+      }
     });
+
+    // Alias common variants
+    if (rowObj['student_id'] || rowObj['id_number'] || rowObj['user_id'] || rowObj['id']) {
+      rowObj['canonical_id'] = rowObj['student_id'] || rowObj['id_number'] || rowObj['user_id'] || rowObj['id'];
+    }
+    if (rowObj['teacher_id']) rowObj['canonical_teacher_id'] = rowObj['teacher_id'];
+    if (rowObj['parent_id']) rowObj['canonical_parent_id'] = rowObj['parent_id'];
+    if (rowObj['name'] || rowObj['full_name'] || rowObj['student_name'] || rowObj['teacher_name'] || rowObj['parent_name']) {
+      rowObj['canonical_name'] = rowObj['name'] || rowObj['full_name'] || rowObj['student_name'] || rowObj['teacher_name'] || rowObj['parent_name'];
+    }
+    if (rowObj['email'] || rowObj['mail'] || rowObj['email_address']) {
+      rowObj['canonical_email'] = (rowObj['email'] || rowObj['mail'] || rowObj['email_address']).toLowerCase();
+    }
+    if (rowObj['class'] || rowObj['class_name'] || rowObj['class_id'] || rowObj['grade']) {
+      rowObj['canonical_class'] = rowObj['class'] || rowObj['class_name'] || rowObj['class_id'] || rowObj['grade'];
+    }
+    if (rowObj['section'] || rowObj['section_name'] || rowObj['section_id']) {
+      rowObj['canonical_section'] = rowObj['section'] || rowObj['section_name'] || rowObj['section_id'];
+    }
+    if (rowObj['subject'] || rowObj['subject_name'] || rowObj['subject_id'] || rowObj['subject_code']) {
+      rowObj['canonical_subject'] = rowObj['subject'] || rowObj['subject_name'] || rowObj['subject_id'] || rowObj['subject_code'];
+    }
+
     rows.push(rowObj);
   }
 
-  return { headers, rows };
+  return { originalHeaders, normalizedHeaders, rows };
 }
 
-// POST /api/admin/csv-preview - Parses and validates CSV row-by-row before committing
-router.post('/csv-preview', requireAdmin, (req: AuthenticatedRequest, res) => {
-  const { csv_content, entity_type } = req.body;
+function normalizeDatasetType(rawType: string): 'student' | 'teacher' | 'parent' | 'teacher_assignment' | 'student_assignment' {
+  const t = (rawType || '').toLowerCase().trim();
+  if (t === 'teacher' || t === 'teachers') return 'teacher';
+  if (t === 'parent' || t === 'parents') return 'parent';
+  if (t === 'teacher_assignment' || t === 'assignments' || t === 'teacher_assignments') return 'teacher_assignment';
+  if (t === 'student_assignment' || t === 'student_assignments') return 'student_assignment';
+  return 'student';
+}
 
-  if (!csv_content || !entity_type) {
-    return res.status(400).json({ error: 'csv_content and entity_type (students | teachers | parents | assignments) are required' });
+// POST /api/csv-import/preview & /api/csv-import/csv-preview
+router.post(['/preview', '/csv-preview'], (req: AuthenticatedRequest, res) => {
+  const csvText = req.body.csv_text || req.body.csv_content || req.body.csvText || '';
+  const rawType = req.body.type || req.body.entity_type || req.body.dataset || 'student';
+  const entityType = normalizeDatasetType(rawType);
+
+  if (!csvText || !csvText.trim()) {
+    return res.status(400).json({ error: 'CSV content is required for preview.' });
   }
 
-  const { headers, rows } = parseCsv(csv_content);
+  const { originalHeaders, rows } = parseCsv(csvText);
   if (rows.length === 0) {
-    return res.status(400).json({ error: 'No data rows found in CSV' });
+    return res.status(400).json({ error: 'No data rows found in CSV. Please provide header row and at least 1 data row.' });
   }
 
   const validations: CsvRowValidation[] = [];
@@ -49,106 +99,107 @@ router.post('/csv-preview', requireAdmin, (req: AuthenticatedRequest, res) => {
   const seenIds = new Set<string>();
 
   rows.forEach((row, index) => {
-    const rowNum = index + 2; // +1 for 0-index, +1 for header line
+    const rowNum = index + 2;
     const errors: string[] = [];
 
-    if (entity_type === 'students') {
-      const name = row.name || row.full_name;
-      const email = row.email?.toLowerCase();
-      const idNumber = row.student_id || row.id_number;
-      const className = row.class || row.class_name;
-      const sectionName = row.section || row.section_name;
+    if (entityType === 'student') {
+      const name = row['canonical_name'];
+      const email = row['canonical_email'];
+      const idNum = row['canonical_id'];
+      const rawClass = row['canonical_class'];
+      const rawSection = row['canonical_section'];
 
       if (!name) errors.push('Missing Student Name');
-      if (!email) errors.push('Missing Email');
-      else if (!email.includes('@')) errors.push('Invalid email format');
-      else {
-        if (seenEmails.has(email) || db.profiles.some((p) => p.email.toLowerCase() === email)) {
-          errors.push(`Duplicate email: ${email}`);
+
+      if (email && !email.includes('@')) {
+        errors.push(`Invalid email format: ${email}`);
+      } else if (email) {
+        if (seenEmails.has(email)) {
+          errors.push(`Duplicate email in CSV: ${email}`);
         }
         seenEmails.add(email);
       }
 
-      if (idNumber) {
-        if (seenIds.has(idNumber) || db.profiles.some((p) => p.id_number === idNumber || p.user_id === idNumber)) {
-          errors.push(`Duplicate Student ID: ${idNumber}`);
+      if (idNum) {
+        if (seenIds.has(idNum.toUpperCase())) {
+          errors.push(`Duplicate Student ID in CSV: ${idNum}`);
         }
-        seenIds.add(idNumber);
+        seenIds.add(idNum.toUpperCase());
       }
 
-      if (!className) errors.push('Missing Class (e.g. Class 1 or 1)');
-      else {
+      if (rawClass) {
         const clsFound = db.classes.find(
-          (c) => c.name.toLowerCase() === className.toLowerCase() || c.grade.toString() === className.replace(/\D/g, '')
+          (c) =>
+            c.id.toLowerCase() === rawClass.toLowerCase() ||
+            c.name.toLowerCase() === rawClass.toLowerCase() ||
+            c.grade.toString() === rawClass.replace(/\D/g, '')
         );
-        if (!clsFound) errors.push(`Class "${className}" does not exist in system`);
+        if (!clsFound) {
+          errors.push(`Class "${rawClass}" does not match curriculum (e.g. CLS001, Class 1)`);
+        }
       }
 
-      if (sectionName) {
-        const secLetter = sectionName.trim().toUpperCase().replace(/.*-/, '');
-        const secFound = db.sections.some((s) => s.name === secLetter || s.full_name.toLowerCase() === sectionName.toLowerCase());
-        if (!secFound) errors.push(`Section "${sectionName}" not recognized`);
+      if (rawSection) {
+        const secClean = rawSection.trim().toUpperCase();
+        const secLetter = secClean.replace(/.*-/, '').replace(/.*\d+/, '');
+        const secFound = db.sections.some(
+          (s) =>
+            s.id.toLowerCase() === rawSection.toLowerCase() ||
+            s.full_name.toLowerCase() === rawSection.toLowerCase() ||
+            s.id.replace(/-/g, '').toLowerCase() === rawSection.replace(/-/g, '').toLowerCase() ||
+            s.full_name.replace(/-/g, '').toLowerCase() === rawSection.replace(/-/g, '').toLowerCase() ||
+            (rawClass && (s.class_id.toLowerCase() === rawClass.toLowerCase() || s.full_name.startsWith(rawClass.replace(/\D/g, '') + '-')) && s.name.toUpperCase() === secLetter) ||
+            s.name.toUpperCase() === secLetter
+        );
+        if (!secFound) {
+          errors.push(`Section "${rawSection}" not recognized (e.g. SEC-1A, 1-A, A)`);
+        }
       }
-    } else if (entity_type === 'teachers') {
-      const name = row.name || row.full_name;
-      const email = row.email?.toLowerCase();
-      const idNumber = row.teacher_id || row.id_number;
-      const subject = row.subject || row.subject_name;
+    } else if (entityType === 'teacher') {
+      const name = row['canonical_name'];
+      const email = row['canonical_email'];
+      const idNum = row['canonical_id'] || row['canonical_teacher_id'];
+      const subject = row['canonical_subject'];
 
       if (!name) errors.push('Missing Teacher Name');
-      if (!email || !email.includes('@')) errors.push('Valid email required');
-      else {
-        if (seenEmails.has(email) || db.profiles.some((p) => p.email.toLowerCase() === email)) {
-          errors.push(`Duplicate email: ${email}`);
-        }
-        seenEmails.add(email);
-      }
-
-      if (idNumber) {
-        if (seenIds.has(idNumber) || db.profiles.some((p) => p.id_number === idNumber || p.user_id === idNumber)) {
-          errors.push(`Duplicate Teacher ID: ${idNumber}`);
-        }
-        seenIds.add(idNumber);
+      if (email && !email.includes('@')) errors.push('Valid email required');
+      if (idNum && !idNum.toUpperCase().startsWith('TCH')) {
+        errors.push('Teacher ID should begin with "TCH"');
       }
 
       if (subject) {
-        const subFound = db.subjects.some((s) => s.name.toLowerCase() === subject.toLowerCase());
-        if (!subFound) errors.push(`Subject "${subject}" is not in the subjects catalog`);
+        const subFound = db.subjects.some(
+          (s) =>
+            s.id.toLowerCase() === subject.toLowerCase() ||
+            s.name.toLowerCase() === subject.toLowerCase() ||
+            s.code?.toLowerCase() === subject.toLowerCase()
+        );
+        if (!subFound) errors.push(`Subject "${subject}" not in catalog`);
       }
-    } else if (entity_type === 'parents') {
-      const name = row.parent_name || row.name || row.full_name;
-      const email = row.email?.toLowerCase();
-      const studentId = row.student_id || row.child_id;
+    } else if (entityType === 'parent') {
+      const name = row['canonical_name'];
+      const email = row['canonical_email'];
+      const childId = row['student_id'] || row['child_id'] || row['canonical_id'];
 
       if (!name) errors.push('Missing Parent Name');
-      if (!email || !email.includes('@')) errors.push('Valid parent email required');
-      if (!studentId) errors.push('Missing Child/Student ID');
-      else {
-        const stFound = db.profiles.find((p) => p.role === 'student' && (p.id_number === studentId || p.user_id === studentId || p.id === studentId));
-        if (!stFound) errors.push(`Child with ID "${studentId}" not found in students directory`);
-      }
-    } else if (entity_type === 'assignments') {
-      const teacherId = row.teacher_id || row.teacher_email;
-      const sectionName = row.section || row.section_id;
-      const subjectName = row.subject || row.subject_name;
+      if (email && !email.includes('@')) errors.push('Valid parent email required');
+      if (!childId) errors.push('Missing Child/Student ID');
+    } else if (entityType === 'teacher_assignment') {
+      const teacherId = row['canonical_teacher_id'] || row['teacher_id'] || row['canonical_id'];
+      const section = row['canonical_section'];
+      const subject = row['canonical_subject'];
 
-      if (!teacherId) errors.push('Missing Teacher ID or Email');
-      else {
-        const tFound = db.profiles.find((p) => p.role === 'teacher' && (p.id === teacherId || p.id_number === teacherId || p.email.toLowerCase() === teacherId.toLowerCase()));
-        if (!tFound) errors.push(`Teacher "${teacherId}" not found`);
-      }
+      if (!teacherId) errors.push('Missing Teacher ID');
+      if (!section) errors.push('Missing Section identifier');
+      if (!subject) errors.push('Missing Subject');
+    } else if (entityType === 'student_assignment') {
+      const studentId = row['canonical_id'] || row['student_id'];
+      const rawClass = row['canonical_class'];
+      const rawSection = row['canonical_section'];
 
-      if (!sectionName) errors.push('Missing Section (e.g. 1-A)');
-      else {
-        const sFound = db.sections.find((s) => s.id === sectionName || s.full_name.toLowerCase() === sectionName.toLowerCase());
-        if (!sFound) errors.push(`Section "${sectionName}" not found`);
-      }
-
-      if (!subjectName) errors.push('Missing Subject');
-      else {
-        const subFound = db.subjects.find((s) => s.id === subjectName || s.name.toLowerCase() === subjectName.toLowerCase());
-        if (!subFound) errors.push(`Subject "${subjectName}" not found`);
-      }
+      if (!studentId) errors.push('Missing Student ID');
+      if (!rawClass) errors.push('Missing Class');
+      if (!rawSection) errors.push('Missing Section');
     }
 
     validations.push({
@@ -163,190 +214,408 @@ router.post('/csv-preview', requireAdmin, (req: AuthenticatedRequest, res) => {
   const invalidCount = validations.filter((v) => !v.is_valid).length;
 
   return res.json({
-    entity_type,
+    type: entityType,
+    entity_type: entityType,
     total_rows: rows.length,
+    valid_rows: validCount,
     valid_count: validCount,
+    error_count: invalidCount,
     invalid_count: invalidCount,
-    headers,
+    headers: originalHeaders,
+    rows: validations,
     preview: validations,
   });
 });
 
-// POST /api/admin/csv-import - Commits verified CSV data into database
-router.post('/csv-import', requireAdmin, (req: AuthenticatedRequest, res) => {
-  const { csv_content, entity_type } = req.body;
+// POST /api/csv-import/commit & /api/csv-import/import & /api/csv-import/csv-import
+router.post(['/commit', '/import', '/csv-import'], (req: AuthenticatedRequest, res) => {
+  const rawType = req.body.type || req.body.entity_type || req.body.dataset || 'student';
+  const entityType = normalizeDatasetType(rawType);
+  const passwordScheme = (req.body.password_scheme || req.body.password_format || 'student_roll') as 'student_roll' | 'parent_mobile';
 
-  if (!csv_content || !entity_type) {
-    return res.status(400).json({ error: 'csv_content and entity_type are required' });
+  let rawRows: Record<string, string>[] = [];
+
+  if (Array.isArray(req.body.rows)) {
+    // Received rows from previewResult.rows
+    rawRows = req.body.rows.map((r: any) => (r.data ? r.data : r));
+  } else if (req.body.csv_text || req.body.csv_content || req.body.csvText) {
+    const text = req.body.csv_text || req.body.csv_content || req.body.csvText;
+    const parsed = parseCsv(text);
+    rawRows = parsed.rows;
   }
 
-  const { rows } = parseCsv(csv_content);
+  if (!rawRows || rawRows.length === 0) {
+    return res.status(400).json({ error: 'No data rows provided for import.' });
+  }
+
   let importedCount = 0;
   const failedRows: Array<{ row: number; reason: string }> = [];
 
-  rows.forEach((row, index) => {
+  rawRows.forEach((row, index) => {
     const rowNum = index + 2;
 
     try {
-      if (entity_type === 'students') {
-        const name = (row.name || row.full_name || '').trim();
-        const email = (row.email || '').trim().toLowerCase();
-        const rawClass = row.class || row.class_name || 'Class 1';
-        const rawSection = row.section || row.section_name || 'A';
+      if (entityType === 'student') {
+        const name = (row['canonical_name'] || row['name'] || row['full_name'] || '').trim();
+        const rawClass = row['canonical_class'] || row['class'] || row['class_name'] || 'Class 1';
+        const rawSection = row['canonical_section'] || row['section'] || row['section_name'] || 'A';
+        const parentName = (row['parent_name'] || row['parent'] || '').trim();
+        const parentPhone = (row['parent_phone'] || row['phone'] || '').trim();
 
-        if (!name || !email) {
-          failedRows.push({ row: rowNum, reason: 'Missing name or email' });
+        if (!name) {
+          failedRows.push({ row: rowNum, reason: 'Missing Student Name' });
           return;
         }
 
-        const cls = db.classes.find(
-          (c) => c.name.toLowerCase() === rawClass.toLowerCase() || c.grade.toString() === rawClass.replace(/\D/g, '')
-        ) || db.classes[0];
+        const idNum = (
+          row['canonical_id'] ||
+          row['student_id'] ||
+          row['id_number'] ||
+          `STU${Math.floor(20000 + Math.random() * 80000)}`
+        ).trim().toUpperCase();
 
-        const secLetter = rawSection.trim().toUpperCase().replace(/.*-/, '');
-        let sec = db.sections.find((s) => s.class_id === cls.id && s.name === secLetter);
+        const email = (
+          row['canonical_email'] ||
+          row['email'] ||
+          `${name.toLowerCase().replace(/\s+/g, '.')}.${idNum.toLowerCase()}@student.org`
+        ).trim().toLowerCase();
+
+        // Match Class
+        const cls =
+          db.classes.find(
+            (c) =>
+              c.id.toLowerCase() === rawClass.toLowerCase() ||
+              c.name.toLowerCase() === rawClass.toLowerCase() ||
+              c.grade.toString() === rawClass.replace(/\D/g, '')
+          ) || db.classes[0];
+
+        // Match Section
+        const secClean = rawSection.trim().toUpperCase();
+        const secLetter = secClean.replace(/.*-/, '').replace(/.*\d+/, '');
+        let sec = db.sections.find(
+          (s) =>
+            s.id.toLowerCase() === rawSection.toLowerCase() ||
+            s.full_name.toLowerCase() === rawSection.toLowerCase() ||
+            s.id.replace(/-/g, '').toLowerCase() === rawSection.replace(/-/g, '').toLowerCase() ||
+            s.full_name.replace(/-/g, '').toLowerCase() === rawSection.replace(/-/g, '').toLowerCase() ||
+            (s.class_id === cls.id && s.name.toUpperCase() === secLetter)
+        );
         if (!sec) {
-          sec = db.sections.find((s) => s.class_id === cls.id) || db.sections[0];
+          sec =
+            db.sections.find((s) => s.class_id === cls.id && s.name.toUpperCase() === secLetter) ||
+            db.sections.find((s) => s.class_id === cls.id) ||
+            db.sections[0];
         }
 
-        const idNum = (row.student_id || row.id_number || `STU${Math.floor(10000 + Math.random() * 90000)}`).trim().toUpperCase();
+        // Generate clean temporary password:
+        // - "student" + roll number / ID digits (e.g. "student20021") OR
+        // - Parent's mobile number (e.g. "9123450020")
+        const idDigits = idNum.replace(/\D/g, '') || idNum.toLowerCase().replace(/\s+/g, '');
+        const parentDigits = parentPhone.replace(/\D/g, '').slice(-10);
 
-        const newStudent: Profile = {
-          id: `stu-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 5)}`,
-          user_id: idNum,
-          id_number: idNum,
-          full_name: name,
-          email,
-          role: 'student',
-          school_id: 'SCH001',
-          class_id: cls.id,
-          class_name: cls.name,
-          section_id: sec.id,
-          section_name: sec.full_name,
-          phone: row.phone || row.parent_phone,
-          parent_name: row.parent_name,
-          parent_phone: row.parent_phone,
-          batch: row.batch || 'Batch 2025-2026',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-
-        db.profiles.push(newStudent);
-        importedCount++;
-      } else if (entity_type === 'teachers') {
-        const name = (row.name || row.full_name || '').trim();
-        const email = (row.email || '').trim().toLowerCase();
-        const idNum = (row.teacher_id || row.id_number || `TCH${Math.floor(1000 + Math.random() * 9000)}`).trim().toUpperCase();
-
-        if (!name || !email) {
-          failedRows.push({ row: rowNum, reason: 'Missing name or email' });
-          return;
+        let tempPassword = row['password'];
+        if (!tempPassword) {
+          if (passwordScheme === 'parent_mobile' && parentDigits.length >= 10) {
+            tempPassword = parentDigits;
+          } else {
+            // Default: student and their roll number
+            tempPassword = `student${idDigits || Math.floor(10000 + Math.random() * 90000)}`;
+          }
         }
 
-        const newTeacher: Profile = {
-          id: `tch-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 5)}`,
-          user_id: idNum,
-          id_number: idNum,
-          full_name: name,
-          email,
-          role: 'teacher',
-          school_id: 'SCH001',
-          phone: row.phone,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
+        // Check if student profile already exists in db.profiles
+        let student = db.profiles.find((p) => p.id_number === idNum || p.email.toLowerCase() === email);
+        if (student) {
+          student.full_name = name;
+          student.class_id = cls.id;
+          student.class_name = cls.name;
+          student.section_id = sec.id;
+          student.section_name = sec.full_name;
+          student.parent_name = parentName || student.parent_name;
+          student.parent_phone = parentPhone || student.parent_phone;
+          student.updated_at = new Date().toISOString();
+        } else {
+          // STRICT RULE: "Add them to the database after they login into the system other than dont add."
+          // Do NOT add to db.profiles yet! Stage in db.pending_onboarding_accounts.
+          const existingPendingIdx = db.pending_onboarding_accounts.findIndex(
+            (p) => p.id_number.toUpperCase() === idNum.toUpperCase() || p.email.toLowerCase() === email.toLowerCase()
+          );
 
-        db.profiles.push(newTeacher);
+          const pendingAccount: PendingOnboardingAccount = {
+            id: existingPendingIdx >= 0 ? db.pending_onboarding_accounts[existingPendingIdx].id : `pending-stu-${idNum.toLowerCase()}`,
+            name,
+            role: 'student',
+            id_number: idNum,
+            email,
+            password: row['password'] || (existingPendingIdx >= 0 ? db.pending_onboarding_accounts[existingPendingIdx].password : tempPassword),
+            class_id: cls.id,
+            class_name: cls.name,
+            section_id: sec.id,
+            section_name: sec.full_name,
+            parent_name: parentName,
+            parent_phone: parentPhone,
+            phone: parentPhone,
+            status: 'pending_login',
+            created_at: new Date().toISOString(),
+          };
 
-        // Auto-assign subject and section if provided in CSV
-        const rawSubject = row.subject || row.subject_name;
-        const rawSection = row.section || row.section_name;
-
-        if (rawSubject && rawSection) {
-          const sub = db.subjects.find((s) => s.name.toLowerCase() === rawSubject.toLowerCase());
-          const sec = db.sections.find((s) => s.full_name.toLowerCase() === rawSection.toLowerCase());
-
-          if (sub && sec) {
-            db.teacher_assignments.push({
-              id: `ta-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 5)}`,
-              school_id: 'SCH001',
-              teacher_id: newTeacher.id,
-              class_id: sec.class_id,
-              section_id: sec.id,
-              subject_id: sub.id,
-              is_active: true,
-              created_at: new Date().toISOString(),
-            });
+          if (existingPendingIdx >= 0) {
+            db.pending_onboarding_accounts[existingPendingIdx] = pendingAccount;
+          } else {
+            db.pending_onboarding_accounts.push(pendingAccount);
           }
         }
 
         importedCount++;
-      } else if (entity_type === 'parents') {
-        const name = (row.parent_name || row.name || '').trim();
-        const email = (row.email || '').trim().toLowerCase();
-        const childId = (row.student_id || row.child_id || '').trim();
+      } else if (entityType === 'teacher') {
+        const name = (row['canonical_name'] || row['name'] || '').trim();
+        const idNum = (row['canonical_id'] || row['canonical_teacher_id'] || `TCH${Math.floor(1000 + Math.random() * 9000)}`).trim().toUpperCase();
+        const email = (row['canonical_email'] || row['email'] || `${name.toLowerCase().replace(/\s+/g, '.')}@school.org`).trim().toLowerCase();
+        const phone = row['phone'] || row['contact'];
+        const rawSubject = row['canonical_subject'] || row['subject'];
+        const rawSection = row['canonical_section'] || row['section'];
 
-        if (!name || !email || !childId) {
-          failedRows.push({ row: rowNum, reason: 'Parent name, email, and child ID required' });
+        if (!name) {
+          failedRows.push({ row: rowNum, reason: 'Teacher name is required' });
           return;
         }
 
-        const student = db.profiles.find((p) => p.role === 'student' && (p.id_number === childId || p.user_id === childId || p.id === childId));
-        if (!student) {
-          failedRows.push({ row: rowNum, reason: `Child with ID ${childId} not found` });
+        const idDigits = idNum.replace(/\D/g, '') || idNum.toLowerCase().replace(/\s+/g, '');
+        const tempPassword = row['password'] || `teacher${idDigits || Math.floor(1000 + Math.random() * 9000)}`;
+
+        let teacher = db.profiles.find((p) => p.id_number === idNum || p.email.toLowerCase() === email);
+        if (teacher) {
+          teacher.full_name = name;
+          teacher.phone = phone || teacher.phone;
+          teacher.updated_at = new Date().toISOString();
+        } else {
+          // STRICT RULE: "Add them to the database after they login into the system other than dont add."
+          // Do NOT add to db.profiles yet! Stage in db.pending_onboarding_accounts.
+          const sec = rawSection
+            ? db.sections.find((s) => s.full_name.toLowerCase() === rawSection.toLowerCase() || s.id.toLowerCase() === rawSection.toLowerCase())
+            : undefined;
+
+          const existingPendingIdx = db.pending_onboarding_accounts.findIndex(
+            (p) => p.id_number.toUpperCase() === idNum.toUpperCase() || p.email.toLowerCase() === email.toLowerCase()
+          );
+
+          const pendingAccount: PendingOnboardingAccount = {
+            id: existingPendingIdx >= 0 ? db.pending_onboarding_accounts[existingPendingIdx].id : `pending-tch-${idNum.toLowerCase()}`,
+            name,
+            role: 'teacher',
+            id_number: idNum,
+            email,
+            password: row['password'] || (existingPendingIdx >= 0 ? db.pending_onboarding_accounts[existingPendingIdx].password : tempPassword),
+            phone,
+            subject: rawSubject,
+            section_id: sec?.id,
+            section_name: sec?.full_name,
+            class_id: sec?.class_id,
+            status: 'pending_login',
+            created_at: new Date().toISOString(),
+          };
+
+          if (existingPendingIdx >= 0) {
+            db.pending_onboarding_accounts[existingPendingIdx] = pendingAccount;
+          } else {
+            db.pending_onboarding_accounts.push(pendingAccount);
+          }
+        }
+
+        importedCount++;
+      } else if (entityType === 'parent') {
+        const name = (row['canonical_name'] || row['name'] || '').trim();
+        const idNum = (row['canonical_id'] || row['canonical_parent_id'] || `PAR${Math.floor(1000 + Math.random() * 9000)}`).trim().toUpperCase();
+        const email = (row['canonical_email'] || row['email'] || `${name.toLowerCase().replace(/\s+/g, '.')}@parents.org`).trim().toLowerCase();
+        const phone = row['phone'];
+        const childId = (row['student_id'] || row['child_id'] || '').trim();
+
+        if (!name) {
+          failedRows.push({ row: rowNum, reason: 'Parent name is required' });
           return;
         }
 
-        // Check if parent account already exists
-        let parent = db.profiles.find((p) => p.role === 'parent' && p.email.toLowerCase() === email);
+        let parent = db.profiles.find((p) => p.id_number === idNum || p.email.toLowerCase() === email);
         if (!parent) {
-          const idNum = `PAR${Math.floor(1000 + Math.random() * 9000)}`;
           parent = {
-            id: `par-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 5)}`,
+            id: `par-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
             user_id: idNum,
             id_number: idNum,
             full_name: name,
             email,
             role: 'parent',
             school_id: 'SCH001',
-            phone: row.phone,
+            phone,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
           db.profiles.push(parent);
         }
 
-        // Link parent to student
-        const isLinked = db.parent_students.some((ps) => ps.parent_id === parent!.id && ps.student_id === student.id);
-        if (!isLinked) {
-          db.parent_students.push({
-            id: `ps-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 5)}`,
-            school_id: 'SCH001',
-            parent_id: parent.id,
-            student_id: student.id,
-            relationship: row.relationship || 'Parent',
-            is_primary: true,
-          });
+        if (childId) {
+          const student = db.profiles.find((p) => p.role === 'student' && (p.id_number === childId || p.user_id === childId || p.id === childId));
+          if (student && !db.parent_students.some((ps) => ps.parent_id === parent!.id && ps.student_id === student.id)) {
+            db.parent_students.push({
+              id: `ps-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+              school_id: 'SCH001',
+              parent_id: parent.id,
+              student_id: student.id,
+              relationship: 'Parent',
+              is_primary: true,
+            });
+          }
         }
+
+        importedCount++;
+      } else if (entityType === 'teacher_assignment') {
+        const teacherId = row['canonical_teacher_id'] || row['teacher_id'] || row['canonical_id'];
+        const rawSection = row['canonical_section'] || row['section'];
+        const rawSubject = row['canonical_subject'] || row['subject'];
+
+        const teacher = db.profiles.find((p) => p.role === 'teacher' && (p.id === teacherId || p.id_number === teacherId || p.email.toLowerCase() === teacherId.toLowerCase()));
+        const sec = db.sections.find((s) => s.id.toLowerCase() === rawSection.toLowerCase() || s.full_name.toLowerCase() === rawSection.toLowerCase());
+        const sub = db.subjects.find((s) => s.id.toLowerCase() === rawSubject.toLowerCase() || s.name.toLowerCase() === rawSubject.toLowerCase() || s.code?.toLowerCase() === rawSubject.toLowerCase());
+
+        if (!teacher || !sec || !sub) {
+          failedRows.push({ row: rowNum, reason: `Unmatched teacher, section, or subject mapping (${teacherId}, ${rawSection}, ${rawSubject})` });
+          return;
+        }
+
+        db.teacher_assignments.push({
+          id: `ta-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+          school_id: 'SCH001',
+          teacher_id: teacher.id,
+          class_id: sec.class_id,
+          section_id: sec.id,
+          subject_id: sub.id,
+          is_active: true,
+          created_at: new Date().toISOString(),
+        });
+
+        importedCount++;
+      } else if (entityType === 'student_assignment') {
+        const studentId = row['canonical_id'] || row['student_id'];
+        const rawClass = row['canonical_class'] || row['class'];
+        const rawSection = row['canonical_section'] || row['section'];
+
+        const student = db.profiles.find((p) => p.role === 'student' && (p.id === studentId || p.id_number === studentId || p.email.toLowerCase() === studentId.toLowerCase()));
+        const cls = db.classes.find((c) => c.id.toLowerCase() === rawClass.toLowerCase() || c.name.toLowerCase() === rawClass.toLowerCase() || c.grade.toString() === rawClass.replace(/\D/g, ''));
+        const sec = db.sections.find((s) => s.id.toLowerCase() === rawSection.toLowerCase() || s.full_name.toLowerCase() === rawSection.toLowerCase());
+
+        if (!student || !cls || !sec) {
+          failedRows.push({ row: rowNum, reason: `Cannot assign student ${studentId} to class ${rawClass} and section ${rawSection}` });
+          return;
+        }
+
+        student.class_id = cls.id;
+        student.class_name = cls.name;
+        student.section_id = sec.id;
+        student.section_name = sec.full_name;
+        student.updated_at = new Date().toISOString();
 
         importedCount++;
       }
     } catch (err: any) {
-      failedRows.push({ row: rowNum, reason: err.message || 'Row processing error' });
+      failedRows.push({ row: rowNum, reason: err.message || 'Row import processing error' });
     }
   });
 
-  const summary = `Successfully imported ${importedCount} ${entity_type}. Failed: ${failedRows.length} rows.`;
-  db.logAudit('BULK_CSV_IMPORT', entity_type, undefined, { imported: importedCount, failed: failedRows.length, summary }, req.user?.id);
+  const summary = `Successfully processed ${importedCount} ${entityType} records. Staged for login: ${importedCount}, Failed: ${failedRows.length} rows.`;
+  db.logAudit('BULK_CSV_IMPORT', entityType, undefined, { imported: importedCount, failed: failedRows.length, summary }, req.user?.id);
+
+  const credentials = getOnboardingCredentialsList();
 
   return res.json({
     success: true,
-    entity_type,
+    entity_type: entityType,
+    type: entityType,
     imported_count: importedCount,
     failed_count: failedRows.length,
     errors: failedRows,
+    credentials,
     summary,
   });
+});
+
+export function getOnboardingCredentialsList() {
+  return db.pending_onboarding_accounts.map((acc) => {
+    const inDb = db.profiles.some(
+      (p) =>
+        (p.id_number && p.id_number.toUpperCase() === acc.id_number.toUpperCase()) ||
+        (p.email && p.email.toLowerCase() === acc.email.toLowerCase())
+    );
+    return {
+      id: acc.id,
+      name: acc.name,
+      role: acc.role,
+      id_number: acc.id_number,
+      email: acc.email,
+      password: acc.password,
+      class_id: acc.class_id,
+      class_name: acc.class_name,
+      section_id: acc.section_id,
+      section_name: acc.section_name,
+      parent_name: acc.parent_name,
+      parent_phone: acc.parent_phone,
+      phone: acc.phone,
+      subject: acc.subject,
+      status: inDb ? ('activated' as const) : ('pending_login' as const),
+      in_database: inDb,
+      created_at: acc.created_at,
+      activated_at: acc.activated_at,
+    };
+  });
+}
+
+// GET /api/csv-import/credentials & /api/admin/csv-import/credentials
+router.get(['/credentials', '/onboarding-credentials'], (_req: AuthenticatedRequest, res) => {
+  const credentials = getOnboardingCredentialsList();
+  return res.json({ credentials, total: credentials.length });
+});
+
+// POST /api/csv-import/credentials/activate/:id (force activate single account)
+router.post('/credentials/activate/:id', (req: AuthenticatedRequest, res) => {
+  const idOrNum = String(req.params.id || '');
+  const profile = db.activatePendingAccount(idOrNum);
+  if (!profile) {
+    return res.status(404).json({ error: `Onboarding account "${idOrNum}" not found in staging registry.` });
+  }
+  return res.json({
+    success: true,
+    message: `Account for ${profile.full_name} (${profile.role}) successfully activated and added to database!`,
+    profile,
+    credentials: getOnboardingCredentialsList(),
+  });
+});
+
+// POST /api/csv-import/credentials/activate-all (force activate all pending accounts)
+router.post('/credentials/activate-all', (_req: AuthenticatedRequest, res) => {
+  let count = 0;
+  for (const acc of [...db.pending_onboarding_accounts]) {
+    if (acc.status === 'pending_login') {
+      const p = db.activatePendingAccount(acc.id);
+      if (p) count++;
+    }
+  }
+  return res.json({
+    success: true,
+    activated_count: count,
+    message: `Successfully activated ${count} accounts and added them to database profiles.`,
+    credentials: getOnboardingCredentialsList(),
+  });
+});
+
+// DELETE /api/csv-import/credentials/:id (remove staged account)
+router.delete('/credentials/:id', (req: AuthenticatedRequest, res) => {
+  const target = String(req.params.id || '');
+  const idx = db.pending_onboarding_accounts.findIndex(
+    (p) => p.id === target || p.id_number.toUpperCase() === target.toUpperCase() || p.email.toLowerCase() === target.toLowerCase()
+  );
+  if (idx >= 0) {
+    const deleted = db.pending_onboarding_accounts.splice(idx, 1)[0];
+    return res.json({ success: true, message: `Removed staged account ${deleted.name}`, deleted, credentials: getOnboardingCredentialsList() });
+  }
+  return res.status(404).json({ error: 'Account not found in staging list' });
 });
 
 export default router;

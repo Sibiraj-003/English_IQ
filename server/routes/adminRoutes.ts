@@ -103,38 +103,36 @@ router.get('/users', (_req, res) => {
 // POST /api/admin/users - Admin-only user creation
 router.post('/users', async (req, res) => {
   try {
-    const { full_name, email, password, role, id_number, class_id, batch } = req.body;
+    let { full_name, email, password, role, id_number, class_id, batch } = req.body;
 
     if (!full_name || !email || !role || !password) {
       return res.status(400).json({ error: 'Full name, email, password, and role are required.' });
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanId = (id_number || '').trim().toUpperCase();
+    let cleanId = (id_number || '').trim().toUpperCase();
 
-    // 1. Role and ID format validation
+    // 1. Role and ID format validation & auto-formatting
     if (role === 'teacher') {
-      if (!cleanId || !cleanId.startsWith('TCH') || cleanId.length < 5) {
-        return res.status(400).json({
-          error: 'Official Teacher ID must start with "TCH" (e.g. TCH1001, TCH1002).',
-        });
+      if (!cleanId) {
+        cleanId = `TCH${Math.floor(1000 + Math.random() * 9000)}`;
+      } else if (!cleanId.startsWith('TCH')) {
+        cleanId = `TCH${cleanId.replace(/\D/g, '') || Math.floor(1000 + Math.random() * 9000)}`;
       }
     } else if (role === 'student') {
-      if (!cleanId || !cleanId.startsWith('STU') || cleanId.length < 5) {
-        return res.status(400).json({
-          error: 'Official Student ID must start with "STU" (e.g. STU10001, STU10002).',
-        });
+      if (!cleanId) {
+        cleanId = `STU${Math.floor(20000 + Math.random() * 80000)}`;
+      } else if (!cleanId.startsWith('STU')) {
+        cleanId = `STU${cleanId.replace(/\D/g, '') || Math.floor(20000 + Math.random() * 80000)}`;
       }
       if (!class_id) {
-        return res.status(400).json({
-          error: 'Student must be assigned to an official class (class_id is required).',
-        });
+        class_id = db.classes[0]?.id || 'CLS001';
       }
     } else if (role === 'parent') {
-      if (!cleanId || !cleanId.startsWith('PAR') || cleanId.length < 5) {
-        return res.status(400).json({
-          error: 'Official Parent ID must start with "PAR" (e.g. PAR1001, PAR1002).',
-        });
+      if (!cleanId) {
+        cleanId = `PAR${Math.floor(2000 + Math.random() * 8000)}`;
+      } else if (!cleanId.startsWith('PAR')) {
+        cleanId = `PAR${cleanId.replace(/\D/g, '') || Math.floor(2000 + Math.random() * 8000)}`;
       }
     } else {
       return res.status(400).json({ error: 'Role must be "teacher", "student", or "parent".' });
@@ -195,6 +193,9 @@ router.post('/users', async (req, res) => {
     const studentBatch = role === 'student' ? (batch?.trim() || 'Batch 2025-2026') : undefined;
 
     // 4. Save to local store database
+    const assignedClass = role === 'student' && class_id ? db.classes.find((c) => c.id === class_id) : undefined;
+    const assignedSection = assignedClass ? db.sections.find((s) => s.class_id === assignedClass.id) : undefined;
+
     const newProfile: Profile = {
       id: authUserId,
       user_id: cleanId,
@@ -203,6 +204,9 @@ router.post('/users', async (req, res) => {
       role,
       id_number: cleanId,
       class_id: role === 'student' ? class_id : undefined,
+      class_name: assignedClass?.name,
+      section_id: assignedSection?.id,
+      section_name: assignedSection?.full_name,
       batch: studentBatch,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -210,11 +214,26 @@ router.post('/users', async (req, res) => {
 
     db.profiles.push(newProfile);
 
-    // Update class counts
+    // Update class counts and auto-seed initial fee record
     if (role === 'student' && class_id) {
-      const cls = db.classes.find((c) => c.id === class_id);
-      if (cls) {
-        cls.student_count = (cls.student_count || 0) + 1;
+      if (assignedClass) {
+        assignedClass.student_count = (assignedClass.student_count || 0) + 1;
+      }
+
+      const feeStructure = db.fee_structures.find((f) => f.class_id === class_id) || db.fee_structures[0];
+      if (feeStructure) {
+        db.student_fees.push({
+          id: `sf-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`,
+          school_id: 'SCH001',
+          student_id: newProfile.id,
+          fee_structure_id: feeStructure.id,
+          total_amount: feeStructure.amount,
+          total_fee: feeStructure.amount,
+          paid_amount: 0,
+          pending_amount: feeStructure.amount,
+          status: 'pending',
+          due_date: feeStructure.due_date,
+        });
       }
     }
 

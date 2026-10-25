@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, ShieldCheck } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 
 export const DemoBanner: React.FC = () => {
   const { role, user } = useAuth();
@@ -18,13 +18,6 @@ export const DemoBanner: React.FC = () => {
         </span>
         <span className="text-slate-600 hidden md:inline">
           Logged in as: <strong className="text-[#0F172A]">{user?.full_name}</strong> ({role.toUpperCase()}{user?.id_number ? ` • ${user.id_number}` : ''})
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <span className="px-2 py-0.5 bg-white text-[#0F172A] border border-[#0F172A] font-extrabold text-[10px] flex items-center gap-1 shadow-[1px_1px_0px_#0F172A]">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          SUPABASE AUTH // VERIFIED
         </span>
       </div>
     </div>

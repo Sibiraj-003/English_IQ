@@ -13,11 +13,27 @@ export interface GroqCompletionOptions {
 }
 
 export class GroqClient {
-  private apiKey: string;
+  private apiKeys: string[] = [];
+  private currentKeyIndex = 0;
   private baseUrl = 'https://api.groq.com/openai/v1';
 
   constructor() {
-    this.apiKey = config.groqApiKey;
+    this.apiKeys = (config.groqApiKeys && config.groqApiKeys.length > 0)
+      ? config.groqApiKeys
+      : [config.groqApiKey, (config as any).groqApiKeySecondary].filter(Boolean);
+  }
+
+  public getActiveApiKey(): string {
+    if (this.apiKeys.length === 0) return config.groqApiKey || '';
+    return this.apiKeys[this.currentKeyIndex % this.apiKeys.length];
+  }
+
+  public rotateApiKey(): string {
+    if (this.apiKeys.length > 1) {
+      this.currentKeyIndex = (this.currentKeyIndex + 1) % this.apiKeys.length;
+      console.log(`[GroqClient] Auto-failover: Switched to API Key ${this.currentKeyIndex + 1} of ${this.apiKeys.length}`);
+    }
+    return this.getActiveApiKey();
   }
 
   async isHealthy(): Promise<boolean> {
@@ -27,16 +43,22 @@ export class GroqClient {
 
   async ping(): Promise<{ ok: boolean; latencyMs: number }> {
     const start = Date.now();
-    try {
-      const res = await fetch(`${this.baseUrl}/models`, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-      });
-      return { ok: res.status === 200, latencyMs: Date.now() - start };
-    } catch {
-      return { ok: false, latencyMs: Date.now() - start };
+    for (let i = 0; i < this.apiKeys.length; i++) {
+      const key = this.apiKeys[(this.currentKeyIndex + i) % this.apiKeys.length];
+      try {
+        const res = await fetch(`${this.baseUrl}/models`, {
+          headers: {
+            'Authorization': `Bearer ${key}`,
+          },
+        });
+        if (res.status === 200) {
+          return { ok: true, latencyMs: Date.now() - start };
+        }
+      } catch {
+        // try next key in pool
+      }
     }
+    return { ok: false, latencyMs: Date.now() - start };
   }
 
   async createChatCompletion(
@@ -55,17 +77,28 @@ export class GroqClient {
       body.response_format = options.response_format;
     }
 
-    let retries = 2;
-    while (retries >= 0) {
+    const maxAttempts = Math.max(this.apiKeys.length * 2, 4);
+    let lastError: any = null;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const currentKey = this.getActiveApiKey();
       try {
         const response = await fetch(`${this.baseUrl}/chat/completions`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            'Authorization': `Bearer ${currentKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(body),
         });
+
+        if (response.status === 429 || response.status === 401 || response.status === 403 || response.status >= 500) {
+          const errText = await response.text();
+          console.warn(`[GroqClient] Key ${this.currentKeyIndex + 1} status ${response.status}: ${errText.slice(0, 100)}. Switching to alternate key...`);
+          this.rotateApiKey();
+          await new Promise((r) => setTimeout(r, 400));
+          continue;
+        }
 
         if (!response.ok) {
           const errText = await response.text();
@@ -76,14 +109,13 @@ export class GroqClient {
         const content = data.choices?.[0]?.message?.content || '';
         return content;
       } catch (err: any) {
-        if (retries === 0) {
-          throw err;
-        }
-        retries--;
-        await new Promise((r) => setTimeout(r, 1000));
+        lastError = err;
+        this.rotateApiKey();
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
-    throw new Error('Groq request failed after retries');
+
+    throw lastError || new Error('Groq request failed across all configured API keys');
   }
 
   // Vision / OCR extraction

@@ -95,49 +95,91 @@ router.get(['/records', '/student-records'], (req: AuthenticatedRequest, res) =>
     const cls = st?.class_id ? db.classes.find((c) => c.id === st.class_id) : undefined;
     const sec = st?.section_id ? db.sections.find((s) => s.id === st.section_id) : undefined;
 
+    const totalFee = (r as any).total_fee ?? r.total_amount ?? fs?.amount ?? 0;
+    const paid = r.paid_amount ?? 0;
+    const pending = (r as any).pending_amount ?? Math.max(0, totalFee - paid);
+
     return {
       ...r,
-      student_name: st?.full_name,
+      total_fee: totalFee,
+      total_amount: totalFee,
+      paid_amount: paid,
+      pending_amount: pending,
+      student_name: st?.full_name || 'Student',
+      student_id: r.student_id,
       student_id_number: st?.id_number || st?.user_id,
+      class_id: cls?.id || st?.class_id || 'CLS001',
+      section_id: sec?.full_name || sec?.name || '1-A',
       class_name: cls?.name,
       section_name: sec?.full_name,
-      title: fs?.title || 'Academic Fee',
-      payments: db.fee_payments.filter((p) => p.student_fee_id === r.id),
+      title: fs?.title || 'Academic Tuition & Facility Fee',
+      payments: (db.fee_payments || []).filter((p) => p.student_fee_id === r.id),
     };
   });
 
   return res.json(enriched);
 });
 
-// POST /api/fees/payments - Record a fee payment and generate receipt
-router.post('/payments', (req: AuthenticatedRequest, res) => {
-  const { student_fee_id, amount, payment_method, transaction_ref } = req.body;
+// POST /api/fees/payments & /api/fees/pay - Record a fee payment and generate receipt
+router.post(['/payments', '/pay'], (req: AuthenticatedRequest, res) => {
+  const { student_fee_id, student_id, fee_structure_id, amount, payment_method, payment_mode, transaction_ref } = req.body;
 
-  if (!student_fee_id || !amount) {
-    return res.status(400).json({ error: 'student_fee_id and payment amount are required' });
+  if (!amount || (!student_fee_id && !student_id)) {
+    return res.status(400).json({ error: 'Student identifier and payment amount are required' });
   }
 
-  const feeRecord = db.student_fees.find((f) => f.id === student_fee_id);
+  let feeRecord = student_fee_id ? db.student_fees.find((f) => f.id === student_fee_id) : undefined;
+  if (!feeRecord && student_id) {
+    if (fee_structure_id) {
+      feeRecord = db.student_fees.find((f) => f.student_id === student_id && f.fee_structure_id === fee_structure_id);
+    }
+    if (!feeRecord) {
+      feeRecord = db.student_fees.find((f) => f.student_id === student_id);
+    }
+    if (!feeRecord) {
+      // Create new fee record on the fly for this student
+      const structure = db.fee_structures.find((f) => f.id === fee_structure_id) || db.fee_structures[0];
+      const newRec: StudentFeeRecord = {
+        id: `sf-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 5)}`,
+        school_id: 'SCH001',
+        student_id,
+        fee_structure_id: structure?.id || 'fee-str-001',
+        total_amount: structure?.amount || parseFloat(amount),
+        total_fee: structure?.amount || parseFloat(amount),
+        paid_amount: 0,
+        pending_amount: structure?.amount || parseFloat(amount),
+        status: 'pending',
+        due_date: structure?.due_date || new Date().toISOString().split('T')[0],
+      };
+      db.student_fees.push(newRec);
+      feeRecord = newRec;
+    }
+  }
+
   if (!feeRecord) return res.status(404).json({ error: 'Student fee record not found' });
 
   const payAmount = parseFloat(amount);
   feeRecord.paid_amount += payAmount;
   feeRecord.last_payment_date = new Date().toISOString();
 
-  if (feeRecord.paid_amount >= feeRecord.total_amount) {
+  const totalFee = feeRecord.total_fee ?? feeRecord.total_amount;
+  if (feeRecord.paid_amount >= totalFee) {
     feeRecord.status = 'paid';
+    feeRecord.pending_amount = 0;
   } else if (feeRecord.paid_amount > 0) {
     feeRecord.status = 'partial';
+    feeRecord.pending_amount = Math.max(0, totalFee - feeRecord.paid_amount);
   }
 
   const receiptNum = `REC-2025-${Math.floor(100000 + Math.random() * 900000)}`;
+  const chosenMode = payment_mode || payment_method || 'Online UPI';
 
   const payment: FeePayment = {
     id: `pay-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 5)}`,
-    student_fee_id,
+    student_fee_id: feeRecord.id,
     student_id: feeRecord.student_id,
     amount: payAmount,
-    payment_method: payment_method || 'Online Payment',
+    payment_method: chosenMode,
     transaction_ref: transaction_ref || `TXN-${Date.now()}`,
     receipt_number: receiptNum,
     paid_at: new Date().toISOString(),
@@ -167,6 +209,7 @@ router.post('/payments', (req: AuthenticatedRequest, res) => {
 
   return res.status(201).json({
     message: 'Payment recorded successfully',
+    receipt_number: receiptNum,
     payment,
     updated_fee_record: feeRecord,
   });

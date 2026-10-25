@@ -3,9 +3,30 @@ import { api } from '../../services/api';
 import { TimetableSlot, SchoolClass, Section, Subject, UserProfile } from '../../types';
 import { BrutalCard } from '../../components/BrutalCard';
 import { BrutalButton } from '../../components/BrutalButton';
-import { Clock, Plus, Trash2, Calendar, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  Clock,
+  Plus,
+  Trash2,
+  Calendar,
+  CheckCircle,
+  AlertCircle,
+  RefreshCw,
+  Eraser,
+  Sparkles,
+  ShieldCheck,
+  AlertTriangle,
+} from 'lucide-react';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const DAY_NUM_MAP: Record<string, number> = {
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
+
 const TIME_SLOTS = [
   { label: 'Period 1', start: '08:30', end: '09:30' },
   { label: 'Period 2', start: '09:30', end: '10:30' },
@@ -26,9 +47,13 @@ export const TimetableManager: React.FC = () => {
   const [teachers, setTeachers] = useState<UserProfile[]>([]);
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string; isConflict?: boolean } | null>(null);
 
-  // Modal state
+  // Clear modal state
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  // Add slot modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [dayOfWeek, setDayOfWeek] = useState('Monday');
@@ -38,6 +63,7 @@ export const TimetableManager: React.FC = () => {
   const [startTime, setStartTime] = useState('08:30');
   const [endTime, setEndTime] = useState('09:30');
   const [roomNumber, setRoomNumber] = useState('Room 101');
+  const [overrideConflict, setOverrideConflict] = useState(false);
 
   const loadData = async () => {
     try {
@@ -52,18 +78,22 @@ export const TimetableManager: React.FC = () => {
       setTeachers(userList.filter((u) => u.role === 'teacher'));
 
       if (classList.length > 0) {
-        const secList = await api.getSections(selectedClassId || classList[0].id);
+        const activeClassId = selectedClassId || classList[0].id;
+        const secList = await api.getSections(activeClassId);
         setSections(secList);
         const secId = secList.length > 0 ? secList[0].id : '';
         setSelectedSectionId(secId);
         if (secId) {
           const slotList = await api.getTimetable({ section_id: secId });
           setSlots(slotList);
+        } else {
+          setSlots([]);
         }
       }
-      if (subjList.length > 0) setSubjectId(subjList[0].id);
-      if (userList.filter((u) => u.role === 'teacher').length > 0) {
-        setTeacherId(userList.filter((u) => u.role === 'teacher')[0].id);
+      if (subjList.length > 0 && !subjectId) setSubjectId(subjList[0].id);
+      const availableTeachers = userList.filter((u) => u.role === 'teacher');
+      if (availableTeachers.length > 0 && !teacherId) {
+        setTeacherId(availableTeachers[0].id);
       }
     } catch (err: any) {
       console.error(err);
@@ -87,6 +117,33 @@ export const TimetableManager: React.FC = () => {
     }
   };
 
+  const handleClearTimetable = async (scope: 'section' | 'all') => {
+    try {
+      setClearing(true);
+      const activeSec = sections.find((s) => s.id === selectedSectionId);
+      const res = await api.clearTimetable(
+        scope === 'section' && selectedSectionId ? { section_id: selectedSectionId } : {}
+      );
+      setFeedback({
+        type: 'success',
+        message:
+          scope === 'section'
+            ? `Timetable cleared for Section ${activeSec?.name || selectedSectionId}. You can now fully allot classes for staff and students.`
+            : 'All timetable slots across the school have been cleared! Clean slate ready for full allotment.',
+      });
+      setShowClearModal(false);
+      const updated = await api.getTimetable({ section_id: selectedSectionId });
+      setSlots(updated);
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Failed to clear timetable slots.',
+      });
+    } finally {
+      setClearing(false);
+    }
+  };
+
   const handleCreateSlot = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSectionId || !subjectId || !teacherId) {
@@ -94,15 +151,7 @@ export const TimetableManager: React.FC = () => {
       return;
     }
 
-    const dayMap: Record<string, number> = {
-      Monday: 1,
-      Tuesday: 2,
-      Wednesday: 3,
-      Thursday: 4,
-      Friday: 5,
-      Saturday: 6,
-    };
-    const dayNum = dayMap[dayOfWeek] || 1;
+    const dayNum = DAY_NUM_MAP[dayOfWeek] || 1;
 
     try {
       setSubmitting(true);
@@ -117,13 +166,27 @@ export const TimetableManager: React.FC = () => {
         end_time: endTime,
         room: roomNumber,
         room_number: roomNumber,
+        override_conflict: overrideConflict,
+        force: overrideConflict,
       });
-      setFeedback({ type: 'success', message: 'Timetable slot created with conflict validation passed!' });
+      setFeedback({
+        type: 'success',
+        message: overrideConflict
+          ? 'Timetable slot created with Force Allotment (reassigned conflicting periods)!'
+          : 'Timetable slot created successfully! (Conflict checks passed)',
+      });
       setShowAddModal(false);
+      setOverrideConflict(false);
       const updated = await api.getTimetable({ section_id: selectedSectionId });
       setSlots(updated);
     } catch (err: any) {
-      setFeedback({ type: 'error', message: err.message || 'Conflict detected in timetable scheduling' });
+      const errMsg = err.message || 'Conflict detected in timetable scheduling';
+      const isConflict = errMsg.toLowerCase().includes('conflict');
+      setFeedback({
+        type: 'error',
+        message: errMsg,
+        isConflict,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -133,7 +196,7 @@ export const TimetableManager: React.FC = () => {
     if (!confirm('Remove this schedule slot?')) return;
     try {
       await api.deleteTimetableSlot(id);
-      setFeedback({ type: 'success', message: 'Slot removed.' });
+      setFeedback({ type: 'success', message: 'Schedule slot removed.' });
       const updated = await api.getTimetable({ section_id: selectedSectionId });
       setSlots(updated);
     } catch (err: any) {
@@ -141,31 +204,44 @@ export const TimetableManager: React.FC = () => {
     }
   };
 
+  const activeSection = sections.find((s) => s.id === selectedSectionId);
+
   return (
     <div className="space-y-6 font-mono">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b-2 border-[#0F172A]">
         <div>
           <h1 className="text-2xl font-black text-[#0F172A] tracking-tight uppercase flex items-center gap-2">
-            <Clock className="w-7 h-7" /> Timetable & Conflict Engine
+            <Clock className="w-7 h-7" /> Timetable & Class Allotment Engine
           </h1>
           <p className="text-xs text-slate-600 font-bold mt-1">
-            Automated conflict prevention: checks teacher availability and section time clashes
+            Allot periods, subjects, and teachers to classes without collision alerts. Full clean-slate clearing supported.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <BrutalButton
             variant="neutral"
             size="small"
             onClick={() => handleSectionSelect(selectedSectionId)}
-            icon={<RefreshCw className="w-3.5 h-3.5" />}
+            icon={<RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />}
           >
             REFRESH
           </BrutalButton>
           <BrutalButton
+            variant="danger"
+            size="small"
+            onClick={() => setShowClearModal(true)}
+            icon={<Eraser className="w-3.5 h-3.5" />}
+          >
+            CLEAR TIMETABLE
+          </BrutalButton>
+          <BrutalButton
             variant="primary"
             size="small"
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setOverrideConflict(false);
+              setShowAddModal(true);
+            }}
             icon={<Plus className="w-4 h-4" />}
           >
             ADD SCHEDULE SLOT
@@ -173,67 +249,122 @@ export const TimetableManager: React.FC = () => {
         </div>
       </div>
 
+      {/* Feedback Alert */}
       {feedback && (
         <div
-          className={`p-3 border-2 border-[#0F172A] text-xs font-bold flex items-center justify-between shadow-[2px_2px_0px_#0F172A] ${
+          className={`p-3 border-2 border-[#0F172A] text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-[2px_2px_0px_#0F172A] ${
             feedback.type === 'success' ? 'bg-[#A7F3D0] text-[#0F172A]' : 'bg-rose-100 text-rose-800'
           }`}
         >
           <div className="flex items-center gap-2">
-            {feedback.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+            {feedback.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
             <span>{feedback.message}</span>
+            {feedback.isConflict && (
+              <button
+                onClick={() => {
+                  setOverrideConflict(true);
+                  setShowAddModal(true);
+                }}
+                className="ml-2 underline font-black text-rose-950 hover:text-rose-700 uppercase"
+              >
+                [ENABLE FORCE ALLOTMENT & OVERRIDE]
+              </button>
+            )}
           </div>
-          <button onClick={() => setFeedback(null)} className="font-extrabold uppercase text-[10px]">
+          <button onClick={() => setFeedback(null)} className="font-extrabold uppercase text-[10px] self-end sm:self-center">
             [DISMISS]
           </button>
         </div>
       )}
 
       {/* Class and Section selectors */}
-      <div className="flex flex-wrap items-center gap-3 p-3 bg-white border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A]">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-extrabold text-[#0F172A] uppercase">Class:</span>
-          <select
-            value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
-            className="p-1.5 bg-[#FEFCE8] border-2 border-[#0F172A] text-xs font-bold focus:outline-none"
-          >
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-white border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A]">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-extrabold text-[#0F172A] uppercase">Class:</span>
+            <select
+              value={selectedClassId}
+              onChange={(e) => setSelectedClassId(e.target.value)}
+              className="p-1.5 bg-[#FEFCE8] border-2 border-[#0F172A] text-xs font-bold focus:outline-none"
+            >
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-extrabold text-[#0F172A] uppercase">Section:</span>
-          <div className="flex gap-1.5">
-            {sections.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => handleSectionSelect(s.id)}
-                className={`px-2.5 py-1 text-xs font-extrabold border-2 border-[#0F172A] transition-all ${
-                  selectedSectionId === s.id
-                    ? 'bg-[#0F172A] text-white shadow-[2px_2px_0px_#C4B5FD]'
-                    : 'bg-white text-[#0F172A] hover:bg-slate-100'
-                }`}
-              >
-                Section {s.name}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-extrabold text-[#0F172A] uppercase">Section:</span>
+            <div className="flex flex-wrap gap-1.5">
+              {sections.length === 0 ? (
+                <span className="text-xs text-slate-400 font-mono">No sections in this class</span>
+              ) : (
+                sections.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => handleSectionSelect(s.id)}
+                    className={`px-2.5 py-1 text-xs font-extrabold border-2 border-[#0F172A] transition-all ${
+                      selectedSectionId === s.id
+                        ? 'bg-[#0F172A] text-white shadow-[2px_2px_0px_#C4B5FD]'
+                        : 'bg-white text-[#0F172A] hover:bg-slate-100'
+                    }`}
+                  >
+                    Section {s.name}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
+
+        <div className="text-[11px] font-bold text-slate-600 flex items-center gap-2">
+          <span>Active Allotments:</span>
+          <span className="px-2 py-0.5 bg-[#FEFCE8] border border-[#0F172A] font-black">
+            {slots.length} Period{slots.length === 1 ? '' : 's'}
+          </span>
+        </div>
       </div>
+
+      {/* Clean Slate Banner if 0 slots */}
+      {slots.length === 0 && (
+        <div className="p-4 bg-[#FEFCE8] border-2 border-[#0F172A] shadow-[3px_3px_0px_#0F172A] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#A7F3D0] border-2 border-[#0F172A] shadow-[1px_1px_0px_#0F172A]">
+              <Sparkles className="w-5 h-5 text-[#0F172A]" />
+            </div>
+            <div>
+              <div className="font-black text-[#0F172A] uppercase tracking-wide text-sm">
+                Clean Slate: No Timetable Slots Occupied
+              </div>
+              <div className="text-[11px] text-slate-600 font-bold">
+                Section {activeSection?.name || '1-A'} is completely clear. Teachers and students are 100% free for full class allotment without collision alerts.
+              </div>
+            </div>
+          </div>
+          <BrutalButton
+            variant="primary"
+            size="small"
+            onClick={() => {
+              setOverrideConflict(false);
+              setShowAddModal(true);
+            }}
+            icon={<Plus className="w-3.5 h-3.5" />}
+          >
+            ALLOT FIRST PERIOD
+          </BrutalButton>
+        </div>
+      )}
 
       {/* Timetable Weekly Grid */}
       <div className="bg-white border-2 border-[#0F172A] shadow-[4px_4px_0px_#0F172A] overflow-hidden">
         <div className="p-3 bg-[#FEFCE8] border-b-2 border-[#0F172A] flex justify-between items-center text-xs font-black uppercase">
           <span className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" /> Weekly Class Schedule // Section {sections.find((s) => s.id === selectedSectionId)?.name || '1-A'}
+            <Calendar className="w-4 h-4" /> Weekly Class Schedule // Section {activeSection?.name || '1-A'} ({classes.find((c) => c.id === selectedClassId)?.name || 'Class'})
           </span>
-          <span className="text-[10px] px-2 py-0.5 bg-[#A7F3D0] border border-[#0F172A]">
-            CONFLICT_CHECK_ACTIVE
+          <span className="text-[10px] px-2 py-0.5 bg-[#A7F3D0] border border-[#0F172A] flex items-center gap-1">
+            <ShieldCheck className="w-3 h-3" /> CONFLICT_ENGINE_READY
           </span>
         </div>
 
@@ -264,9 +395,18 @@ export const TimetableManager: React.FC = () => {
                         </td>
                       );
                     }
-                    const matchingSlot = slots.find(
-                      (s) => s.day_of_week === day && s.start_time === ts.start
-                    );
+
+                    const matchingSlot = slots.find((s) => {
+                      const matchesDay =
+                        s.day_of_week === day ||
+                        s.day_of_week === DAY_NUM_MAP[day] ||
+                        String(s.day_of_week).toLowerCase() === day.toLowerCase() ||
+                        (typeof s.day_of_week === 'string' && s.day_of_week.startsWith(day.slice(0, 3)));
+                      return (
+                        matchesDay &&
+                        (s.start_time === ts.start || s.period_number === (TIME_SLOTS.indexOf(ts) + 1))
+                      );
+                    });
 
                     return (
                       <td key={ts.label} className="p-2 border-r border-[#0F172A] align-top">
@@ -279,18 +419,32 @@ export const TimetableManager: React.FC = () => {
                               {matchingSlot.teacher_name || matchingSlot.teacher_id}
                             </div>
                             <div className="text-[8px] text-slate-500 font-mono mt-0.5">
-                              {matchingSlot.room_number || 'Room 101'}
+                              {matchingSlot.room_number || matchingSlot.room || 'Room 101'}
                             </div>
                             <button
                               onClick={() => handleDeleteSlot(matchingSlot.id)}
-                              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-rose-700 hover:text-rose-900"
+                              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-rose-700 hover:text-rose-900 transition-opacity"
                               title="Delete Slot"
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[10px] text-slate-300 font-mono">-</span>
+                          <button
+                            onClick={() => {
+                              setDayOfWeek(day);
+                              const pNum = TIME_SLOTS.filter((t) => !t.isBreak).findIndex((t) => t.start === ts.start) + 1;
+                              setPeriodNumber(pNum > 0 ? pNum : 1);
+                              setStartTime(ts.start);
+                              setEndTime(ts.end);
+                              setOverrideConflict(false);
+                              setShowAddModal(true);
+                            }}
+                            className="w-full h-12 flex items-center justify-center text-[11px] text-slate-300 hover:text-[#0F172A] hover:bg-[#FEFCE8]/50 transition-colors font-mono"
+                            title={`Allot ${day} ${ts.label}`}
+                          >
+                            + Allot
+                          </button>
                         )}
                       </td>
                     );
@@ -302,12 +456,70 @@ export const TimetableManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal: Add Slot */}
+      {/* Modal: Clear Timetable Confirmation */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <BrutalCard size="medium" accent="pink" className="w-full max-w-md p-6 bg-white">
+            <div className="flex items-center gap-2 pb-2 border-b-2 border-[#0F172A] mb-4 text-rose-800">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <h3 className="text-base font-black uppercase text-[#0F172A]">
+                Clear Timetable Allotments
+              </h3>
+            </div>
+            <p className="text-xs font-bold text-slate-700 leading-relaxed mb-4">
+              Select which timetable slots you would like to clear. This removes existing schedules so you can fully allot periods to staff and students without conflict alerts.
+            </p>
+
+            <div className="space-y-3 mb-6">
+              <button
+                onClick={() => handleClearTimetable('section')}
+                disabled={clearing || !selectedSectionId}
+                className="w-full p-3 text-left border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] bg-[#FEFCE8] hover:bg-[#FEF08A] transition-colors"
+              >
+                <div className="font-black text-xs text-[#0F172A] uppercase flex items-center justify-between">
+                  <span>Clear Active Section ({activeSection?.name || 'Current Section'}) Only</span>
+                  <Eraser className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-[11px] text-slate-600 mt-1">
+                  Resets only Section {activeSection?.name || '1-A'} slots ({slots.length} period{slots.length === 1 ? '' : 's'}). Other classes remain untouched.
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleClearTimetable('all')}
+                disabled={clearing}
+                className="w-full p-3 text-left border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] bg-rose-50 hover:bg-rose-100 transition-colors"
+              >
+                <div className="font-black text-xs text-rose-900 uppercase flex items-center justify-between">
+                  <span>Clear Entire School Timetable (Total Clean Slate)</span>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-[11px] text-rose-700 mt-1">
+                  Removes all timetable allocations across all classes and sections. Gives every teacher and student a 100% clean schedule.
+                </div>
+              </button>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t-2 border-[#0F172A]">
+              <BrutalButton
+                variant="neutral"
+                size="small"
+                onClick={() => setShowClearModal(false)}
+                disabled={clearing}
+              >
+                CANCEL
+              </BrutalButton>
+            </div>
+          </BrutalCard>
+        </div>
+      )}
+
+      {/* Modal: Add / Allot Slot */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <BrutalCard size="medium" accent="yellow" className="w-full max-w-md p-6 bg-white">
+          <BrutalCard size="medium" accent="yellow" className="w-full max-w-md p-6 bg-white max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-black text-[#0F172A] uppercase pb-2 border-b-2 border-[#0F172A] mb-4">
-              Schedule Timetable Period
+              Allot Timetable Period // Section {activeSection?.name || '1-A'}
             </h3>
             <form onSubmit={handleCreateSlot} className="space-y-3 text-xs font-bold">
               <div className="grid grid-cols-2 gap-2">
@@ -375,7 +587,7 @@ export const TimetableManager: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-[#0F172A] mb-1 uppercase">Teacher (Conflict Checked)</label>
+                <label className="block text-[#0F172A] mb-1 uppercase">Teacher (Staff Allotment)</label>
                 <select
                   value={teacherId}
                   onChange={(e) => setTeacherId(e.target.value)}
@@ -424,12 +636,32 @@ export const TimetableManager: React.FC = () => {
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              {/* Force Allotment Checkbox */}
+              <div className="p-3 bg-amber-50 border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A]">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={overrideConflict}
+                    onChange={(e) => setOverrideConflict(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-[#0F172A] border-2 border-[#0F172A]"
+                  />
+                  <div>
+                    <span className="block font-black text-xs text-[#0F172A] uppercase">
+                      Force Allotment / Override Collision Alerts
+                    </span>
+                    <span className="block text-[11px] text-slate-600 font-bold mt-0.5">
+                      Enable to automatically reassign or overwrite any conflicting period or teacher schedule without collision errors.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t-2 border-[#0F172A]">
                 <BrutalButton variant="neutral" size="small" onClick={() => setShowAddModal(false)}>
                   CANCEL
                 </BrutalButton>
                 <BrutalButton variant="primary" size="small" type="submit" disabled={submitting}>
-                  {submitting ? 'VALIDATING...' : 'SAVE SLOT'}
+                  {submitting ? 'VALIDATING...' : overrideConflict ? 'FORCE ALLOT SLOT' : 'ALLOT SLOT'}
                 </BrutalButton>
               </div>
             </form>
@@ -439,4 +671,5 @@ export const TimetableManager: React.FC = () => {
     </div>
   );
 };
+
 export default TimetableManager;

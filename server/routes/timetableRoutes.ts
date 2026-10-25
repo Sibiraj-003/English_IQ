@@ -52,9 +52,23 @@ router.get('/', (req: AuthenticatedRequest, res) => {
   return res.json(enriched);
 });
 
-// POST /api/timetables - Admin creates a timetable period with conflict prevention
+// POST /api/timetables - Admin creates a timetable period with conflict prevention or override
 router.post('/', requireAdmin, (req: AuthenticatedRequest, res) => {
-  const { section_id, class_id, subject_id, teacher_id, day_of_week, period_number, start_time, end_time, room, room_number } = req.body;
+  const {
+    section_id,
+    class_id,
+    subject_id,
+    teacher_id,
+    day_of_week,
+    period_number,
+    start_time,
+    end_time,
+    room,
+    room_number,
+    override_conflict,
+    force,
+  } = req.body;
+  const allowOverride = Boolean(override_conflict || force);
 
   let targetSectionId = section_id;
   if (!targetSectionId && class_id) {
@@ -116,11 +130,17 @@ router.post('/', requireAdmin, (req: AuthenticatedRequest, res) => {
     (t) => t.teacher_id === teacher_id && t.day_of_week === day && t.period_number === period
   );
   if (teacherConflict) {
-    const conflictSec = db.sections.find((s) => s.id === teacherConflict.section_id);
-    return res.status(409).json({
-      error: 'Teacher Schedule Conflict',
-      message: `Teacher ${teacher.full_name} is already assigned to Section ${conflictSec?.full_name || teacherConflict.section_id} on Day ${day}, Period ${period}.`,
-    });
+    if (allowOverride) {
+      // Overwrite/reassign teacher to the requested section
+      const cIdx = db.timetables.findIndex((t) => t.id === teacherConflict.id);
+      if (cIdx >= 0) db.timetables.splice(cIdx, 1);
+    } else {
+      const conflictSec = db.sections.find((s) => s.id === teacherConflict.section_id);
+      return res.status(409).json({
+        error: 'Teacher Schedule Conflict',
+        message: `Teacher ${teacher.full_name} is already assigned to Section ${conflictSec?.full_name || teacherConflict.section_id} on Day ${day}, Period ${period}. Check "Force Allotment" to override.`,
+      });
+    }
   }
 
   // 2. Conflict Check: Section cannot have two subjects at the same day & period
@@ -128,11 +148,17 @@ router.post('/', requireAdmin, (req: AuthenticatedRequest, res) => {
     (t) => t.section_id === targetSectionId && t.day_of_week === day && t.period_number === period
   );
   if (sectionConflict) {
-    const conflictSub = db.subjects.find((s) => s.id === sectionConflict.subject_id);
-    return res.status(409).json({
-      error: 'Section Schedule Conflict',
-      message: `Section ${sec.full_name} already has ${conflictSub?.name || 'a subject'} scheduled on Day ${day}, Period ${period}.`,
-    });
+    if (allowOverride) {
+      // Replace previous subject scheduled in this slot
+      const sIdx = db.timetables.findIndex((t) => t.id === sectionConflict.id);
+      if (sIdx >= 0) db.timetables.splice(sIdx, 1);
+    } else {
+      const conflictSub = db.subjects.find((s) => s.id === sectionConflict.subject_id);
+      return res.status(409).json({
+        error: 'Section Schedule Conflict',
+        message: `Section ${sec.full_name} already has ${conflictSub?.name || 'a subject'} scheduled on Day ${day}, Period ${period}. Check "Force Allotment" to override.`,
+      });
+    }
   }
 
   const newSlot: TimetableSlot = {
@@ -156,14 +182,50 @@ router.post('/', requireAdmin, (req: AuthenticatedRequest, res) => {
     subject: sub.name,
     day,
     period,
+    overridden: allowOverride,
   }, req.user?.id);
 
   return res.status(201).json(newSlot);
 });
 
-// DELETE /api/timetables/:id - Admin removes a timetable slot
+// DELETE /api/timetables/clear & POST /api/timetables/clear - Admin clears timetable slots completely or by section
+router.all(['/clear', '/all'], requireAdmin, (req: AuthenticatedRequest, res) => {
+  const sectionId = req.query.section_id || req.body?.section_id;
+  const classId = req.query.class_id || req.body?.class_id;
+
+  let clearedCount = 0;
+  if (sectionId) {
+    const before = db.timetables.length;
+    db.timetables = db.timetables.filter((t) => t.section_id !== sectionId);
+    clearedCount = before - db.timetables.length;
+  } else if (classId) {
+    const before = db.timetables.length;
+    db.timetables = db.timetables.filter((t) => t.class_id !== classId);
+    clearedCount = before - db.timetables.length;
+  } else {
+    clearedCount = db.timetables.length;
+    db.timetables = [];
+  }
+
+  db.logAudit('CLEAR_TIMETABLE', 'timetables', undefined, { clearedCount, sectionId, classId }, req.user?.id);
+
+  return res.json({
+    success: true,
+    message: `Cleared ${clearedCount} timetable slots successfully. Timetable is now open for clean allotment.`,
+    cleared_count: clearedCount,
+  });
+});
+
+// DELETE /api/timetables/:id - Admin removes a single timetable slot
 router.delete('/:id', requireAdmin, (req: AuthenticatedRequest, res) => {
   const slotId = String(req.params.id);
+
+  if (slotId === 'clear' || slotId === 'all') {
+    const clearedCount = db.timetables.length;
+    db.timetables = [];
+    return res.json({ success: true, message: `Cleared ${clearedCount} timetable slots.`, cleared_count: clearedCount });
+  }
+
   const idx = db.timetables.findIndex((t) => t.id === slotId);
   if (idx === -1) {
     return res.status(404).json({ error: 'Timetable slot not found' });

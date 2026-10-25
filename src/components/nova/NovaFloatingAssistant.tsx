@@ -5,7 +5,7 @@ import { Nova3DAvatar } from './Nova3DAvatar';
 import { Nova3DState } from './novaAnimations';
 import { NovaVoiceState } from '../NovaAvatar';
 import { useAuth } from '../../contexts/AuthContext';
-import { speakWithNovaVoice } from '../../utils/novaVoice';
+import { speakWithNovaVoice, playCuteSound } from '../../utils/novaVoice';
 import './Nova3DAvatar.css';
 
 // Classic DVD Screensaver palette cycling on wall collisions
@@ -19,20 +19,54 @@ const DVD_GLOW_COLORS = [
   '#3B82F6', // Blue
 ];
 
+// Helper to retrieve and validate saved pinned position
+const getInitialPosition = (): { x: number; y: number } => {
+  if (typeof window === 'undefined') return { x: 200, y: 150 };
+  try {
+    const isPinnedSaved = localStorage.getItem('nova_companion_pinned') === 'true';
+    const savedPos = localStorage.getItem('nova_companion_pos');
+    if (isPinnedSaved && savedPos) {
+      const parsed = JSON.parse(savedPos);
+      if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
+        const robotW = 190;
+        const robotH = 260;
+        const maxX = Math.max(40, (window.innerWidth || 1200) - robotW - 10);
+        const maxY = Math.max(40, (window.innerHeight || 800) - robotH - 10);
+        return {
+          x: Math.min(Math.max(10, parsed.x), maxX),
+          y: Math.min(Math.max(10, parsed.y), maxY),
+        };
+      }
+    }
+  } catch {}
+  return {
+    x: Math.max(40, Math.floor((window.innerWidth || 1200) * 0.4)),
+    y: Math.max(40, Math.floor((window.innerHeight || 800) * 0.2)),
+  };
+};
+
 export const NovaFloatingAssistant: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
   const isAiTeacherRoute = location.pathname.includes('/ai-teacher');
 
+  // Strictly remove floating 3D model for Admin and Teacher
+  const isExcludedRole =
+    user?.role === 'admin' ||
+    user?.role === 'teacher' ||
+    location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/teacher');
+
   const [isPanelHidden, setIsPanelHidden] = useState<boolean>(() => {
     try {
+      if (localStorage.getItem('live_ai_enabled') === 'false') return true;
       return localStorage.getItem('nova_companion_panel_hidden') === 'true';
     } catch {
       return false;
     }
   });
 
-  // Listen for panel hide/show events from AiTeacher
+  // Listen for panel hide/show events from AiTeacher and Header Live AI Toggle
   useEffect(() => {
     const handlePanelState = (e: any) => {
       if (e?.detail && typeof e.detail.isHidden === 'boolean') {
@@ -47,20 +81,32 @@ export const NovaFloatingAssistant: React.FC = () => {
         isPinnedRef.current = false;
         try {
           localStorage.removeItem('nova_companion_pinned');
+          localStorage.removeItem('nova_companion_pos');
         } catch {}
       }
     };
     window.addEventListener('nova_companion_panel_state', handlePanelState);
 
+    const handleLiveAiState = (e: any) => {
+      if (e?.detail && typeof e.detail.isLiveAiOn === 'boolean') {
+        setIsPanelHidden(!e.detail.isLiveAiOn);
+      }
+    };
+    window.addEventListener('live_ai_state_changed', handleLiveAiState);
+
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'nova_companion_panel_hidden') {
         setIsPanelHidden(e.newValue === 'true');
+      }
+      if (e.key === 'live_ai_enabled') {
+        setIsPanelHidden(e.newValue === 'false');
       }
     };
     window.addEventListener('storage', handleStorage);
 
     return () => {
       window.removeEventListener('nova_companion_panel_state', handlePanelState);
+      window.removeEventListener('live_ai_state_changed', handleLiveAiState);
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
@@ -107,10 +153,7 @@ export const NovaFloatingAssistant: React.FC = () => {
 
   // Continuous 60FPS Direct GPU coordinates & physics references
   const containerRef = useRef<HTMLDivElement>(null);
-  const posRef = useRef<{ x: number; y: number }>({
-    x: typeof window !== 'undefined' ? Math.max(40, Math.floor(window.innerWidth * 0.4)) : 200,
-    y: typeof window !== 'undefined' ? Math.max(40, Math.floor(window.innerHeight * 0.2)) : 150,
-  });
+  const posRef = useRef<{ x: number; y: number }>(getInitialPosition());
 
   // Freestyle Velocity (50% of original cruising speed in pixels/sec)
   const velRef = useRef<{ vx: number; vy: number }>({
@@ -135,7 +178,7 @@ export const NovaFloatingAssistant: React.FC = () => {
 
   const currentColor = DVD_GLOW_COLORS[activeColorIdx % DVD_GLOW_COLORS.length];
 
-  // Pinning state: Triple-click locks Nova at the current screen position
+  // Pinning state: Locks Nova at the current screen position
   const [isPinned, setIsPinned] = useState<boolean>(() => {
     try {
       return localStorage.getItem('nova_companion_pinned') === 'true';
@@ -146,9 +189,18 @@ export const NovaFloatingAssistant: React.FC = () => {
   const isPinnedRef = useRef<boolean>(isPinned);
   isPinnedRef.current = isPinned;
 
-  const clickHistoryRef = useRef<number[]>([]);
-  const singleClickTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Multi-click tracking for reliable triple-click detection
+  const consecutiveClicksRef = useRef<number>(0);
+  const lastClickTimeRef = useRef<number>(0);
+  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
   const wasTripleClickRef = useRef<boolean>(false);
+  const bubbleTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Session portal greeting tracker & click counter
+  const hasGreetedSessionRef = useRef<boolean>(
+    typeof window !== 'undefined' && sessionStorage.getItem('nova_greeted_session') === 'true'
+  );
+  const clickCountRef = useRef<number>(0);
 
   // Voice Speech: Uses the EXACT same live female voice as NOVA AI Teacher
   const speakGreeting = useCallback((text: string) => {
@@ -168,38 +220,58 @@ export const NovaFloatingAssistant: React.FC = () => {
     });
   }, []);
 
-  // Toggle Pinned Status: Locks Nova right at the clicked location
+  // Toggle Pinned Status: Locks Nova right at the clicked location with concise voice & cute sounds
   const togglePin = useCallback(() => {
     setIsPinned((prev) => {
       const next = !prev;
       isPinnedRef.current = next;
       try {
         localStorage.setItem('nova_companion_pinned', String(next));
+        if (next) {
+          localStorage.setItem(
+            'nova_companion_pos',
+            JSON.stringify({
+              x: Math.round(posRef.current.x),
+              y: Math.round(posRef.current.y),
+            })
+          );
+        } else {
+          localStorage.removeItem('nova_companion_pos');
+        }
       } catch {}
+
+      if (bubbleTimerRef.current) {
+        clearTimeout(bubbleTimerRef.current);
+        bubbleTimerRef.current = null;
+      }
 
       if (next) {
         velRef.current = { vx: 0, vy: 0 };
-        const pinMsg = '📌 Pinned right here! Triple-click me anytime to unpin.';
+        playCuteSound('pin');
+        const pinMsg = '📌 Pinned';
         setSpeechBubbleText(pinMsg);
         setAvatarState('excited');
-        speakGreeting('Pinned right here!');
-        setTimeout(() => {
+        speakGreeting('Pinned');
+        bubbleTimerRef.current = setTimeout(() => {
           setSpeechBubbleText((curr) => (curr === pinMsg ? null : curr));
           setAvatarState('idle');
-        }, 3500);
+          bubbleTimerRef.current = null;
+        }, 2200);
       } else {
         velRef.current = {
           vx: (Math.random() > 0.5 ? 1 : -1) * 55,
           vy: (Math.random() > 0.5 ? 1 : -1) * 45,
         };
-        const unpinMsg = '🚀 Unpinned! Floating around your screen.';
+        playCuteSound('unpin');
+        const unpinMsg = '🚀 Unpinned';
         setSpeechBubbleText(unpinMsg);
         setAvatarState('happy');
-        speakGreeting('Unpinned! Floating around.');
-        setTimeout(() => {
+        speakGreeting('Unpinned');
+        bubbleTimerRef.current = setTimeout(() => {
           setSpeechBubbleText((curr) => (curr === unpinMsg ? null : curr));
           setAvatarState('idle');
-        }, 3500);
+          bubbleTimerRef.current = null;
+        }, 2200);
       }
       return next;
     });
@@ -247,6 +319,7 @@ export const NovaFloatingAssistant: React.FC = () => {
   // CONTINUOUS 60FPS DVD BOUNCE ENGINE (ENTIRE 3D MODEL FLOATING OVER SITE)
   // =========================================================================
   useEffect(() => {
+    if (isExcludedRole) return;
     let disposed = false;
     lastTimeRef.current = performance.now();
 
@@ -284,10 +357,13 @@ export const NovaFloatingAssistant: React.FC = () => {
         return;
       }
 
-      // If user has pinned Nova in place via triple-click:
+      // If user has pinned Nova in place:
       if (isPinnedRef.current) {
         velRef.current.vx = 0;
         velRef.current.vy = 0;
+        // Clamp to screen bounds in case window was resized
+        posRef.current.x = Math.min(Math.max(minX, posRef.current.x), maxX);
+        posRef.current.y = Math.min(Math.max(minY, posRef.current.y), maxY);
         // Maintain smooth calm anti-gravity hovering while pinned in place
         const hoverBob = Math.sin(now * 0.003) * 4.0;
         container.style.transform = `translate3d(${posRef.current.x}px, ${posRef.current.y + hoverBob}px, 0px)`;
@@ -375,39 +451,41 @@ export const NovaFloatingAssistant: React.FC = () => {
 
   // Dragging & Throw (Flick Physics) directly on the 3D model
   // LEFT-CLICK DRAGS NOVA ACROSS SCREEN
-  // TRIPLE-CLICK PINS NOVA RIGHT AT CLICK LOCATION
+  // TRIPLE-CLICK PINS / UNPINS NOVA RIGHT AT CLICK LOCATION
   // RIGHT-CLICK IS PRESERVED FOR 3D 360° ORBIT ROTATION
   const handleDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
     // Only handle primary button (left click = 0 or touch)
     if (e.button !== 0 && e.pointerType === 'mouse') return;
 
-    // Detect Triple-Click to Pin/Unpin right at this location
+    // Track consecutive clicks within generous 480ms window for reliable triple-click
     const now = performance.now();
-    clickHistoryRef.current = clickHistoryRef.current.filter((t) => now - t < 500);
-    clickHistoryRef.current.push(now);
+    const timeSinceLast = now - lastClickTimeRef.current;
+    lastClickTimeRef.current = now;
 
-    if (e.detail === 3 || clickHistoryRef.current.length >= 3) {
+    if (timeSinceLast < 480) {
+      consecutiveClicksRef.current += 1;
+    } else {
+      consecutiveClicksRef.current = 1;
+    }
+
+    // Cancel pending single-click speech action
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+
+    // Triple-click detected: Pin / Unpin right here
+    if (consecutiveClicksRef.current >= 3 || e.detail >= 3) {
+      consecutiveClicksRef.current = 0;
       wasTripleClickRef.current = true;
-      clickHistoryRef.current = [];
-      if (singleClickTimerRef.current) {
-        clearTimeout(singleClickTimerRef.current);
-        singleClickTimerRef.current = null;
-      }
-      e.preventDefault();
-      e.stopPropagation();
       togglePin();
       return;
     }
 
-    // Cancel any pending single-click timer if another click arrived
-    if (singleClickTimerRef.current) {
-      clearTimeout(singleClickTimerRef.current);
-      singleClickTimerRef.current = null;
+    // If double-click (e.g. angle reset), avoid initiating drag
+    if (consecutiveClicksRef.current === 2 || e.detail === 2) {
+      return;
     }
-
-    // Prevent default browser drag selection & gestures
-    e.preventDefault();
-    e.stopPropagation();
 
     isDraggingRef.current = true;
     hasMovedRef.current = false;
@@ -415,8 +493,9 @@ export const NovaFloatingAssistant: React.FC = () => {
 
     // Guard starting position
     if (!Number.isFinite(posRef.current.x) || !Number.isFinite(posRef.current.y)) {
-      posRef.current.x = Math.max(40, Math.floor((window.innerWidth || 1200) * 0.4));
-      posRef.current.y = Math.max(40, Math.floor((window.innerHeight || 800) * 0.2));
+      const init = getInitialPosition();
+      posRef.current.x = init.x;
+      posRef.current.y = init.y;
     }
 
     dragStartRef.current = {
@@ -429,13 +508,14 @@ export const NovaFloatingAssistant: React.FC = () => {
 
     const onPointerMove = (ev: PointerEvent) => {
       if (!isDraggingRef.current) return;
-      ev.preventDefault();
 
       const dx = ev.clientX - dragStartRef.current.mouseX;
       const dy = ev.clientY - dragStartRef.current.mouseY;
 
       if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
         hasMovedRef.current = true;
+        // Prevent browser scrolling only while actively dragging
+        ev.preventDefault();
       }
 
       const robotW = 190;
@@ -480,18 +560,25 @@ export const NovaFloatingAssistant: React.FC = () => {
           wasTripleClickRef.current = false;
           return;
         }
-        if (singleClickTimerRef.current) clearTimeout(singleClickTimerRef.current);
-        singleClickTimerRef.current = setTimeout(() => {
-          if (clickHistoryRef.current.length <= 1) {
+        if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+        clickTimerRef.current = setTimeout(() => {
+          if (consecutiveClicksRef.current === 1) {
+            consecutiveClicksRef.current = 0;
             handleRobotClick();
           }
-        }, 320);
+        }, 380);
         return;
       }
 
-      // If pinned, stay locked at the new dropped position without flick physics
+      // If pinned, stay locked at the new dropped position and persist new coordinates
       if (isPinnedRef.current) {
         velRef.current = { vx: 0, vy: 0 };
+        try {
+          localStorage.setItem(
+            'nova_companion_pos',
+            JSON.stringify({ x: Math.round(posRef.current.x), y: Math.round(posRef.current.y) })
+          );
+        } catch {}
         return;
       }
 
@@ -521,27 +608,92 @@ export const NovaFloatingAssistant: React.FC = () => {
     window.addEventListener('pointercancel', onPointerUp, { passive: true });
   };
 
+  // Curated learning wisdom & study tips
+  const USEFUL_TIPS = [
+    'Quick tip: Reading just 15 minutes a day exposes you to over 1 million words each year!',
+    'Pro tip: You can triple-click me anytime to pin me in place, or drag me anywhere on screen!',
+    'Study secret: Explaining what you just learned out loud helps lock it into long-term memory!',
+    'Did you know? You can ask AI Teacher to explain any difficult concept in 3 simpler ways!',
+    'Check your Mastery & Growth page to review your accuracy score, weak topics, and streak!',
+    'Reading tip: Skimming chapter headings first gives your brain a quick mental road map!',
+    'Challenge yourself: Completing chapter quizzes unlocks special achievement badges in your profile!',
+    'Pro tip: You can hold right-click to spin me 360° in 3D, and double-click to reset my angle!',
+    'Vocabulary tip: Try using a newly learned word three times in conversation today to remember it forever!',
+  ];
+
+  // Cheerful robot jokes & fun English facts
+  const FUNNY_AND_FUN_FACTS = [
+    "Fun fact: 'Almost' is the longest commonly used word with all its letters in alphabetical order!",
+    "Did you know? The little dot over the lower-case letters 'i' and 'j' is actually called a 'tittle'!",
+    'Why did the robot go on vacation? To recharge its batteries, of course!',
+    "Fun fact: 'Rhythm' is the longest English word without any of the vowels A, E, I, O, or U!",
+    'Why was six afraid of seven? Because seven eight nine!',
+    'Did you know? English is the official language of aviation—every airplane pilot speaks it in the skies!',
+    'Why do scientists not trust atoms? Because they make up everything!',
+    "Fun fact: A sentence containing all 26 letters of the alphabet is called a pangram! Like: 'The quick brown fox jumps over the lazy dog'!",
+    'My robotic processors run on 10% clean electricity and 90% curiosity!',
+    'Why did the computer take a break? Because it had too many tabs open!',
+  ];
+
   const handleRobotClick = () => {
-    setAvatarState('happy');
     const firstName = user?.full_name ? user.full_name.trim().split(' ')[0] : '';
     const namePrefix = firstName ? ` ${firstName}` : '';
 
-    const greetings = [
-      `Hi${namePrefix}! Ready to learn today?`,
-      `Hello${namePrefix}! Ask me any question anytime!`,
-      `Hi${namePrefix}! I'm Nova, your AI study buddy!`,
-      `Great to see you${namePrefix}! How can I help you today?`,
-      `Keep up the awesome work! I'm right here if you need me!`,
-      `Happy learning${namePrefix}! Let's make today great!`,
-    ];
-    const picked = greetings[Math.floor(Math.random() * greetings.length)];
+    // First time clicking after entering portal this session: Say Hi!
+    if (!hasGreetedSessionRef.current) {
+      hasGreetedSessionRef.current = true;
+      try {
+        sessionStorage.setItem('nova_greeted_session', 'true');
+      } catch {}
+
+      if (bubbleTimerRef.current) {
+        clearTimeout(bubbleTimerRef.current);
+        bubbleTimerRef.current = null;
+      }
+      playCuteSound('chime');
+      setAvatarState('happy');
+      const hiMsg = `Hi${namePrefix}! Ready to learn today? Ask me anything!`;
+      setIsIntro(false);
+      setSpeechBubbleText(hiMsg);
+      speakGreeting(hiMsg);
+
+      bubbleTimerRef.current = setTimeout(() => {
+        setSpeechBubbleText((curr) => (curr === hiMsg ? null : curr));
+        setAvatarState('idle');
+        bubbleTimerRef.current = null;
+      }, 4000);
+      return;
+    }
+
+    // Subsequent clicks: Do not repeat "Hi"!
+    // Rotate between Useful Info and Funny Info with cute robot sound effects
+    clickCountRef.current += 1;
+    const isUseful = clickCountRef.current % 2 === 1;
+
+    // Play cute procedural sound effect
+    const cuteSounds: Array<'chirp' | 'boop' | 'giggle'> = ['chirp', 'boop', 'giggle'];
+    const chosenSound = cuteSounds[clickCountRef.current % cuteSounds.length];
+    playCuteSound(chosenSound);
+
+    const pool = isUseful ? USEFUL_TIPS : FUNNY_AND_FUN_FACTS;
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+
+    if (bubbleTimerRef.current) {
+      clearTimeout(bubbleTimerRef.current);
+      bubbleTimerRef.current = null;
+    }
+
+    setAvatarState(isUseful ? 'excited' : 'happy');
     setIsIntro(false);
     setSpeechBubbleText(picked);
     speakGreeting(picked);
-    setTimeout(() => {
+
+    const displayDuration = Math.max(4500, picked.length * 68);
+    bubbleTimerRef.current = setTimeout(() => {
       setSpeechBubbleText((curr) => (curr === picked ? null : curr));
       setAvatarState('idle');
-    }, 3500);
+      bubbleTimerRef.current = null;
+    }, displayDuration);
   };
 
   // Determine Cartoon Thinking Cloud visibility and content
@@ -573,11 +725,12 @@ export const NovaFloatingAssistant: React.FC = () => {
   }
 
   // Visibility Coordination:
+  // - Strictly remove for Admin and Teacher
   // - On the AI Teacher page:
   //   - If panel is not hidden -> floating 3D model disappears.
   //   - If panel is hidden -> floating 3D model appears.
   // - On all other pages -> floating 3D model appears normally.
-  const isVisible = !isAiTeacherRoute || isPanelHidden;
+  const isVisible = !isExcludedRole && (!isAiTeacherRoute || isPanelHidden);
 
   if (!isVisible) {
     return null;
@@ -691,25 +844,42 @@ export const NovaFloatingAssistant: React.FC = () => {
           </div>
         )}
 
-        {/* Pinned Pill Badge Indicator */}
-        {isPinned && (
-          <div
+        {/* Pin / Unpin Button Badge: 1-click Pin & Unpin, plus triple-click shortcut */}
+        {isPinned ? (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               togglePin();
             }}
-            className="absolute -top-1.5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 px-2.5 py-0.5 bg-[#FDE68A] hover:bg-[#FCD34D] text-[#0F172A] border-2 border-[#0F172A] shadow-[2px_2px_0px_#0F172A] text-[9px] font-black uppercase tracking-wider rounded-sm cursor-pointer select-none"
-            title="Nova is pinned here. Click or triple-click model to unpin."
+            className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-0.5 bg-[#FDE68A] hover:bg-[#F87171] hover:text-white text-[#0F172A] border-2 border-[#0F172A] shadow-[2.5px_2.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] text-[10px] font-black uppercase tracking-wider rounded-sm cursor-pointer select-none transition-all group"
+            title="Nova is pinned here. Click to unpin, or triple-click the character."
           >
-            <Pin className="w-2.5 h-2.5 fill-[#0F172A]" />
-            <span>PINNED</span>
-          </div>
-        )}
+            <Pin className="w-2.5 h-2.5 fill-current rotate-45 transition-transform group-hover:rotate-0" />
+            <span className="group-hover:hidden">PINNED</span>
+            <span className="hidden group-hover:inline">UNPIN</span>
+          </button>
+        ) : isHovered ? (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              togglePin();
+            }}
+            className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-0.5 bg-white hover:bg-[#A7F3D0] text-[#0F172A] border-2 border-[#0F172A] shadow-[2.5px_2.5px_0px_#0F172A] active:translate-x-[1px] active:translate-y-[1px] text-[10px] font-black uppercase tracking-wider rounded-sm cursor-pointer select-none transition-all animate-in fade-in zoom-in-95 duration-150"
+            title="Click to pin Nova right here (or triple-click the character)"
+          >
+            <Pin className="w-2.5 h-2.5 text-[#0F172A]" />
+            <span>PIN HERE</span>
+          </button>
+        ) : null}
 
         {/* =========================================================================
             FULL 3D ROBOT MODEL CANVAS
             - Left click / touch drag: moves Nova across the screen (DVD freestyle)
-            - Triple click: PINS / UNPINS Nova right at the clicked spot
+            - Click PIN button or Triple-click: PINS / UNPINS Nova right at the clicked spot
             - Right click hold & drag: rotates character 360° in 3D orbit
             - Double click: resets front angle
            ========================================================================= */}
@@ -717,14 +887,15 @@ export const NovaFloatingAssistant: React.FC = () => {
           onPointerDown={handleDragStart}
           onDoubleClick={() => setResetKey((prev) => prev + 1)}
           onClick={(e) => {
-            if (e.detail === 3) {
+            if (wasTripleClickRef.current) {
               e.stopPropagation();
-              togglePin();
+              wasTripleClickRef.current = false;
+              return;
             }
           }}
           onContextMenu={(e) => e.preventDefault()}
           className="w-full flex-1 relative cursor-grab active:cursor-grabbing select-none"
-          title="Nova 3D • Triple-click to PIN/UNPIN • Left-click drag to move • Right-click hold to rotate 360° • Double-click to reset angle"
+          title="Nova 3D • Click PIN button or Triple-click to PIN/UNPIN • Left-click drag to move • Right-click hold to rotate 360° • Double-click to reset angle"
         >
           <Nova3DAvatar
             key={`nova-3d-${resetKey}`}

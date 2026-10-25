@@ -93,16 +93,23 @@ export const StudentTestCenter: React.FC = () => {
                     {test.description}
                   </p>
 
-                  <div className="grid grid-cols-2 gap-2 p-3 bg-[#F8FAFC] border-2 border-[#0F172A] mb-4 text-xs text-center font-bold">
+                  <div className="grid grid-cols-2 gap-2 p-3 bg-[#F8FAFC] border-2 border-[#0F172A] mb-3 text-xs text-center font-bold">
                     <div className="flex items-center justify-center gap-1.5">
                       <ListChecks className="w-4 h-4 text-[#0F172A]" />
-                      <span>{test.total_questions || 5} QUESTIONS</span>
+                      <span>{test.total_questions || 5} Qs • {test.total_marks || 25} MARKS</span>
                     </div>
                     <div className="flex items-center justify-center gap-1.5 border-l-2 border-slate-200">
                       <Clock className="w-4 h-4 text-[#0F172A]" />
-                      <span>{test.duration_minutes || 15} MINUTES</span>
+                      <span>{test.exam_timing || `${test.duration_minutes || 15} MIN`}</span>
                     </div>
                   </div>
+
+                  {test.scheduled_date && (
+                    <div className="mb-3 px-3 py-1.5 bg-[#FEF08A] border-2 border-[#0F172A] text-[11px] font-black text-[#0F172A] flex justify-between items-center shadow-[2px_2px_0px_#0F172A]">
+                      <span>📅 DATE: {test.scheduled_date}</span>
+                      <span>⏰ {test.exam_timing || '10:00 AM - 11:00 AM'}</span>
+                    </div>
+                  )}
 
                   {isCompleted && (
                     <div className="p-3 bg-[#A7F3D0]/30 border-2 border-[#0F172A] mb-4 text-xs flex justify-between items-center font-mono">

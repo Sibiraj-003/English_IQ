@@ -24,6 +24,7 @@ import messagesRoutes from './routes/messagesRoutes.js';
 import reportsRoutes from './routes/reportsRoutes.js';
 import csvImportRoutes from './routes/csvImportRoutes.js';
 import novaRoutes from './routes/novaRoutes.js';
+import teacherCopilotRoutes from './routes/teacherCopilotRoutes.js';
 import { groqClient } from './ai/groqClient.js';
 
 const app = express();
@@ -63,6 +64,9 @@ const apiSubroutes: [string, any][] = [
   ['/messages', messagesRoutes],
   ['/reports', reportsRoutes],
   ['/csv-import', csvImportRoutes],
+  ['/admin/csv-import', csvImportRoutes],
+  ['/teacher/copilot', teacherCopilotRoutes],
+  ['/teacher-copilot', teacherCopilotRoutes],
 ];
 
 apiSubroutes.forEach(([prefix, routeHandler]) => {

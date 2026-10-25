@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { DemoBanner } from '../components/DemoBanner';
 import { MobileBottomNav } from '../components/MobileBottomNav';
 import { NovaFloatingAssistant } from '../components/nova/NovaFloatingAssistant';
+import { useAuth } from '../contexts/AuthContext';
 
 export const DashboardLayout: React.FC = () => {
+  const { user } = useAuth();
+  const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -29,6 +32,13 @@ export const DashboardLayout: React.FC = () => {
       });
     }
   };
+
+  // Strictly remove floating 3D model for Admin and Teacher
+  const isExcludedRole =
+    user?.role === 'admin' ||
+    user?.role === 'teacher' ||
+    location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/teacher');
 
   return (
     <div className="h-screen max-h-screen bg-[#F8FAFC] flex flex-col selection:bg-[#FDE68A] selection:text-[#0F172A] overflow-hidden">
@@ -55,8 +65,8 @@ export const DashboardLayout: React.FC = () => {
       {/* Android Mobile Navigation Bar */}
       <MobileBottomNav />
 
-      {/* Persistent 3D AI Floating Companion */}
-      <NovaFloatingAssistant />
+      {/* Persistent 3D AI Floating Companion - Excluded for Admin & Teacher */}
+      {!isExcludedRole && <NovaFloatingAssistant />}
     </div>
   );
 };

@@ -145,12 +145,18 @@ export interface Question {
 export interface Test {
   id: string;
   class_id: string;
+  section_id?: string;
+  subject_id?: string;
   book_id: string;
   lesson_id?: string;
   title: string;
   description: string;
   duration_minutes: number;
   total_questions: number;
+  total_marks?: number;
+  passing_marks?: number;
+  scheduled_date?: string;
+  exam_timing?: string;
   published: boolean;
   question_ids: string[];
   questions?: Question[];
@@ -553,6 +559,27 @@ export interface CsvPreviewRow {
   errors: string[];
 }
 
+export interface OnboardingCredential {
+  id: string;
+  name: string;
+  role: 'student' | 'teacher';
+  id_number: string;
+  email: string;
+  password: string;
+  class_id?: string;
+  class_name?: string;
+  section_id?: string;
+  section_name?: string;
+  parent_name?: string;
+  parent_phone?: string;
+  phone?: string;
+  subject?: string;
+  status: 'pending_login' | 'activated';
+  in_database: boolean;
+  created_at: string;
+  activated_at?: string;
+}
+
 export interface CsvImportResult {
   success: boolean;
   entity_type: string;
@@ -560,6 +587,7 @@ export interface CsvImportResult {
   imported_count: number;
   failed_count: number;
   assignments_created?: number;
+  credentials?: OnboardingCredential[];
   errors: Array<{ row: number; reason?: string; message?: string; data?: any }>;
   summary: string;
 }
@@ -592,6 +620,14 @@ export type NovaAvatarExpression =
   | 'explaining'
   | 'concerned';
 
+export interface ExampleImage {
+  url: string;
+  title: string;
+  source: string;
+  caption?: string;
+  tags?: string[];
+}
+
 export interface NovaChatMessage {
   id: string;
   sender: 'student' | 'nova';
@@ -603,6 +639,7 @@ export interface NovaChatMessage {
     lessonTitle?: string;
   };
   suggestedFollowUps?: string[];
+  exampleImage?: ExampleImage;
   timestamp: string;
 }
 
@@ -612,7 +649,7 @@ export interface NovaChatSession {
   subject_id: string;
   subject_name: string;
   topic: string;
-  mode: 'chat' | 'teach_back' | 'practice' | 'quiz' | 'revision';
+  mode: 'chat' | 'teach_back' | 'practice' | 'quiz' | 'revision' | 'visual';
   messages: NovaChatMessage[];
   updated_at: string;
   created_at: string;
@@ -756,6 +793,113 @@ export interface StudentLearningProfile {
     text: string;
     estimated_minutes: number;
   }>;
+}
+
+// ==========================================
+// TEACHER AI COPILOT TYPES
+// ==========================================
+
+export interface TeacherCopilotDataCard {
+  label: string;
+  value: string | number;
+  subtext?: string;
+  trend?: 'up' | 'down' | 'neutral';
+  status?: 'good' | 'warning' | 'danger' | 'info';
+}
+
+export interface TeacherCopilotAlert {
+  type: 'warning' | 'info' | 'success';
+  title: string;
+  description: string;
+  actionPrompt?: string;
+}
+
+export interface TeacherCopilotContextSummary {
+  className?: string;
+  sectionName?: string;
+  subjectName?: string;
+  totalStudents?: number;
+  averageScore?: number;
+  attendanceRate?: number;
+}
+
+export interface TeacherCopilotResponse {
+  answer: string;
+  suggestedQuestions: string[];
+  dataCards: TeacherCopilotDataCard[];
+  actionableAlerts: TeacherCopilotAlert[];
+  contextSummary: TeacherCopilotContextSummary;
+}
+
+export interface TeacherCopilotSummaryData {
+  teacher: {
+    id: string;
+    full_name: string;
+    email: string;
+  };
+  assignments: Array<{
+    id: string;
+    class_id: string;
+    class_name: string;
+    grade: number;
+    section_id: string;
+    section_name: string;
+    subject_id: string;
+    subject_name: string;
+  }>;
+  activeScope: {
+    classId: string;
+    className: string;
+    sectionId: string;
+    sectionName: string;
+    subjectId: string;
+    subjectName: string;
+  };
+  metrics: {
+    totalEnrolled: number;
+    todayAttendanceRate: number;
+    presentCount: number;
+    absentCount: number;
+    absentStudentNames: string[];
+    averageScore: number;
+    atRiskCount: number;
+    topStudentsCount: number;
+    weakTopics: string[];
+    pendingHomeworkCount: number;
+    unreadParentMessages: number;
+    todayScheduleSlots: number;
+  };
+  atRiskStudents: Array<{
+    student_id: string;
+    name: string;
+    average_score: number;
+    tests_attempted: number;
+    weak_topics: string[];
+  }>;
+  topStudents: Array<{
+    student_id: string;
+    name: string;
+    average_score: number;
+    tests_attempted: number;
+  }>;
+  schedule: Array<{
+    period_number: number;
+    subject_name: string;
+    room_number?: string;
+    start_time: string;
+    end_time: string;
+  }>;
+}
+
+export interface TeacherCopilotMessage {
+  id: string;
+  sender: 'teacher' | 'copilot';
+  text: string;
+  timestamp: string;
+  dataCards?: TeacherCopilotDataCard[];
+  alerts?: TeacherCopilotAlert[];
+  suggestedQuestions?: string[];
+  contextSummary?: TeacherCopilotContextSummary;
 }
 
 

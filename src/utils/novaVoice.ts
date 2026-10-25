@@ -153,3 +153,111 @@ export const getAllAvailableVoices = (): SpeechSynthesisVoice[] => {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return [];
   return window.speechSynthesis.getVoices();
 };
+
+/**
+ * Procedural Web Audio cute robot sound effects
+ * Synthesizes adorable, cheerful 8-bit / robotic melodic chimes, chirps, and boops
+ */
+let sharedAudioCtx: AudioContext | null = null;
+
+const getAudioContext = (): AudioContext | null => {
+  if (typeof window === 'undefined') return null;
+  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContextClass) return null;
+  try {
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioContextClass();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+};
+
+export const playCuteSound = (
+  type: 'chirp' | 'chime' | 'boop' | 'pin' | 'unpin' | 'giggle' = 'chirp'
+): void => {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.08, now); // Gentle, pleasant cute volume
+    masterGain.connect(ctx.destination);
+
+    if (type === 'chirp') {
+      // Cheerful two-tone robotic chirp (C6 -> G6)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, now);
+      osc.frequency.exponentialRampToValueAtTime(1400, now + 0.11);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.15);
+    } else if (type === 'chime' || type === 'giggle') {
+      // Sweet 3-note robotic arpeggio (C5 -> E5 -> G5)
+      const freqs = [523.25, 659.25, 783.99];
+      freqs.forEach((f, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(f, now + idx * 0.055);
+        gain.gain.setValueAtTime(0.07, now + idx * 0.055);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.055 + 0.2);
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(now + idx * 0.055);
+        osc.stop(now + idx * 0.055 + 0.21);
+      });
+    } else if (type === 'boop') {
+      // Playful bouncy boop
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(580, now);
+      osc.frequency.setValueAtTime(880, now + 0.06);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    } else if (type === 'pin') {
+      // High-pitched lock chime
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(987.77, now); // B5
+      osc.frequency.exponentialRampToValueAtTime(1318.51, now + 0.08); // E6
+      gain.gain.setValueAtTime(0.09, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.23);
+    } else if (type === 'unpin') {
+      // Playful release tone
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1200, now);
+      osc.frequency.exponentialRampToValueAtTime(620, now + 0.12);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.19);
+    }
+  } catch {
+    // Graceful silent fallback
+  }
+};

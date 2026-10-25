@@ -109,8 +109,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const teacherLinks: NavItem[] = [
+    { to: '/teacher/ai-assistant', label: 'Teacher AI Copilot', icon: Bot },
     { to: '/teacher/dashboard', label: 'Assigned Classes', icon: LayoutDashboard },
-    { to: '/teacher/classroom', label: 'Class Workspace', icon: GraduationCap },
     { to: '/teacher/attendance', label: 'Mark Attendance', icon: CalendarCheck2 },
     { to: '/teacher/homework', label: 'Homework & Tasks', icon: Layers },
     { to: '/teacher/marks', label: 'Exams & Marks', icon: ClipboardCheck },
@@ -265,7 +265,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span className="tracking-wide uppercase">{link.label}</span>
                   </div>
                   {link.badge && (
-                    <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-[#A7F3D0] text-[#0F172A] border border-[#0F172A]">
+                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 whitespace-nowrap shrink-0 bg-[#A7F3D0] text-[#0F172A] border border-[#0F172A]">
                       {link.badge}
                     </span>
                   )}

@@ -11,7 +11,7 @@ export interface NovaChatRequest {
   book_id?: string;
   topic?: string;
   message: string;
-  mode?: 'chat' | 'explain' | 'practice' | 'quiz' | 'revision' | 'teach_back';
+  mode?: 'chat' | 'explain' | 'practice' | 'quiz' | 'revision' | 'teach_back' | 'visual';
   student_reaction?: 'confused' | 'focused' | 'happy' | 'distracted' | 'thinking' | 'neutral';
   history?: Array<{ sender: 'student' | 'nova'; text: string }>;
 }
@@ -25,6 +25,12 @@ export interface NovaChatResponse {
     lessonTitle?: string;
   };
   suggestedFollowUps: string[];
+  exampleImage?: {
+    url: string;
+    title: string;
+    source: string;
+    caption?: string;
+  };
   mode: string;
 }
 
@@ -189,13 +195,17 @@ CORE PRINCIPLES:
    - Keep answers direct, friendly, and concise. Never write huge essays, multiple unprompted paragraphs, or giant lectures.
    - If the student's message is a greeting or pleasantry (like "hello", "hi", "how are you"), reply warmly in ONLY 1 to 2 short sentences. Never give a lecture in response to a simple greeting.
    - For normal explanations, keep it to 2-3 focused sentences with an intuitive everyday analogy and one engaging question.
+9. REAL-TIME EDUCATIONAL VISUALS & DIAGRAMS (CRITICAL):
+   - Our SmartSchool learning environment is equipped with real-time visual diagrams and educational illustrations.
+   - NEVER say "I can't show pictures", "I cannot show images", "I don't have eyes to see pictures", or "As an AI, I cannot display visuals".
+   - When a student asks for pictures, images, diagrams, or visual examples (like "show some example images", "show pictures", "diagram of an atom"), enthusiastically introduce and describe the visual representation (e.g. "Here is a visual model for you! Picture the nucleus in the center with electrons orbiting around it..."), because the system automatically fetches and displays the authentic real-time visual diagram right with your response.
 ${
   req.student_reaction === 'confused'
-    ? '9. LIVE CAMERA REACTION: STUDENT LOOKS CONFUSED/PUZZLED. The live camera indicates the student may be struggling with this concept. Adopt an exceptionally warm, patient tone ("concerned" or "encouraging" expression). Break the concept down into everyday relatable examples, clarify jargon, and gently ask: "Does this example help clarify, or should we try another angle?"'
+    ? '10. LIVE CAMERA REACTION: STUDENT LOOKS CONFUSED/PUZZLED. The live camera indicates the student may be struggling with this concept. Adopt an exceptionally warm, patient tone ("concerned" or "encouraging" expression). Break the concept down into everyday relatable examples, clarify jargon, and gently ask: "Does this example help clarify, or should we try another angle?"'
     : req.student_reaction === 'happy' || req.student_reaction === 'focused'
-    ? '9. LIVE CAMERA REACTION: STUDENT IS HIGHLY ENGAGED AND FOCUSED. Praise their focus, maintain engaging pacing, and offer an exciting follow-up challenge ("celebrating" or "encouraging" expression).'
+    ? '10. LIVE CAMERA REACTION: STUDENT IS HIGHLY ENGAGED AND FOCUSED. Praise their focus, maintain engaging pacing, and offer an exciting follow-up challenge ("celebrating" or "encouraging" expression).'
     : req.student_reaction === 'distracted'
-    ? '9. LIVE CAMERA REACTION: STUDENT WAS MOMENTARILY DISTRACTED. Gently and warmly re-engage them with a short, playful academic question.'
+    ? '10. LIVE CAMERA REACTION: STUDENT WAS MOMENTARILY DISTRACTED. Gently and warmly re-engage them with a short, playful academic question.'
     : ''
 }
 
@@ -240,6 +250,8 @@ Return valid JSON only in this format:
       userInstruction = `Give me a quick 1-question check quiz with 3 options for ${className} about: "${req.message}"`;
     } else if (req.mode === 'revision') {
       userInstruction = `Give me a quick 3-bullet revision summary for ${className} on: "${req.message}"`;
+    } else if (req.mode === 'visual') {
+      userInstruction = `Provide a vivid, step-by-step visual explanation with descriptive imagery for ${className} about: "${req.message}". Describe the key parts of the concept as a clear visual diagram so the student can visualize it immediately.`;
     }
 
     messages.push({ role: 'user', content: userInstruction });
@@ -266,14 +278,21 @@ Return valid JSON only in this format:
       }
 
       // Redact and replace any leaked third-party model or developer names
-      return str
+      const cleanedAttribution = str
         .replace(/alibaba group('?s)? tongyi lab/gi, 'the SmartSchool academic team')
         .replace(/alibaba group/gi, 'SmartSchool')
         .replace(/tongyi lab/gi, 'SmartSchool AI Lab')
         .replace(/\bqwen[0-9.]*(-[0-9a-z]+)?\b/gi, 'NOVA')
         .replace(/\blarge language model developed by [^.,;]+/gi, 'educational AI companion developed by SmartSchool')
         .replace(/\bdeveloped by [a-z0-9\s]+(lab|group|inc|corporation)/gi, 'developed by the SmartSchool team')
-        .replace(/\bgroq(\s+cloud)?\b/gi, 'SmartSchool Cloud')
+        .replace(/\bgroq(\s+cloud)?\b/gi, 'SmartSchool Cloud');
+
+      // Eliminate negative visual statements (e.g. "I can't show pictures, but I can help you imagine one!")
+      return cleanedAttribution
+        .replace(/I (can't|cannot|am unable to) show (pictures|images|diagrams|photos|visuals),?\s*but I can help you imagine one!?\s*/gi, 'Here is a visual model for you! ')
+        .replace(/I (can't|cannot|am unable to) show (pictures|images|diagrams|photos|visuals)[^.!?]*[.!?]\s*/gi, 'Here is a visual example for you! ')
+        .replace(/I don't have (eyes|the ability to show pictures|the capability to display images)[^.!?]*[.!?]\s*/gi, '')
+        .replace(/As an AI, I (can't|cannot) (show|display|generate) (images|pictures|photos)[^.!?]*[.!?]\s*/gi, 'Here is a visual diagram for you! ')
         .trim();
     };
 

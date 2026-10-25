@@ -26,6 +26,7 @@ import {
   ParentTeacherMessage,
   AuditLogEntry,
   CsvImportResult,
+  OnboardingCredential,
   StudentReportCard,
   NovaAvatarExpression,
   NovaChatMessage,
@@ -37,6 +38,9 @@ import {
   TestIntegrityEvent,
   CameraAnalysisResult,
   StudentLearningProfile,
+  ExampleImage,
+  TeacherCopilotResponse,
+  TeacherCopilotSummaryData,
 } from '../types';
 
 const BASE_URL = '/api';
@@ -711,7 +715,7 @@ export const api = {
   }): Promise<{ user: UserProfile; message: string }> {
     const res = await fetch(`${BASE_URL}/admin/users`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(data),
     });
     if (!res.ok) {
@@ -1033,6 +1037,8 @@ export const api = {
     end_time: string;
     room?: string;
     room_number?: string;
+    override_conflict?: boolean;
+    force?: boolean;
   }): Promise<TimetableSlot> {
     const res = await fetch(`${BASE_URL}/timetable`, {
       method: 'POST',
@@ -1052,6 +1058,21 @@ export const api = {
       headers: getAuthHeaders(),
     });
     if (!res.ok) throw new Error('Failed to delete timetable slot');
+    return res.json();
+  },
+
+  async clearTimetable(params?: { section_id?: string; class_id?: string }): Promise<{ success: boolean; message: string; cleared_count: number }> {
+    const query = new URLSearchParams();
+    if (params?.section_id) query.set('section_id', params.section_id);
+    if (params?.class_id) query.set('class_id', params.class_id);
+    const res = await fetch(`${BASE_URL}/timetable/clear?${query.toString()}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.error || 'Failed to clear timetable slots');
+    }
     return res.json();
   },
 
@@ -1203,26 +1224,76 @@ export const api = {
   }> {
     const res = await fetch(`${BASE_URL}/csv-import/preview`, {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ type, csv_text: csvText }),
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({
+        type,
+        entity_type: type,
+        csv_text: csvText,
+        csv_content: csvText,
+      }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to preview CSV');
     }
-    return res.json();
+    const data = await res.json();
+    return {
+      type: data.type || type,
+      total_rows: data.total_rows || (data.rows ? data.rows.length : 0),
+      valid_rows: data.valid_rows !== undefined ? data.valid_rows : (data.valid_count ?? 0),
+      error_count: data.error_count !== undefined ? data.error_count : (data.invalid_count ?? 0),
+      headers: data.headers || [],
+      rows: data.rows || data.preview || [],
+    };
   },
 
-  async importCsv(type: 'teacher' | 'student' | 'parent' | 'teacher_assignment' | 'student_assignment', rows: any[]): Promise<CsvImportResult> {
+  async importCsv(
+    type: 'teacher' | 'student' | 'parent' | 'teacher_assignment' | 'student_assignment',
+    rows: any[],
+    password_scheme: 'student_roll' | 'parent_mobile' = 'student_roll'
+  ): Promise<CsvImportResult> {
     const res = await fetch(`${BASE_URL}/csv-import/commit`, {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ type, rows }),
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ type, entity_type: type, rows, password_scheme }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || 'Failed to import CSV');
     }
+    return res.json();
+  },
+
+  async getOnboardingCredentials(): Promise<{ credentials: OnboardingCredential[]; total: number }> {
+    const res = await fetch(`${BASE_URL}/csv-import/credentials`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch onboarding credentials');
+    return res.json();
+  },
+
+  async activateOnboardingAccount(id: string): Promise<{ success: boolean; message: string; credentials: OnboardingCredential[] }> {
+    const res = await fetch(`${BASE_URL}/csv-import/credentials/activate/${encodeURIComponent(id)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    });
+    if (!res.ok) throw new Error('Failed to activate onboarding account');
+    return res.json();
+  },
+
+  async activateAllOnboardingAccounts(): Promise<{ success: boolean; activated_count: number; message?: string; credentials: OnboardingCredential[] }> {
+    const res = await fetch(`${BASE_URL}/csv-import/credentials/activate-all`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    });
+    if (!res.ok) throw new Error('Failed to activate all accounts');
+    return res.json();
+  },
+
+  async deleteOnboardingAccount(id: string): Promise<{ success: boolean; credentials: OnboardingCredential[] }> {
+    const res = await fetch(`${BASE_URL}/csv-import/credentials/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to delete onboarding account');
     return res.json();
   },
 
@@ -1254,6 +1325,7 @@ export const api = {
     expression: NovaAvatarExpression;
     sourceBadge?: { bookTitle: string; pageNumber: number; lessonTitle?: string };
     suggestedFollowUps: string[];
+    exampleImage?: ExampleImage;
     mode: string;
   }> {
     const res = await fetch(`${BASE_URL}/nova/chat`, {
@@ -1363,4 +1435,48 @@ export const api = {
     if (!res.ok) throw new Error('Failed to fetch NOVA analytics');
     return res.json();
   },
+
+  // Teacher AI Copilot
+  async askTeacherCopilot(payload: {
+    teacher_id?: string;
+    class_id?: string;
+    section_id?: string;
+    subject_id?: string;
+    message: string;
+    history?: Array<{ sender: 'teacher' | 'assistant'; text: string }>;
+  }): Promise<{ success: boolean; data: TeacherCopilotResponse }> {
+    const res = await fetch(`${BASE_URL}/teacher/copilot/chat`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.error || 'Failed to query Teacher Copilot');
+    }
+    return res.json();
+  },
+
+  async getTeacherCopilotSummary(params?: {
+    teacher_id?: string;
+    class_id?: string;
+    section_id?: string;
+    subject_id?: string;
+  }): Promise<{ success: boolean; data: TeacherCopilotSummaryData }> {
+    const q = new URLSearchParams();
+    if (params?.teacher_id) q.set('teacher_id', params.teacher_id);
+    if (params?.class_id) q.set('class_id', params.class_id);
+    if (params?.section_id) q.set('section_id', params.section_id);
+    if (params?.subject_id) q.set('subject_id', params.subject_id);
+    const queryString = q.toString() ? `?${q.toString()}` : '';
+    const res = await fetch(`${BASE_URL}/teacher/copilot/summary${queryString}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.error || 'Failed to fetch Teacher Copilot summary');
+    }
+    return res.json();
+  },
 };
+
